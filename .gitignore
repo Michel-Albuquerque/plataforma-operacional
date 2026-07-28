@@ -1,0 +1,5 @@
+logs/
+*.log
+agendador_plataforma.lock
+status_agendador.txt
+00 - Abrir Plataforma_backup.html

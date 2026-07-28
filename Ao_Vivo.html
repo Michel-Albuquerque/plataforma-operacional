@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timeline Operacional</title>
+<style>
+:root{--bg:#f4f6fb;--surface:#fff;--panel:#fff;--border:#e2e6f0;--text:#1a1f35;--muted:#7a82a0;
+      --mono:'DM Mono','Consolas','Courier New',monospace;--accent:#002060;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Segoe UI',Arial,sans-serif;}
+.hd{background:var(--accent);color:#fff;padding:14px 18px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+.hd h1{margin:0;font-size:1.15rem;font-weight:700;letter-spacing:.01em;}
+.hd h1 em{font-style:normal;opacity:.62;}
+.hd .sub{font-family:var(--mono);font-size:.62rem;color:rgba(255,255,255,.72);}
+
+/* ── filtros ─────────────────────────────────────────────── */
+.fbar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:10px 18px;
+      background:var(--surface);border-bottom:1px solid var(--border);}
+.fg{display:flex;flex-direction:column;gap:3px;}
+.fg label{font-family:var(--mono);font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+.ms{position:relative;min-width:126px;}
+.ms-btn{width:100%;text-align:left;background:#fff;border:1px solid var(--border);border-radius:5px;
+        padding:5px 9px;font-size:.68rem;color:var(--text);cursor:pointer;font-family:inherit;}
+.ms-btn:after{content:'▾';float:right;opacity:.45;}
+.ms-menu{display:none;position:absolute;z-index:60;top:106%;left:0;min-width:100%;max-height:250px;overflow:auto;
+         background:#fff;border:1px solid var(--border);border-radius:5px;box-shadow:0 6px 22px rgba(0,0,0,.14);padding:4px;}
+.ms.open .ms-menu{display:block;}
+.ms-row{display:flex;align-items:center;gap:6px;padding:3px 6px;font-size:.68rem;white-space:nowrap;cursor:pointer;border-radius:3px;}
+.ms-row:hover{background:#eef1f9;}
+.ms-row.all{border-bottom:1px solid var(--border);margin-bottom:3px;font-weight:600;}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:5px;padding:6px 13px;font-size:.68rem;cursor:pointer;font-family:inherit;}
+.btn.sec{background:#eceffa;color:var(--accent);}
+.chk{display:flex;align-items:center;gap:6px;font-size:.68rem;color:var(--text);cursor:pointer;padding-bottom:5px;}
+
+/* ── cartoes ─────────────────────────────────────────────── */
+.tl-cards{display:flex;flex-wrap:wrap;gap:8px;padding:10px 18px;background:var(--bg);border-bottom:1px solid var(--border);}
+.tl-card{border-radius:7px;padding:9px 13px;min-width:108px;flex:1 1 108px;max-width:170px;
+         box-shadow:0 1px 5px rgba(0,0,0,.12);position:relative;}
+.tl-cl{font-size:.54rem;font-family:var(--mono);font-weight:500;letter-spacing:.08em;
+       text-transform:uppercase;color:rgba(255,255,255,.72);margin-bottom:4px;}
+.tl-cv{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.5rem;color:#fff;line-height:1;}
+.tl-cv.tl-alert{color:#ffcdd2;}
+.tl-cu{font-size:.56rem;font-family:var(--mono);color:rgba(255,255,255,.58);margin-top:3px;}
+
+/* ── legenda ─────────────────────────────────────────────── */
+.tl-legend{display:flex;flex-wrap:wrap;gap:10px;padding:6px 18px 6px 168px;
+           background:var(--surface);border-bottom:1px solid var(--border);}
+.tl-leg{display:flex;align-items:center;gap:5px;font-size:.58rem;color:var(--muted);white-space:nowrap;}
+.tl-lbox{width:12px;height:12px;border-radius:2px;flex-shrink:0;}
+.tl-ltick{width:3px;height:14px;border-radius:1px;flex-shrink:0;}
+
+/* ── painel/grid ─────────────────────────────────────────── */
+.tl-outer{overflow:auto;padding:10px 18px 28px;min-height:560px;max-height:calc(100vh - 262px);}
+.tl-panel{display:grid;grid-template-columns:150px 1fr;grid-template-rows:1fr auto;
+          background:var(--panel);border:1px solid var(--border);border-radius:6px;
+          box-shadow:0 1px 6px rgba(0,0,0,.05);min-width:1100px;min-height:520px;}
+.tl-col-labels{grid-column:1;grid-row:1;border-right:2px solid #dde1f0;display:flex;flex-direction:column;min-height:490px;}
+.tl-col-labels-ax{grid-column:1;grid-row:2;border-right:2px solid #dde1f0;border-top:1px solid var(--border);
+                  height:28px;background:var(--surface);border-radius:0 0 0 6px;}
+.tl-rlabel{height:38px;display:flex;align-items:center;justify-content:flex-end;
+           font-family:var(--mono);font-size:.62rem;font-weight:500;color:var(--text);
+           padding:0 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #edf0f7;}
+.tl-rlabel:last-child{border-bottom:none;}
+.tl-col-canvas{grid-column:2;grid-row:1;position:relative;overflow:visible;min-height:490px;}
+.tl-crow{height:38px;position:relative;border-bottom:1px solid #edf0f7;}
+.tl-crow:last-child{border-bottom:none;}
+.tl-crow:hover{background:rgba(0,32,96,.014);}
+.tl-col-axis{grid-column:2;grid-row:2;position:relative;height:28px;border-top:1px solid var(--border);
+             background:var(--surface);border-radius:0 0 6px 0;}
+.tl-gline{position:absolute;width:1px;top:0;background:rgba(0,32,96,.06);pointer-events:none;z-index:0;}
+.tl-now{position:absolute;width:0;top:0;border-left:1.5px dashed #b71c1c;opacity:.5;pointer-events:none;z-index:1;}
+.tl-bar{position:absolute;height:26px;top:6px;border-radius:3px;display:flex;align-items:center;justify-content:center;
+        overflow:hidden;cursor:default;transition:filter .1s;z-index:2;}
+.tl-bar:hover{filter:brightness(1.16);z-index:20;}
+.tl-blbl{font-family:var(--mono);font-size:8px;font-weight:600;color:#fff;white-space:nowrap;padding:0 2px;}
+.tl-blbl.tl-dk{color:#444;}
+.tl-bbrd{position:absolute;border:2.5px solid red;border-radius:3px;pointer-events:none;z-index:3;height:28px;top:5px;}
+.tl-tick-mark{position:absolute;width:3.5px;height:34px;top:2px;border-radius:2px;z-index:10;pointer-events:none;}
+.tl-axlbl{position:absolute;font-family:var(--mono);font-size:.58rem;color:var(--muted);transform:translateX(-50%);top:5px;white-space:nowrap;}
+.tl-nodata{padding:60px;text-align:center;font-family:var(--mono);font-size:.7rem;color:var(--muted);letter-spacing:.08em;}
+#tlTT{position:fixed;background:#1a1f35;color:#f0f2f7;font-size:.7rem;line-height:1.55;padding:8px 12px;
+      border-radius:5px;pointer-events:none;z-index:9999;max-width:340px;display:none;box-shadow:0 4px 20px rgba(0,0,0,.3);}
+#tlTT b{font-family:var(--mono);font-size:.58rem;font-weight:500;letter-spacing:.05em;opacity:.65;display:block;margin-bottom:3px;}
+#tlTT .ttr{display:flex;gap:10px;justify-content:space-between;}
+#tlTT .ttk{opacity:.55;flex-shrink:0;}
+#tlTT .ttv{font-weight:600;text-align:right;}
+#tlTT .ttobs{margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,.14);font-size:.64rem;
+             font-weight:400;opacity:.9;white-space:pre-wrap;max-height:120px;overflow:hidden;}
+#tlTT .ttwarn{margin-top:4px;color:#ff8080;font-size:.58rem;}
+.foot{padding:8px 18px 20px;font-family:var(--mono);font-size:.56rem;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="hd">
+  <h1>Timeline de <em>Atividades</em></h1>
+  <span class="sub" id="tlSub"></span>
+</div>
+
+<div class="fbar">
+  <div class="fg"><label>Período</label><div class="ms" id="tlPerms"></div></div>
+  <div class="fg"><label>Tipo Equipe</label><div class="ms" id="tlTipoms"></div></div>
+  <div class="fg"><label>Base</label><div class="ms" id="tlBasems"></div></div>
+  <div class="fg"><label>Equipe</label><div class="ms" id="tlEqms"></div></div>
+  <div class="fg"><label>Atividade</label><div class="ms" id="tlAtivms"></div></div>
+  <label class="chk"><input type="checkbox" id="tlTR" checked> Em andamento (tempo real)</label>
+  <label class="chk"><input type="checkbox" id="tlSoAlerta"> Só equipes com alerta</label>
+  <button class="btn sec" id="tlReset">Redefinir</button>
+</div>
+
+<div class="tl-cards" id="tlCards"></div>
+<div class="tl-legend" id="tlLegend"></div>
+
+<div class="tl-outer">
+  <div class="tl-panel" id="tlPanel">
+    <div class="tl-col-labels" id="tlLabels"></div>
+    <div class="tl-col-canvas" id="tlCanvas"></div>
+    <div class="tl-col-labels-ax"></div>
+    <div class="tl-col-axis" id="tlAxis"></div>
+  </div>
+</div>
+<div id="tlTT"></div>
+<div class="foot">Gerado em 28/07/2026 14:10 · Painel: Produtividade UO TR - RJ - Painel Acompanhamento.csv · Deslocamentos: Produtividade UO TR - RJ - Deslocamentos.csv · Resultado: Produt_Resultado_Dia_2026-07-28_135938.xlsx · Intervalo de refeição não é exibido: as bases não trazem os horários.</div>
+
+<script>
+const TL_DATA = [{"eq": "SG001SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 08", "ic": 480, "fc": 960, "login": 415, "lo": null, "ag": 827, "os": [[486, 518, 556, "0029166655", "Trabalho Realizado", "REFEITO CONEXÃO NO MEDIDOR DO CLT", 0, "REA"], [558, null, null, "0029166829", "", "", 0, ""]]}, {"eq": "SG002SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 361, "lo": null, "ag": 827, "os": [[379, 434, 464, "0029166309", "Trabalho Realizado", "SUBSTITUIÇÃO DE ELO DO TRAFO \nINC COM ERRO DE CADASTRO \nELO DE 6K", 0, "REA"], [467, 479, 508, "0029166135", "Trabalho Realizado", "MEDIDOR E CX DO CLIENTE QUEIMADA \nISOLADO O RISCO E INFORMADO AO CLIENTE PARA MONTAR UM NOVO PADRÃO PARA UMA NOVA INSTALAÇÃO \nINFORMADO A CABINE", 0, "REA"], [513, 534, 586, "0029166693", "Trabalho Realizado", "JUMP DE BT PARTIDO \nUTILIZADO 02 PERFURANTES GRANDE", 0, "REA"], [592, 611, 701, "0029167323", "Trabalho Realizado", "REFEITO AS CONEXÕES DO CLIENTE NA REDE BT \nCAIXA DAE QUEIMADA \nUTILIZADO 03 PERFURANTE DO PEQUENO \nVIA MUITO MOVIMENTADA \nINC COM ERRO DE CADASTRO", 0, "REA"], [766, 786, null, "0029167185", "", "", 0, ""]]}, {"eq": "SG003SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 08", "ic": 480, "fc": 960, "login": 471, "lo": null, "ag": 827, "os": [[498, 525, 577, "0029166697", "Trabalho Realizado", "REFEITO CONEXOES NO MEDIDOR DISJUNTOR \nDO CLIENTE RETIRADO MAU CONTATO DO BORNE DO CLIENTE", 0, "REA"], [585, 619, 716, "0029167155", "", "", 0, ""], [806, null, null, "0029167629", "", "", 0, ""]]}, {"eq": "SG004SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 373, "lo": null, "ag": 827, "os": [[386, 401, 426, "0029166429", "Trabalho Realizado", "CLIENTE COM FORNECIMENTO NORMAL", 0, "REA"], [436, 454, 494, "0029166413", "NÃO REALIZADO", "EQUIPE CHEGOU NO LOCAL , FEZ A MEDIÇÃO E CONSTOU FALTA DE ENERGIA. PORÉM ESTAVA COM ERRO DE CADASTRO E NAO CONSEGUIMOS PROSSEGUIR COM ATENDIMENTO. FEITO CONTATO COM O COM E CABINE E NAO FOI AUTORIZADO INTERVIR NO MESMO.", 1, "NRE"], [497, 511, 514, "0029165119", "NÃO REALIZADO", "EQUIPE AGUARDOU LIBERAÇÃO E NAO FOI AUTORIZADO  CANCELADO PELO OPERADOR.\nOBS: ÁREA DE RISCO", 1, "NRE"], [517, 531, 534, "DT29166271", "NÃO REALIZADO", "CANCELADO PELO OP", 1, "NRE"], [542, 558, 578, "0029167129", "Trabalho Realizado", "FEITO A SUBSTITUIÇÃO DO DJUNTOR FORNECIDO PELO CLIENTE 0", 0, "REA"], [583, 590, 621, "0029167555", "Trabalho Realizado", "REFEITO IMENDA NO RAMAL DO CLIENTE E FEITO APERTO NOS BORNES", 0, "REA"], [631, 650, 727, "0029167955", "", "", 0, ""], [791, 810, null, "0029168283", "", "", 0, ""]]}, {"eq": "SG006SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 10", "ic": 600, "fc": 1140, "login": 589, "lo": null, "ag": 827, "os": [[624, 645, 709, "0029167621", "", "", 0, ""], [740, 769, null, "0029168457", "", "", 0, ""]]}, {"eq": "SG007SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 08", "ic": 480, "fc": 960, "login": 480, "lo": null, "ag": 827, "os": [[490, 513, 557, "0029166543", "Trabalho Realizado", "FEITO AS CONEXÕES, CLIENTE COM DEFEITO INTERNO", 0, "REA"], [559, 580, 636, "0029167373", "Trabalho Realizado", "REFEITO CONEXÃO NA REDE E NA PINGADEIRA DO CLIENTE", 0, "REA"], [647, 668, 750, "0029167861", "", "", 0, ""], [820, null, null, "0029168059", "", "", 0, ""]]}, {"eq": "SG008SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 10", "ic": 600, "fc": 1140, "login": 584, "lo": null, "ag": 827, "os": [[609, 660, 695, "0029167469", "Trabalho Realizado", "FEITO A SUBSTITUIÇÃO DO MEDIDOR \nMEDIDOR RETIRADO:13292535\nMEDIDOR INSTALADO:13348869", 0, "REA"], [698, 752, 754, "0029167977", "", "", 0, ""], [756, 774, 776, "0029168227", "", "", 0, ""], [791, 816, null, "0029168773", "", "", 0, ""]]}, {"eq": "SG009SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 08", "ic": 480, "fc": 960, "login": 485, "lo": null, "ag": 827, "os": [[496, 524, 581, "0029166203", "Trabalho Realizado", "É FEITO AS CONEXÕES NO MEDIDOR DO CLIENTE SUBSTITUÍDO. CONECTOU QUEIMADO NO RABISCHO DA CS, (FALTA DE FASE).", 0, "REA"], [592, 620, 686, "0029167449", "Trabalho Realizado", "REAPERTO NOS BORNS DO MEDIDOR ,REFEITO AS CONEXOES DO RAMAL DO CLIENTE NA REDE BT.", 0, "REA"], [692, 720, 772, "0029168359", "", "", 0, ""]]}, {"eq": "SG010SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 10", "ic": 600, "fc": 1140, "login": 606, "lo": null, "ag": 827, "os": [[615, 633, 634, "0029167557", "NÃO REALIZADO", "CANCELADO PELO OPERADOR PARA ATENDER A MT", 1, "NRE"], [640, 674, 826, "0029167637", "", "", 0, ""]]}, {"eq": "SG011SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 327, "lo": null, "ag": 827, "os": [[374, 399, 446, "0029165951", "Trabalho Realizado", "REFEITO CONEXÕES DO CLIENTE NO POSTE DA CIA GASTO 1 PERFURANTE LOCAL DIFÍCIL ACESSO", 0, "REA"], [459, 482, 519, "0029166039", "Trabalho Realizado", "CLIENTE LIGADO EM DAB GASTO 2 PERFURANTES\nLEITURA 27747\nPROTOCOLO LE:47926", 0, "REA"], [528, 537, 547, "0029165547", "Trabalho Realizado", "REFEITO CONEXÕES DE ENTRADA E SAÍDA DO MEDIDOR ATÉ A CAIXA DE PASSAGEM", 0, "REA"], [553, 565, 626, "0029167179", "Trabalho Realizado", "NORMALIZADA FUSÍVEL 59331 GASTO 2 ELOS DE 25K DESTRANÇADA 1 LANCE DE MT CAUSA CAMINHÃO BATEU NO POSTE E SACUDIU A REDE", 0, "REA"], [636, 653, 697, "0029167221", "Trabalho Realizado", "FOI FIXADO PADRÃO DO CLIENTE NA PAREDE FOI REFEITO CONEXÕES DE ENTRADA E SAÍDA DO MEDIDOR DO CLIENTE E REFEITO AS CONEXÕES NO POSTE DA CIA GASTO 2 PERFURANTES", 0, "REA"], [708, 715, 749, "0029167347", "", "", 0, ""], [817, null, null, "0029168243", "", "", 0, ""]]}, {"eq": "SG018SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 357, "lo": null, "ag": 827, "os": [[384, 419, 505, "0029166337", "Trabalho Realizado", "FEITO JAMP DE BT GASTOU 2 CONECTORES PERFURANTES", 0, "REA"], [513, 525, 562, "0029166233", "Trabalho Realizado", "REFEITO RAMAL DO CLIENTE NA BT GASTOU 1CONECTO PERFURANTE", 0, "REA"], [562, 594, 639, "0029166365", "Trabalho Realizado", "FEITO RAMAL QUEIMADO NA BT GASTOU 2CONECTO PERFUME", 0, "REA"], [646, 697, 743, "0029167911", "", "", 0, ""]]}, {"eq": "SG019LXE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "EXTRA OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 08", "ic": 480, "fc": 960, "login": 416, "lo": null, "ag": 827, "os": [[484, 522, 555, "0029166339", "Trabalho Realizado", "REFEITO A PARTE DE CARGA DO MEDIDOR PRO DISJUNTOR DO CLIENTE Q ESTAVA QUEIMADO.", 0, "REA"], [558, 570, 595, "0029166563", "NÃO REALIZADO", "ORDEM 2,NECESSÁRIO CESTO AEREO,CS NAO COMUNICA,CLIENTE SEM ENERGIA.", 1, "NRE"], [598, 622, 659, "0029167501", "Trabalho Realizado", "BAYPASSADO MEDIDOR QUEIMADO E SUBSTITUÍDO DISJUNTOR FORNECIDO POR CLIENTE.", 0, "REA"], [665, 681, 702, "0029168059", "NÃO REALIZADO", "ORDEM 2,NECESSÁRIO CESTO,GRAMPO DE GLV SOLTOU DA REDE.", 1, "NRE"], [706, 749, 769, "0029168089", "", "", 0, ""]]}, {"eq": "SG022RXE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "EXTRA OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 07", "ic": 420, "fc": 900, "login": 425, "lo": null, "ag": 827, "os": [[438, 448, 449, "0029166595", "Trabalho Realizado", "TROCA DE DISJUNTOR MONOFASICO FORNECIDO PELA COMPANHIA.", 0, "REA"], [451, 461, 492, "0029166469", "Trabalho Realizado", "FEITA AS MEDIÇÕES NO PADRÃO DO GRUPO A, TENSÕES NORMAIS. FUNCIONÁRIOS DO PRÉDIO INFORMARAM QUE TEVE UMA QUEDA DE ENERGIA NA MADRUGADA QUE LOGO VOLTOU.", 0, "REA"], [496, 527, 571, "0029166595", "Trabalho Realizado", "TROCA DE DISJUNTOR MONOFASICO FORNECIDO PELA COMPANHIA.", 0, "REA"], [575, 614, 641, "0029167185", "NÃO REALIZADO", "CLIENTE CONSTA LIGADO MAS CONTINUA SEM FORNECIMENTO", 1, "NRE"], [645, 657, 758, "0029167797", "", "", 0, ""], [826, null, null, "0029168077", "", "", 0, ""]]}, {"eq": "SG023RXE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "EXTRA OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 476, "lo": null, "ag": 827, "os": [[492, 522, 607, "0029163143", "Trabalho Realizado", "SUBSTITUÍDO 40M DE RAMAL E REFEITA AS CONEXÕES NO MEDIDOR DO CLIENTE", 0, "REA"], [613, 645, 666, "0029167841", "Trabalho Realizado", "REFEITA AS CONEXÕES NO MEDIDOR", 0, "REA"], [669, 724, 756, "0029167917", "", "", 0, ""], [823, null, null, "0029168475", "", "", 0, ""]]}, {"eq": "SG024SOE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 371, "lo": null, "ag": 827, "os": [[385, 416, 520, "0029166405", "Trabalho Realizado", "REFEITO CONEXÕES DO CLIENTE NA REDE \nCONEXÕES NO MEDIDOR\n\nOBS: CLIENTE NÃO ESTAVA NA RESIDÊNCIA, EQUIPE O AGUARDOU CHEGAR", 0, "REA"], [525, 533, 586, "0029166705", "Trabalho Realizado", "FEITO TROCA DE DISJUNTOR \nREFEITO CONEXÕES NA CAIXA DE DERIVAÇÃO DO CLIENTE", 0, "REA"], [590, 611, 664, "0029167363", "Trabalho Realizado", "FEITO SUBSTITUIÇÃO DE MEDIDOR \n\nMEDIDOR COM DEFEITO NA BOBINA", 0, "REA"], [670, 683, 723, "0029167497", "", "", 0, ""], [795, null, null, "0029168167", "", "", 0, ""]]}, {"eq": "SG024SOE-C", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 840, "fc": 1380, "login": null, "lo": null, "ag": 827, "os": []}, {"eq": "SG026MOE-A", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Noite", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Noite / 22", "ic": 1260, "fc": 1800, "login": null, "lo": null, "ag": 827, "os": []}, {"eq": "SG026MOE-C", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 900, "fc": 1439, "login": null, "lo": null, "ag": 827, "os": []}, {"eq": "SG026ROE-B", "dt": "2026-07-28", "dtd": "28/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 08", "ic": 480, "fc": 960, "login": 475, "lo": null, "ag": 827, "os": [[498, 524, 564, "0029166719", "RAE01-NECESSÁRIO CESTO AÉREO", "ORDEM 2 NECESSÁRIO  CESTO  AÉREO  PARA  REALIZAR A SUBSTITUIÇÃO  DO RAMAL PARTIDO  DO CLIENTE. \nEQUIPE ISOLOU O RISCO.", 1, "RAE01"], [568, 600, 633, "0029167015", "Trabalho Realizado", "REFEITO  CONEXÃO  NO MEDIDOR.\nREALIZADO  NO DE KICHOFF. \nREALIZADO  A SUBSTITUIÇÃO  DO  DISJUNTOR. TERMO:09746\nREFEITO  CONEXÃO  NA  CAIXA  DE  PASSAGEM. NEUTRO QUEIMADO.", 0, "REA"], [635, 674, 734, "0029167415", "", "", 0, ""], [744, 790, null, "0029168777", "", "", 0, ""]]}];
+const TL_BASE_MS = new Date('2026-07-28T00:00:00').getTime();
+const TL_LIM = {"Plataforma": [null, 25], "Deslocamento": [9, 25], "Reparo": [9, 60], "Reparo Improdutivo": [9, 60], "Intervalo": [null, 10], "Retorno a Base": [null, 40]};
+const TL_GAP_MAX = 300;
+
+function tlM2D(m){return m==null?null:new Date(TL_BASE_MS+m*60000);}
+function tlFmt(m){const d=tlM2D(m);return d?d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+const TL_COLOR={'Plataforma':'#000000','Deslocamento':'#4E79A7','Reparo':'#59A14F',
+  'Reparo Improdutivo':'#E15759','Intervalo':'#8F8F8F','Retorno a Base':'#111111'};
+const TL_COLOR_TR={'Plataforma':'#4d4d4d','Deslocamento':'#8FB6E0','Reparo':'#8DCD86',
+  'Reparo Improdutivo':'#F09A9B','Intervalo':'#CFCFCF','Retorno a Base':'#555555'};
+const TL_ATIVS=['Plataforma','Deslocamento','Reparo','Reparo Improdutivo','Intervalo','Retorno a Base'];
+const TL_DARK=new Set(['Intervalo']);
+const TL_CARDS=[
+  {key:'avgP',lbl:'Plataforma',   unit:'min',color:'#000000',hi:25},
+  {key:'avgD',lbl:'Deslocamento', unit:'min',color:'#4E79A7',hi:25,lo:9},
+  {key:'avgR',lbl:'Reparo',       unit:'min',color:'#59A14F',hi:60,lo:9},
+  {key:'avgI',lbl:'Intervalo',    unit:'min',color:'#8F8F8F',hi:10},
+  {key:'avgRet',lbl:'Retorno Base',unit:'min',color:'#333333',hi:40},
+  {key:'nOS',lbl:'OS no dia',     unit:'OS', color:'#2E7D32',dia:true},
+  {key:'alrt',lbl:'Alertas 🔴',   unit:'',   color:'#B71C1C',dia:true},
+];
+
+/* ── multiselect ─────────────────────────────────────────── */
+function msSet(id,items,selected,onChange){
+  const root=document.getElementById(id);if(!root)return;
+  const sel=new Set(selected==null?items:selected);
+  root.innerHTML='<button type="button" class="ms-btn"></button><div class="ms-menu"></div>';
+  const btn=root.querySelector('.ms-btn'),menu=root.querySelector('.ms-menu');
+  menu.innerHTML=['<label class="ms-row all"><input type="checkbox" class="ms-all"> Selecionar todos</label>']
+    .concat(items.map(v=>`<label class="ms-row"><input type="checkbox" class="ms-opt" value="${esc(v)}" ${sel.has(v)?'checked':''}> ${esc(v)}</label>`)).join('');
+  const all=menu.querySelector('.ms-all');
+  function upd(){const v=msGet(id);btn.textContent=v.length===items.length?'Todas':(v.length===0?'Nenhuma':v.length+' selecionadas');}
+  function sync(){const o=[...menu.querySelectorAll('.ms-opt')];all.checked=o.length>0&&o.every(x=>x.checked);
+    all.indeterminate=o.some(x=>x.checked)&&!all.checked;upd();}
+  btn.addEventListener('click',e=>{e.stopPropagation();document.querySelectorAll('.ms.open').forEach(x=>{if(x!==root)x.classList.remove('open');});root.classList.toggle('open');});
+  menu.addEventListener('click',e=>e.stopPropagation());
+  all.addEventListener('click',()=>{const o=[...menu.querySelectorAll('.ms-opt')];const on=o.length>0&&o.every(x=>x.checked);
+    o.forEach(x=>x.checked=!on);root.dataset.cleared=on?'1':'0';sync();if(onChange)onChange();});
+  menu.querySelectorAll('.ms-opt').forEach(o=>o.addEventListener('change',()=>{root.dataset.cleared='0';sync();if(onChange)onChange();}));
+  root.dataset.init='1';sync();
+}
+function msGet(id){const r=document.getElementById(id);return r?[...r.querySelectorAll('.ms-opt:checked')].map(o=>o.value):[];}
+document.addEventListener('click',()=>document.querySelectorAll('.ms.open').forEach(x=>x.classList.remove('open')));
+
+/* ── regras de negocio das barras ────────────────────────── */
+function tlAlerta(tp,dur,aberta){
+  const l=TL_LIM[tp];if(!l)return false;
+  const lo=l[0],hi=l[1];
+  if(hi!=null&&dur>hi)return true;
+  if(!aberta&&lo!=null&&dur<lo)return true;   // limite inferior nao vale p/ etapa em curso
+  return false;
+}
+function tlBars(r,usarTR){
+  const bs=[];
+  const os=[...r.os].sort((a,b)=>(a[0]==null?1e9:a[0])-(b[0]==null?1e9:b[0]));
+  // Etapa em curso termina no "agora"; se a equipe ja deu log off, termina no log off.
+  const fimAberto=(r.lo!=null)?r.lo:r.ag;
+  const push=(tp,i,f,aberta,extra)=>{
+    if(i==null||f==null||f<=i)return;
+    if(aberta&&!usarTR)return;
+    const dur=Math.round((f-i)*10)/10;
+    bs.push(Object.assign({tp:tp,i:i,f:f,dur:dur,tr:aberta?1:0,bd:tlAlerta(tp,dur,aberta)},extra||{}));
+  };
+  const acs=os.map(o=>o[0]).filter(v=>v!=null);
+  const firstAC=acs.length?Math.min.apply(null,acs):null;
+
+  // Plataforma: inicio do calendario -> 1o deslocamento do dia
+  if(r.ic!=null){
+    if(firstAC!=null){push('Plataforma',r.ic,firstAC,false);}
+    else{push('Plataforma',r.ic,fimAberto,true);}   // logou e ainda nao recebeu OS
+  }
+  for(let x=0;x<os.length;x++){
+    const ac=os[x][0],nl=os[x][1],lib=os[x][2],nr=os[x][3],res=os[x][4],obs=os[x][5],imp=os[x][6],cod=os[x][7];
+    const ex={nr:nr,res:res,obs:obs,cod:cod};
+    if(ac!=null){
+      if(nl!=null){push('Deslocamento',ac,nl,false,ex);}
+      else{push('Deslocamento',ac,fimAberto,true,ex);}
+    }
+    if(nl!=null){
+      const tp=imp?'Reparo Improdutivo':'Reparo';
+      if(lib!=null){push(tp,nl,lib,false,ex);}
+      else{push(tp,nl,fimAberto,true,ex);}
+    }
+    // Intervalo entre incidencias: liberacao -> proximo "A Caminho"
+    if(x<os.length-1){
+      const nAC=os[x+1][0];
+      if(lib!=null&&nAC!=null&&nAC>lib&&(nAC-lib)<TL_GAP_MAX){push('Intervalo',lib,nAC,false);}
+    }
+  }
+  // Fecho do dia, a partir da ultima liberacao:
+  //  - com log off  -> Retorno a Base
+  //  - sem log off  -> Intervalo em curso (liberou e ainda nao deu "A Caminho" na proxima)
+  const ult=os.length?os[os.length-1]:null;
+  if(ult&&ult[2]!=null){
+    if(r.lo!=null){push('Retorno a Base',ult[2],r.lo,false);}
+    else{push('Intervalo',ult[2],r.ag,true);}
+  }
+  return bs.sort((a,b)=>a.i-b.i);
+}
+
+/* ── filtros ─────────────────────────────────────────────── */
+function tlTipo(r){
+  const t=String(r.tipo||'').toUpperCase();
+  if(t.indexOf('EXTRA')>=0)return 'Extra';
+  if(t)return 'Operação';
+  const s=String(r.eq||'').toUpperCase();
+  const c=s.length>=4?s.charAt(s.length-4):'';
+  if(c==='X')return 'Extra';
+  if(c==='O')return 'Operação';
+  return 'Outros';
+}
+function tlPref(r){return String(r.eq||'').slice(0,2);}
+function tlFiltrados(){
+  const vP=msGet('tlPerms'),vT=msGet('tlTipoms'),vB=msGet('tlBasems'),vE=msGet('tlEqms'),vA=msGet('tlAtivms');
+  const tr=document.getElementById('tlTR').checked;
+  const soAl=document.getElementById('tlSoAlerta').checked;
+  const todas=vA.length===TL_ATIVS.length;
+  return TL_DATA
+    .filter(r=>vP.includes(r.per||'')&&vT.includes(tlTipo(r))&&vB.includes(tlPref(r))&&vE.includes(r.eq))
+    .map(r=>{const b=tlBars(r,tr);return Object.assign({},r,{bars:todas?b:b.filter(x=>vA.includes(x.tp)),allBars:tlBars(r,tr)});})
+    .filter(r=>soAl?r.allBars.some(b=>b.bd):true);
+}
+function tlBaseFiltrada(){
+  const vP=msGet('tlPerms'),vT=msGet('tlTipoms'),vB=msGet('tlBasems');
+  return TL_DATA.filter(r=>vP.includes(r.per||'')&&vT.includes(tlTipo(r))&&vB.includes(tlPref(r)));
+}
+function tlRebuildEq(){
+  const eqs=[...new Set(tlBaseFiltrada().map(r=>r.eq))].sort();
+  const root=document.getElementById('tlEqms');
+  const prev=msGet('tlEqms').filter(e=>eqs.includes(e));
+  const sel=(root.dataset.init==='1')?(root.dataset.cleared==='1'?[]:(prev.length?prev:eqs)):eqs;
+  msSet('tlEqms',eqs,sel,tlApply);
+}
+function tlApply(){
+  const recs=tlFiltrados();
+  tlCards(recs);tlDraw(recs);
+  const dts=[...new Set(TL_DATA.map(r=>r.dtd))];
+  const ag=TL_DATA.length?tlFmt(TL_DATA[0].ag):'';
+  document.getElementById('tlSub').textContent='Produtividade · Painel + Deslocamentos · '+dts.join(', ')+' · posição às '+ag+' · '+recs.length+' equipes';
+}
+function tlOnFiltroTopo(){tlRebuildEq();tlApply();}
+
+/* ── cartoes ─────────────────────────────────────────────── */
+function tlCards(recs){
+  const acc={};TL_ATIVS.forEach(t=>acc[t]=[0,0]);
+  let sOS=0,sAl=0;
+  recs.forEach(r=>{
+    const bars=r.allBars;
+    TL_ATIVS.forEach(t=>{const g=bars.filter(b=>b.tp===t||(t==='Reparo'&&b.tp==='Reparo Improdutivo'));
+      if(g.length){acc[t][0]+=g.reduce((s,b)=>s+b.dur,0)/g.length;acc[t][1]++;}});
+    sOS+=r.os.length;sAl+=bars.filter(b=>b.bd).length;
+  });
+  const n=recs.length||1;
+  const md=(t)=>acc[t][1]?Math.round(acc[t][0]/acc[t][1]*10)/10:null;
+  const vals={avgP:md('Plataforma'),avgD:md('Deslocamento'),avgR:md('Reparo'),avgI:md('Intervalo'),
+              avgRet:md('Retorno a Base'),nOS:Math.round(sOS/n*10)/10,alrt:Math.round(sAl/n*10)/10};
+  const el=document.getElementById('tlCards');el.innerHTML='';
+  TL_CARDS.forEach(d=>{
+    const v=vals[d.key];
+    const al=v!=null&&((d.hi!=null&&v>d.hi)||(d.lo!=null&&v<d.lo));
+    const c=document.createElement('div');c.className='tl-card';c.style.background=d.color;
+    const disp=v!=null?(Number.isInteger(v)?v:v.toFixed(1)):'—';
+    c.innerHTML='<div class="tl-cl">'+d.lbl+'</div><div class="tl-cv'+(al?' tl-alert':'')+'">'+disp+'</div>'+
+                '<div class="tl-cu">'+d.unit+' · média por equipe · '+recs.length+' eq</div>';
+    el.appendChild(c);
+  });
+}
+function tlLegenda(){
+  const el=document.getElementById('tlLegend');
+  el.innerHTML=TL_ATIVS.map(t=>'<span class="tl-leg"><span class="tl-lbox" style="background:'+TL_COLOR[t]+'"></span>'+t+'</span>').join('')
+    +'<span class="tl-leg"><span class="tl-lbox" style="background:'+TL_COLOR_TR['Deslocamento']+'"></span>tom claro = em andamento</span>'
+    +'<span class="tl-leg"><span class="tl-lbox" style="background:#fff;border:2px solid red"></span>fora do limite</span>'
+    +'<span class="tl-leg"><span class="tl-ltick" style="background:#0000FF"></span>início calendário</span>'
+    +'<span class="tl-leg"><span class="tl-ltick" style="background:#FF0000"></span>fim calendário</span>'
+    +'<span class="tl-leg"><span class="tl-ltick" style="background:#b71c1c;opacity:.5"></span>agora</span>';
+}
+
+/* ── desenho ─────────────────────────────────────────────── */
+function tlDraw(recs){
+  const labEl=document.getElementById('tlLabels'),canEl=document.getElementById('tlCanvas'),axEl=document.getElementById('tlAxis');
+  labEl.innerHTML='';canEl.innerHTML='';axEl.innerHTML='';
+  if(!recs.length){canEl.innerHTML='<div class="tl-nodata">Nenhuma equipe para os filtros selecionados.</div>';return;}
+  const dayBase=(r)=>{
+    const c=[r.ic,r.fc,r.lo].concat((r.bars||[]).flatMap(b=>[b.i,b.f])).filter(v=>v!=null);
+    return c.length?Math.floor(Math.min.apply(null,c)/1440)*1440:0;
+  };
+  const loc=(m,r)=>m==null?null:m-dayBase(r);
+  let tMin=Infinity,tMax=-Infinity;
+  recs.forEach(r=>{
+    [r.ic,r.fc].concat(r.bars.map(b=>b.i)).forEach(m=>{const v=loc(m,r);if(v!=null){tMin=Math.min(tMin,v);tMax=Math.max(tMax,v);}});
+    r.bars.forEach(b=>{const v=loc(b.f,r);if(v!=null)tMax=Math.max(tMax,v);});
+  });
+  if(!isFinite(tMin))return;
+  tMin=Math.floor(tMin/60)*60;tMax=Math.ceil(tMax/60)*60;
+  if(tMax<=tMin)tMax=tMin+60;
+  const totM=tMax-tMin;
+  const panW=document.getElementById('tlPanel').offsetWidth||1100;
+  const PPM=Math.max((panW-150)/totM,1.35);
+  const cW=Math.max(900,Math.round(totM*PPM));
+  const bodyH=Math.max(490,recs.length*38);
+  canEl.style.width=cW+'px';axEl.style.width=cW+'px';
+  canEl.style.minHeight=bodyH+'px';labEl.style.minHeight=bodyH+'px';
+  const px=(m,r)=>{const v=loc(m,r);return v==null?null:Math.round((v-tMin)*PPM);};
+  const fmtLocal=(m)=>{const mm=((Math.round(m)%1440)+1440)%1440;
+    return String(Math.floor(mm/60)).padStart(2,'0')+':'+String(mm%60).padStart(2,'0');};
+  for(let m=tMin;m<=tMax;m+=60){
+    const x=Math.round((m-tMin)*PPM);
+    const g=document.createElement('div');g.className='tl-gline';g.style.left=x+'px';g.style.height=bodyH+'px';canEl.appendChild(g);
+    const l=document.createElement('div');l.className='tl-axlbl';l.style.left=x+'px';l.textContent=fmtLocal(m);axEl.appendChild(l);
+  }
+  const ag=recs[0].ag,agX=px(ag,recs[0]);
+  if(agX!=null&&agX>=0&&agX<=cW){const nw=document.createElement('div');nw.className='tl-now';nw.style.left=agX+'px';nw.style.height=bodyH+'px';canEl.appendChild(nw);}
+  recs.forEach(r=>{
+    const lb=document.createElement('div');lb.className='tl-rlabel';lb.textContent=r.eq;
+    lb.title=r.eq+' · '+r.dtd+' · '+(r.per||'')+' · '+(r.tipo||'');
+    labEl.appendChild(lb);
+    const row=document.createElement('div');row.className='tl-crow';
+    r.bars.forEach(b=>{
+      const x1=px(b.i,r),x2=px(b.f,r);if(x1==null||x2==null)return;
+      const w=Math.max(x2-x1,1);
+      const bar=document.createElement('div');bar.className='tl-bar';
+      bar.style.left=x1+'px';bar.style.width=w+'px';
+      bar.style.background=(b.tr?TL_COLOR_TR:TL_COLOR)[b.tp]||'#999';
+      if(b.tp==='Retorno a Base')bar.style.opacity='0.78';
+      if(w>16&&b.dur>=8){const t=document.createElement('div');
+        t.className='tl-blbl'+((TL_DARK.has(b.tp)||b.tr&&b.tp==='Intervalo')?' tl-dk':'');
+        t.textContent=Math.round(b.dur);bar.appendChild(t);}
+      bar.addEventListener('mouseenter',e=>{
+        const TT=document.getElementById('tlTT');
+        TT.innerHTML='<b>'+b.tp+(b.tr?' · em andamento':'')+'</b>'
+          +'<div class="ttr"><span class="ttk">Equipe</span><span class="ttv">'+esc(r.eq)+'</span></div>'
+          +'<div class="ttr"><span class="ttk">Data</span><span class="ttv">'+r.dtd+'</span></div>'
+          +(b.nr?'<div class="ttr"><span class="ttk">OS</span><span class="ttv">'+esc(b.nr)+'</span></div>':'')
+          +'<div class="ttr"><span class="ttk">Início</span><span class="ttv">'+tlFmt(b.i)+'</span></div>'
+          +'<div class="ttr"><span class="ttk">Fim</span><span class="ttv">'+(b.tr?'—':tlFmt(b.f))+'</span></div>'
+          +'<div class="ttr"><span class="ttk">Tempo</span><span class="ttv">'+Math.round(b.dur)+' min</span></div>'
+          +(b.res?'<div class="ttr"><span class="ttk">Resultado</span><span class="ttv" style="max-width:190px;white-space:normal">'+esc(b.res)+'</span></div>':'')
+          +(b.obs?'<div class="ttobs">'+esc(b.obs)+'</div>':'')
+          +(b.bd?'<div class="ttwarn">⚠ Fora do limite</div>':'');
+        TT.style.display='block';tlMoveTT(e);
+      });
+      bar.addEventListener('mousemove',tlMoveTT);
+      bar.addEventListener('mouseleave',()=>document.getElementById('tlTT').style.display='none');
+      row.appendChild(bar);
+      if(b.bd){const brd=document.createElement('div');brd.className='tl-bbrd';brd.style.left=x1+'px';brd.style.width=w+'px';row.appendChild(brd);}
+    });
+    [[r.ic,'#0000FF'],[r.fc,'#FF0000']].forEach(([m,c])=>{
+      if(m==null)return;const x=px(m,r);if(x==null)return;
+      const tk=document.createElement('div');tk.className='tl-tick-mark';tk.style.left=x+'px';tk.style.background=c;row.appendChild(tk);
+    });
+    canEl.appendChild(row);
+  });
+}
+function tlMoveTT(e){
+  const TT=document.getElementById('tlTT');
+  let x=e.clientX+14,y=e.clientY-10;
+  const w=TT.offsetWidth||280,h=TT.offsetHeight||190;
+  if(x+w+8>window.innerWidth)x=e.clientX-w-10;
+  if(y+h+8>window.innerHeight)y=Math.max(6,window.innerHeight-h-8);
+  TT.style.left=x+'px';TT.style.top=y+'px';
+}
+
+/* ── init ────────────────────────────────────────────────── */
+function tlInit(){
+  const pers=[...new Set(TL_DATA.map(r=>r.per||''))].filter(Boolean).sort();
+  const tipos=[...new Set(TL_DATA.map(tlTipo))].sort();
+  const prefs=[...new Set(TL_DATA.map(tlPref))].filter(Boolean).sort();
+  msSet('tlPerms',pers,pers,tlOnFiltroTopo);
+  msSet('tlTipoms',tipos,tipos,tlOnFiltroTopo);
+  msSet('tlBasems',prefs,prefs,tlOnFiltroTopo);
+  msSet('tlAtivms',TL_ATIVS,TL_ATIVS,tlApply);
+  document.getElementById('tlTR').addEventListener('change',tlApply);
+  document.getElementById('tlSoAlerta').addEventListener('change',tlApply);
+  document.getElementById('tlReset').addEventListener('click',()=>{
+    const r=document.getElementById('tlEqms');if(r)r.dataset.cleared='0';
+    msSet('tlPerms',pers,pers,tlOnFiltroTopo);msSet('tlTipoms',tipos,tipos,tlOnFiltroTopo);
+    msSet('tlBasems',prefs,prefs,tlOnFiltroTopo);msSet('tlAtivms',TL_ATIVS,TL_ATIVS,tlApply);
+    document.getElementById('tlTR').checked=true;document.getElementById('tlSoAlerta').checked=false;
+    tlRebuildEq();tlApply();
+  });
+  tlLegenda();tlRebuildEq();tlApply();
+}
+window.addEventListener('resize',()=>tlDraw(tlFiltrados()));
+tlInit();
+</script>
+</body>
+</html>
