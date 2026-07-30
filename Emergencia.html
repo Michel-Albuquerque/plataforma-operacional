@@ -4909,7 +4909,20 @@ function kpiHtml(label,value,sub='',tone='navy',attrs=''){return `<div class="kp
 function badge(text,tone='navy'){return `<span class="tag ${tone}">${esc(text)}</span>`;}
 
 function dataDateBounds(){
-  const dates=state.incidents.flatMap(r=>[r.startDate,r.endDate]).filter(d=>d instanceof Date&&!isNaN(d));if(!dates.length)return null;return {min:new Date(Math.min(...dates)),max:new Date(Math.max(...dates))};
+  let minTime=Infinity;
+  let maxTime=-Infinity;
+
+  for(const r of state.incidents){
+    for(const d of [r.startDate,r.endDate]){
+      if(!(d instanceof Date)||isNaN(d))continue;
+      const t=d.getTime();
+      if(t<minTime)minTime=t;
+      if(t>maxTime)maxTime=t;
+    }
+  }
+
+  if(!Number.isFinite(minTime)||!Number.isFinite(maxTime))return null;
+  return {min:new Date(minTime),max:new Date(maxTime)};
 }
 function setDefaultDates(force=false){
   const bounds=dataDateBounds();if(!bounds)return;if(force||!state.filters.dateEnd){state.filters.dateEnd=isoDate(bounds.max);let start=new Date(bounds.max);start.setDate(start.getDate()-30);if(start<bounds.min)start=new Date(bounds.min);state.filters.dateStart=isoDate(start);}syncFilterControls();
@@ -5633,11 +5646,179 @@ function bindEvents(){
   $('btnClearData').addEventListener('click',async()=>{if(!confirm('Limpar todas as bases e metas salvas neste navegador?'))return;await dbClear();state.incidents=[];state.tma=[];state.modal=[];state.callbacks=[];state.callbackMap=new Map();state.targets=structuredClone(DEFAULT_TARGETS);state.useIncAsTma=true;state.meta={incidents:null,tma:null,modal:null,callbacks:null,mappings:{}};updateStatus();toast('Dados locais removidos.');});
   setupDropZones();
 }
+
+/* AUTO_DATA_EMERGENCIA_V1 */
+const AUTO_DATA_BASE = 'dados_emergencia/';
+let autoManifest = null;
+
+const AUTO_KEYS = {
+  n:'number', nt:'ntRaw', st:'state', di:'startDate', df:'endDate',
+  dp:'prevDate', du:'durationMinutes', po:'pole', su:'branch', ca:'cause',
+  cc:'clientsCurrent', c24:'clients24', c3n:'norm3', c3:'clients3',
+  cm:'clientsMax', cx:'chiTmp', ch:'conh', rc:'riskComp', co:'set',
+  cd:'cd', al:'feeder', pe:'electricPoint', pr:'priority', av:'notices',
+  cl:'clientNumber', tr:'complaintType', cb:'callback',
+  ea:'teamAssigned', eq:'team', tmp:'tmp', tmd:'tmd', tme:'tme',
+  tma:'tma', tpv:'tmaForecast', ce:'essential', osm:'osm', o2:'ord2',
+  ar:'risk', lat:'lat', lon:'lon', ob:'observation', tp:'type',
+  se:'executionStatus'
+};
+
+function autoExpandRow(raw,dataset,index){
+  const row={_index:index,_dataset:dataset};
+  for(const [shortKey,value] of Object.entries(raw||{})){
+    const fullKey=AUTO_KEYS[shortKey];
+    if(fullKey)row[fullKey]=value;
+  }
+  row.number=normalizeIncidentNumber(row.number);
+  row.ntRaw=String(row.ntRaw??'').trim();
+  row.state=String(row.state??'').trim();
+  row.startDate=parseDate(row.startDate);
+  row.endDate=parseDate(row.endDate);
+  row.prevDate=parseDate(row.prevDate);
+
+  if(typeof row.durationMinutes!=='number'){
+    row.durationMinutes=durationToMinutes(row.durationMinutes);
+  }
+
+  for(const key of [
+    'clientsCurrent','clients24','norm3','clients3','clientsMax',
+    'chiTmp','conh','riskComp','notices','tmp','tmd','tme','tma',
+    'tmaForecast','lat','lon'
+  ]){
+    row[key]=toNumber(row[key]);
+  }
+
+  for(const key of [
+    'pole','branch','cause','set','cd','feeder','electricPoint',
+    'priority','clientNumber','complaintType','callback','teamAssigned',
+    'team','essential','osm','ord2','risk','observation','type',
+    'executionStatus'
+  ]){
+    row[key]=String(row[key]??'').trim();
+  }
+  return row;
+}
+
+async function autoFetchJsonGzip(fileName){
+  const response=await fetch(AUTO_DATA_BASE+fileName+'?v='+Date.now(),{cache:'no-store'});
+  if(!response.ok)throw new Error(`Falha ao carregar ${fileName}: HTTP ${response.status}`);
+  if(typeof DecompressionStream!=='function'){
+    throw new Error('Navegador sem suporte à descompactação GZIP. Use Chrome ou Edge atualizado.');
+  }
+  const decompressed=response.body.pipeThrough(new DecompressionStream('gzip'));
+  const text=await new Response(decompressed).text();
+  return JSON.parse(text);
+}
+
+async function autoFetchManifest(){
+  const response=await fetch(AUTO_DATA_BASE+'manifest.json?v='+Date.now(),{cache:'no-store'});
+  if(!response.ok)throw new Error(`Falha ao carregar manifest.json: HTTP ${response.status}`);
+  return response.json();
+}
+
+function autoMeta(dataset,manifestInfo,generatedAt){
+  return {
+    fileName:manifestInfo?.arquivo||`${dataset}.json.gz`,
+    sheetName:'Publicação automática',
+    headerRow:1,
+    headers:[],
+    mapping:{},
+    missing:[],
+    loadedAt:parseDate(manifestInfo?.modificado_em)||parseDate(generatedAt)||new Date()
+  };
+}
+
+async function loadPublishedData(){
+  const manifest=await autoFetchManifest();
+  const files=manifest.arquivos||{};
+  const [incPayload,tmaPayload,modalPayload]=await Promise.all([
+    autoFetchJsonGzip(files.incidents?.arquivo||'incidents.json.gz'),
+    autoFetchJsonGzip(files.tma?.arquivo||'tma.json.gz'),
+    autoFetchJsonGzip(files.modal?.arquivo||'modal.json.gz')
+  ]);
+
+  state.incidents=rehydrateIncidents((incPayload.rows||[]).map((r,i)=>autoExpandRow(r,'incidents',i)));
+  state.tma=rehydrateIncidents((tmaPayload.rows||[]).map((r,i)=>autoExpandRow(r,'tma',i)));
+  state.modal=rehydrateIncidents((modalPayload.rows||[]).map((r,i)=>autoExpandRow(r,'modal',i)));
+  state.callbacks=[];
+  state.callbackMap=new Map();
+  state.useIncAsTma=false;
+  state.meta={
+    incidents:autoMeta('incidents',files.incidents,manifest.gerado_em),
+    tma:autoMeta('tma',files.tma,manifest.gerado_em),
+    modal:autoMeta('modal',files.modal,manifest.gerado_em),
+    callbacks:null,
+    mappings:{}
+  };
+  autoManifest=manifest;
+  rebuildCallbackMap();
+}
+
+async function refreshPublishedRealtime(){
+  try{
+    const manifest=await autoFetchManifest();
+    const current=autoManifest?.arquivos?.modal?.modificado_em||'';
+    const next=manifest?.arquivos?.modal?.modificado_em||'';
+    if(!next||next===current)return;
+
+    const info=manifest.arquivos.modal;
+    const payload=await autoFetchJsonGzip(info.arquivo||'modal.json.gz');
+    state.modal=rehydrateIncidents((payload.rows||[]).map((r,i)=>autoExpandRow(r,'modal',i)));
+    state.meta.modal=autoMeta('modal',info,manifest.gerado_em);
+    autoManifest=manifest;
+    refreshFilterOptions();
+    if(state.activeTab==='realtime')renderRealtime(); else renderActiveTab();
+    toast(`Tempo Real atualizado automaticamente: ${fmtInt(state.modal.length)} incidências.`,'success',4000);
+  }catch(error){
+    console.warn('Atualização automática do Tempo Real:',error);
+  }
+}
+
 async function init(){
-  bindEvents();updateClock();setInterval(updateClock,1000);setInterval(()=>{if(state.activeTab==='realtime'&&(state.modal.length||state.incidents.length))renderRealtime();},60000);
-  setLoading(true,'Restaurando dados locais...');try{await restoreState();if(!state.incidents.length&&new URLSearchParams(location.search).get('demo')==='1'){state.incidents=buildDemoData();state.meta.incidents={fileName:'DEMO SINTÉTICO',sheetName:'Demo',headerRow:1,loadedAt:new Date(),mapping:{}};}
-    if(state.incidents.length||state.modal.length){setDefaultDates(false);refreshFilterOptions();syncFilterControls();renderActiveTab();}else updateStatus();
-  }catch(e){console.error(e);toast('Não foi possível restaurar os dados salvos.','error');updateStatus();}finally{setLoading(false);}
+  bindEvents();
+  updateClock();
+  setInterval(updateClock,1000);
+  setInterval(()=>{
+    if(state.activeTab==='realtime'&&(state.modal.length||state.incidents.length))renderRealtime();
+  },60000);
+
+  setLoading(true,'Carregando bases publicadas...');
+  try{
+    await loadPublishedData();
+    setDefaultDates(true);
+    refreshFilterOptions();
+    syncFilterControls();
+    renderActiveTab();
+    toast(
+      `Bases automáticas carregadas: ${fmtInt(state.incidents.length)} incidências, `+
+      `${fmtInt(state.tma.length)} registros TMA e ${fmtInt(state.modal.length)} no Tempo Real.`,
+      'success',
+      5000
+    );
+  }catch(e){
+    console.error('Falha nas bases publicadas:',e);
+    toast('Não foi possível carregar as bases publicadas. Tentando dados salvos no navegador.','error',6000);
+    await restoreState();
+
+    if(!state.incidents.length&&new URLSearchParams(location.search).get('demo')==='1'){
+      state.incidents=buildDemoData();
+      state.meta.incidents={fileName:'DEMO SINTÉTICO',sheetName:'Demo',headerRow:1,loadedAt:new Date(),mapping:{}};
+    }
+
+    if(state.incidents.length||state.modal.length){
+      setDefaultDates(false);
+      refreshFilterOptions();
+      syncFilterControls();
+      renderActiveTab();
+    }else{
+      updateStatus();
+    }
+  }finally{
+    setLoading(false);
+  }
+
+  setInterval(refreshPublishedRealtime,300000);
 }
 window.EmergencyPlatform={state,readFile,renderActiveTab,setTab,buildDemoData};
 document.addEventListener('DOMContentLoaded',init);
