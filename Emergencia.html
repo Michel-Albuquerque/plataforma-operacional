@@ -406,8 +406,30 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
 .unassigned-period-tab.active{background:var(--enel-navy);border-color:var(--enel-navy);color:#fff}
 .unassigned-period-toolbar{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
 .unassigned-period-info{font-size:11px;color:var(--muted)}
-.duration-dual-grid{grid-template-columns:minmax(0,1.2fr) minmax(420px,.8fr)}
+.duration-dual-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(max-width:1200px){.duration-dual-grid{grid-template-columns:1fr}}
+
+
+/* AJUSTE_CONH_IMPACTO_E_MULTISSELECAO_PERIODOS_V1 */
+.conh-impact-row{grid-template-columns:minmax(280px,1fr) minmax(0,2fr)}
+.unassigned-period-tab.selected{background:var(--enel-navy);border-color:var(--enel-navy);color:#fff}
+.unassigned-period-help{font-size:10px;color:var(--muted);margin:-3px 0 8px}
+@media(max-width:1050px){.conh-impact-row{grid-template-columns:1fr}}
+
+
+/* GRID_PADRAO_TEMPO_REAL_DUAS_INFORMACOES_V1 */
+.realtime-two-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:start;
+}
+.realtime-two-grid>.panel{
+  width:100%;
+  min-width:0;
+  height:100%;
+}
+@media(max-width:1050px){
+  .realtime-two-grid{grid-template-columns:1fr}
+}
 
 </style>
 </head>
@@ -498,18 +520,117 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
     </section>
 
     <section class="tab-panel active" id="tab-realtime">
-      <div class="section-head"><div><h2>Tempo Real</h2><p>Fonte prioritária: planilha <strong>Tabela Incidência Modal</strong>. “Backlog” considera somente ocorrências herdadas de D-1 e anteriores; entradas do dia permanecem em incidências ativas.</p></div><div class="section-actions"><button class="btn small" id="btnRealtimeRefresh">↻ Recalcular painel</button><button class="btn small" data-export="active">⇩ Ativas CSV</button><button class="btn small" data-export="rtBacklog">⇩ Backlog D-1+ CSV</button><button class="btn small" data-export="rtNoTeam">⇩ Sem equipe CSV</button></div></div>
-      <div class="grid kpi-grid" id="rtKpis"></div>
-      <div class="grid layout-main-aside">
-        <div class="panel"><div class="panel-head"><h3>Resumo de incidências ativas</h3><small id="rtTableCount"></small></div><div class="panel-body"><div class="table-wrap" id="rtTable"></div></div></div>
-        <div class="stack">
-          <div class="panel"><div class="panel-head green"><h3>Faixa etária do backlog</h3><small>Tempo desde a entrada</small></div><div class="panel-body"><div id="chartRtAging" class="chart short"></div></div></div>
-          <div class="panel"><div class="panel-head"><h3>TOP 5 ConH</h3><small>Valor da planilha; cálculo estimado apenas quando o campo não existir</small></div><div class="panel-body"><div id="rtConh"></div></div></div>
-          <div class="panel"><div class="panel-head blue"><div><h3 id="rtImpactTitle">Maiores afetações</h3><small>Incidências ativas ordenadas pelo Cli Af Atual</small></div><div class="impact-limit-control"><label for="rtImpactLimit">Exibir</label><select id="rtImpactLimit"><option value="5">Top 5</option><option value="10">Top 10</option><option value="20">Top 20</option><option value="30">Top 30</option><option value="ALL">Todas</option></select></div></div><div class="panel-body"><div id="rtImpactTable" class="table-wrap"></div><div id="rtImpactMetrics" class="impact-summary-grid"></div></div></div>
+      <div class="section-head">
+        <div>
+          <h2>Tempo Real</h2>
+          <p>Fonte prioritária: planilha <strong>Tabela Incidência Modal</strong>. “Backlog” considera somente ocorrências herdadas de D-1 e anteriores; entradas do dia permanecem em incidências ativas.</p>
+        </div>
+        <div class="section-actions">
+          <button class="btn small" id="btnRealtimeRefresh">↻ Recalcular painel</button>
+          <button class="btn small" data-export="active">⇩ Ativas CSV</button>
+          <button class="btn small" data-export="rtBacklog">⇩ Backlog D-1+ CSV</button>
+          <button class="btn small" data-export="rtNoTeam">⇩ Sem equipe CSV</button>
         </div>
       </div>
 
-      <div class="grid equal-two" style="margin-top:12px">
+      <div class="grid kpi-grid" id="rtKpis"></div>
+
+      <!-- Linha 1 -->
+      <div class="grid realtime-two-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Resumo de incidências ativas</h3>
+            <small id="rtTableCount"></small>
+          </div>
+          <div class="panel-body">
+            <div class="table-wrap" id="rtTable"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head green">
+            <h3>Faixa etária do backlog</h3>
+            <small>Tempo desde a entrada</small>
+          </div>
+          <div class="panel-body">
+            <div id="chartRtAging" class="chart short"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Linha 2 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>TOP 5 ConH</h3>
+            <small>Valor da planilha; cálculo estimado apenas quando o campo não existir</small>
+          </div>
+          <div class="panel-body">
+            <div id="rtConh"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head blue">
+            <div>
+              <h3 id="rtImpactTitle">Maiores afetações</h3>
+              <small>Incidências ativas ordenadas pelo Cli Af Atual</small>
+            </div>
+            <div class="impact-limit-control">
+              <label for="rtImpactLimit">Exibir</label>
+              <select id="rtImpactLimit">
+                <option value="5">Top 5</option>
+                <option value="10">Top 10</option>
+                <option value="20">Top 20</option>
+                <option value="30">Top 30</option>
+                <option value="ALL">Todas</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="rtImpactTable" class="table-wrap"></div>
+            <div id="rtImpactMetrics" class="impact-summary-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Linha 3 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head blue">
+            <div>
+              <h3>Resumo operacional por faixa de duração <span class="data-badge" style="background:#dff3e6;color:#226a35;margin-left:6px">EXPANSÃO POR CÉLULA</span></h3>
+              <small>Clique no período ou em um valor para expandir somente aquele recorte</small>
+            </div>
+            <div class="duration-export-actions">
+              <button class="btn small table-xlsx-btn" id="btnExportDurationAll" type="button">⇩ Exportar toda a tabela</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="rtDurationSummaryTable" class="table-wrap duration-summary-table"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head red">
+            <div>
+              <h3>Incidências sem atribuição por período <span class="data-badge" style="background:#ffe7ee;color:#a60036;margin-left:6px">NOVO</span></h3>
+              <small>Selecione um ou mais períodos para visualizar e exportar as incidências sem equipe</small>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="rtUnassignedPeriodTabs" class="unassigned-period-tabs"></div>
+            <div class="unassigned-period-toolbar">
+              <div id="rtUnassignedPeriodInfo" class="unassigned-period-info"></div>
+              <button class="btn small table-xlsx-btn" id="btnExportUnassignedPeriod" type="button">⇩ Exportar período</button>
+            </div>
+            <div id="rtUnassignedPeriodTable" class="table-wrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Linha 4 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
         <div class="panel">
           <div class="panel-head red">
             <div>
@@ -547,53 +668,100 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
         </div>
       </div>
 
-      <div class="grid duration-dual-grid" style="margin-top:12px">
+      <!-- Linha 5 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head blue">
+            <h3>Equipes com incidência ativa</h3>
+            <small>Prefixo e processo inferido</small>
+          </div>
+          <div class="panel-body"><div id="rtTeams" class="table-wrap"></div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Incidências atribuídas por processo</h3>
+            <small>Somente ocorrências ativas com equipe válida — clique para abrir e exportar</small>
+          </div>
+          <div class="panel-body"><div id="chartRtProcess" class="chart"></div></div>
+        </div>
+      </div>
+
+      <!-- Linha 6 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
         <div class="panel">
           <div class="panel-head blue">
             <div>
-              <h3>Resumo operacional por faixa de duração <span class="data-badge" style="background:#dff3e6;color:#226a35;margin-left:6px">EXPANSÃO POR CÉLULA</span></h3>
-              <small>Clique no período ou em um valor para expandir somente aquele recorte</small>
+              <h3>Equipes atuando por processo</h3>
+              <small id="rtProcessSummaryInfo">Equipes distintas, incidências atribuídas e clientes afetados</small>
             </div>
-            <div class="duration-export-actions"><button class="btn small table-xlsx-btn" id="btnExportDurationAll" type="button">⇩ Exportar toda a tabela</button></div>
+            <button class="btn small" data-export="rtProcessSummary">⇩ Exportar dados</button>
           </div>
-          <div class="panel-body">
-            <div id="rtDurationSummaryTable" class="table-wrap duration-summary-table"></div>
-          </div>
+          <div class="panel-body"><div id="rtProcessSummary" class="table-wrap compact-table"></div></div>
         </div>
 
         <div class="panel">
-          <div class="panel-head red">
+          <div class="panel-head green">
             <div>
-              <h3>Incidências sem atribuição por período <span class="data-badge" style="background:#ffe7ee;color:#a60036;margin-left:6px">NOVO</span></h3>
-              <small>Selecione o período para visualizar e exportar somente as incidências sem equipe</small>
+              <h3>Equipes por tipo de viatura</h3>
+              <small id="rtVehicleSummaryInfo">Classificação pelo 6º caractere do prefixo: S, L, R ou M</small>
             </div>
+            <button class="btn small" data-export="rtVehicleSummary">⇩ Exportar dados</button>
+          </div>
+          <div class="panel-body"><div id="rtVehicleSummary" class="table-wrap compact-table"></div></div>
+        </div>
+      </div>
+
+      <!-- Linha 7 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Callback por usuário e tipo de retorno</h3>
+            <small>Clique nas barras para abrir os contatos e exportar</small>
+          </div>
+          <div class="panel-body"><div id="chartRtCallbackUser" class="chart tall"></div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head green">
+            <div>
+              <h3>Ativas com e sem callback</h3>
+              <small>Sem callback = fora do padrão operacional</small>
+            </div>
+            <div class="inline-actions"><button class="btn small" data-export="rtCallbackFiltered">⇩ Exportar visão</button></div>
           </div>
           <div class="panel-body">
-            <div id="rtUnassignedPeriodTabs" class="unassigned-period-tabs"></div>
-            <div class="unassigned-period-toolbar">
-              <div id="rtUnassignedPeriodInfo" class="unassigned-period-info"></div>
-              <button class="btn small table-xlsx-btn" id="btnExportUnassignedPeriod" type="button">⇩ Exportar período</button>
+            <div class="callback-toolbar">
+              <div class="callback-alert" id="rtCallbackAlert">Aguardando consolidação...</div>
+              <div class="callback-filter-group">
+                <button class="callback-filter active" data-callback-filter="ALL">Todas <span id="rtCbCountAll">0</span></button>
+                <button class="callback-filter missing" data-callback-filter="WITHOUT">Sem callback <span id="rtCbCountWithout">0</span></button>
+                <button class="callback-filter done" data-callback-filter="WITH">Com callback <span id="rtCbCountWith">0</span></button>
+                <input class="callback-search" id="rtCallbackSearch" placeholder="Buscar incidência, equipe ou usuário">
+              </div>
             </div>
-            <div id="rtUnassignedPeriodTable" class="table-wrap"></div>
+            <div id="rtCallbackStatus" class="table-wrap"></div>
           </div>
         </div>
       </div>
 
-      <div class="grid equal-two" style="margin-top:12px">
-        <div class="panel"><div class="panel-head blue"><h3>Equipes com incidência ativa</h3><small>Prefixo e processo inferido</small></div><div class="panel-body"><div id="rtTeams" class="table-wrap"></div></div></div>
-        <div class="panel"><div class="panel-head"><h3>Incidências atribuídas por processo</h3><small>Somente ocorrências ativas com equipe válida — clique para abrir e exportar</small></div><div class="panel-body"><div id="chartRtProcess" class="chart"></div></div></div>
-      </div>
-      <div class="grid equal-two" style="margin-top:12px">
-        <div class="panel"><div class="panel-head blue"><div><h3>Equipes atuando por processo</h3><small id="rtProcessSummaryInfo">Equipes distintas, incidências atribuídas e clientes afetados</small></div><button class="btn small" data-export="rtProcessSummary">⇩ Exportar dados</button></div><div class="panel-body"><div id="rtProcessSummary" class="table-wrap compact-table"></div></div></div>
-        <div class="panel"><div class="panel-head green"><div><h3>Equipes por tipo de viatura</h3><small id="rtVehicleSummaryInfo">Classificação pelo 6º caractere do prefixo: S, L, R ou M</small></div><button class="btn small" data-export="rtVehicleSummary">⇩ Exportar dados</button></div><div class="panel-body"><div id="rtVehicleSummary" class="table-wrap compact-table"></div></div></div>
-      </div>
-      <div class="grid equal-two" style="margin-top:12px">
-        <div class="panel"><div class="panel-head"><h3>Callback por usuário e tipo de retorno</h3><small>Clique nas barras para abrir os contatos e exportar</small></div><div class="panel-body"><div id="chartRtCallbackUser" class="chart tall"></div></div></div>
-        <div class="panel"><div class="panel-head green"><div><h3>Ativas com e sem callback</h3><small>Sem callback = fora do padrão operacional</small></div><div class="inline-actions"><button class="btn small" data-export="rtCallbackFiltered">⇩ Exportar visão</button></div></div><div class="panel-body"><div class="callback-toolbar"><div class="callback-alert" id="rtCallbackAlert">Aguardando consolidação...</div><div class="callback-filter-group"><button class="callback-filter active" data-callback-filter="ALL">Todas <span id="rtCbCountAll">0</span></button><button class="callback-filter missing" data-callback-filter="WITHOUT">Sem callback <span id="rtCbCountWithout">0</span></button><button class="callback-filter done" data-callback-filter="WITH">Com callback <span id="rtCbCountWith">0</span></button><input class="callback-search" id="rtCallbackSearch" placeholder="Buscar incidência, equipe ou usuário"></div></div><div id="rtCallbackStatus" class="table-wrap"></div></div></div>
-      </div>
-      <div class="grid equal-two" style="margin-top:12px">
-        <div class="panel"><div class="panel-head blue"><h3>Incidências ativas por alimentador</h3><small>Quantidade, atendimento, clientes e ConH</small></div><div class="panel-body"><div id="rtFeederTable" class="table-wrap"></div></div></div>
-        <div class="panel"><div class="panel-head"><h3>Mapa das incidências ativas</h3><small>Recorte operacional: São Gonçalo, Niterói, Itaboraí, Tanguá e Rio Bonito. Pontos sem coordenadas são consolidados no centro de referência da localidade.</small></div><div class="panel-body"><div id="chartRtMap" class="chart tall"></div></div></div>
+      <!-- Linha 8 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head blue">
+            <h3>Incidências ativas por alimentador</h3>
+            <small>Quantidade, atendimento, clientes e ConH</small>
+          </div>
+          <div class="panel-body"><div id="rtFeederTable" class="table-wrap"></div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Mapa das incidências ativas</h3>
+            <small>Recorte operacional: São Gonçalo, Niterói, Itaboraí, Tanguá e Rio Bonito. Pontos sem coordenadas são consolidados no centro de referência da localidade.</small>
+          </div>
+          <div class="panel-body"><div id="chartRtMap" class="chart tall"></div></div>
+        </div>
       </div>
     </section>
 
@@ -5885,6 +6053,7 @@ function renderRealtime(){
   renderTable('rt24hRiskTable',[
     {label:'Incidência',value:r=>r.number},
     {label:'Equipe',value:r=>r.team||r.teamAssigned||'---'},
+    {label:'Atribuição',value:r=>(String(r.team||r.teamAssigned||'---').trim()==='---'?'Não':'Sim'),sortValue:r=>(String(r.team||r.teamAssigned||'---').trim()==='---'?0:1)},
     {label:'NT',value:r=>r.ntRaw||'---'},
     {label:'AL',value:r=>r.feeder||'---'},
     {label:'Cli Af Atual',value:r=>fmtInt(r.clientsCurrent),sortValue:r=>Number(r.clientsCurrent)||0,class:'num impact-value'},
@@ -6413,28 +6582,47 @@ function renderRealtime(){
         return;
       }
 
-      if(!periodsWithUnassigned.some(p=>p.key===window.__selectedUnassignedPeriod)){
-        window.__selectedUnassignedPeriod=periodsWithUnassigned[0].key;
+      const validKeys=new Set(periodsWithUnassigned.map(p=>p.key));
+      if(!(window.__selectedUnassignedPeriods instanceof Set)){
+        window.__selectedUnassignedPeriods=new Set([periodsWithUnassigned[0].key]);
+      }
+      window.__selectedUnassignedPeriods=new Set(
+        [...window.__selectedUnassignedPeriods].filter(key=>validKeys.has(key))
+      );
+      if(!window.__selectedUnassignedPeriods.size){
+        window.__selectedUnassignedPeriods.add(periodsWithUnassigned[0].key);
       }
 
-      const selectedPeriod=periodsWithUnassigned.find(p=>p.key===window.__selectedUnassignedPeriod)||periodsWithUnassigned[0];
-      const rows=[...selectedPeriod.unassignedRows].sort((a,b)=>
-        (Number(b.clientsCurrent)||0)-(Number(a.clientsCurrent)||0)||
-        (Number(b._durationHours)||0)-(Number(a._durationHours)||0)
+      const selectedPeriods=periodsWithUnassigned.filter(
+        period=>window.__selectedUnassignedPeriods.has(period.key)
       );
 
-      tabsEl.innerHTML=periodsWithUnassigned.map(period=>`
-        <button type="button"
-          class="unassigned-period-tab ${period.key===selectedPeriod.key?'active':''}"
-          data-unassigned-period="${esc(period.key)}">
-          ${esc(period.label)} (${fmtInt(period.unassigned)})
-        </button>`).join('');
+      const rows=selectedPeriods.flatMap(period=>
+        period.unassignedRows.map(r=>({...r,_selectedPeriodLabel:period.label,_selectedPeriodKey:period.key}))
+      );
 
-      if(infoEl)infoEl.textContent=`${selectedPeriod.label}: ${fmtInt(rows.length)} incidências sem atribuição`;
+      tabsEl.innerHTML=`
+        <button type="button"
+          class="unassigned-period-tab ${window.__selectedUnassignedPeriods.size===periodsWithUnassigned.length?'selected':''}"
+          data-unassigned-period-all="1">
+          Todos (${fmtInt(sum(periodsWithUnassigned.map(p=>p.unassigned)))})
+        </button>
+        ${periodsWithUnassigned.map(period=>`
+          <button type="button"
+            class="unassigned-period-tab ${window.__selectedUnassignedPeriods.has(period.key)?'selected':''}"
+            data-unassigned-period="${esc(period.key)}">
+            ${esc(period.label)} (${fmtInt(period.unassigned)})
+          </button>`).join('')}
+        <div class="unassigned-period-help">Clique para selecionar um período. Use Ctrl + clique para acrescentar ou retirar outros períodos.</div>
+      `;
+
+      const selectedLabels=selectedPeriods.map(p=>p.label);
+      if(infoEl)infoEl.textContent=`${selectedLabels.join(' + ')}: ${fmtInt(rows.length)} incidências sem atribuição`;
 
       window.__unassignedPeriodSort=window.__unassignedPeriodSort||{key:'affected',dir:-1};
 
       const unassignedSortValue=(r,key)=>{
+        if(key==='period')return r._selectedPeriodLabel||'';
         if(key==='number')return r.number||'';
         if(key==='nt')return r.ntRaw||'---';
         if(key==='affected')return Number(r.clientsCurrent)||0;
@@ -6464,6 +6652,7 @@ function renderRealtime(){
 
       tableEl.innerHTML=`<table>
         <thead><tr>
+          <th class="sortable-header">${unassignedSortButton('period','Período')}</th>
           <th class="sortable-header">${unassignedSortButton('number','Incidência')}</th>
           <th class="sortable-header">${unassignedSortButton('nt','NT')}</th>
           <th class="sortable-header num">${unassignedSortButton('affected','Afetação',true)}</th>
@@ -6471,6 +6660,7 @@ function renderRealtime(){
           <th class="sortable-header">${unassignedSortButton('osm','OSM')}</th>
         </tr></thead>
         <tbody>${sortedRows.map(r=>`<tr data-unassigned-incidence="${esc(r.number)}" title="Clique para abrir os detalhes">
+          <td>${esc(r._selectedPeriodLabel||'---')}</td>
           <td><button class="incidence-link" type="button">${esc(r.number||'---')}</button></td>
           <td>${esc(r.ntRaw||'---')}</td>
           <td class="num duration-summary-afetacao">${fmtInt(Number(r.clientsCurrent)||0)}</td>
@@ -6478,6 +6668,7 @@ function renderRealtime(){
           <td>${isOsm(r)?'<span class="tag blue">SIM</span>':'<span class="tag">NÃO</span>'}</td>
         </tr>`).join('')}</tbody>
         <tfoot><tr>
+          <td>${fmtInt(selectedPeriods.length)} período(s)</td>
           <td>TOTAL</td>
           <td></td>
           <td class="num duration-summary-afetacao">${fmtInt(sum(rows.map(r=>Number(r.clientsCurrent)||0)))}</td>
@@ -6492,15 +6683,38 @@ function renderRealtime(){
         const current=window.__unassignedPeriodSort;
         window.__unassignedPeriodSort={
           key,
-          dir:current.key===key?-current.dir:(['number','nt','feeder'].includes(key)?1:-1)
+          dir:current.key===key?-current.dir:(['period','number','nt','feeder'].includes(key)?1:-1)
         };
         renderUnassignedByPeriod();
       }));
 
-      qsa('[data-unassigned-period]',tabsEl).forEach(button=>button.addEventListener('click',()=>{
-        window.__selectedUnassignedPeriod=button.dataset.unassignedPeriod;
+      qsa('[data-unassigned-period]',tabsEl).forEach(button=>button.addEventListener('click',ev=>{
+        const key=button.dataset.unassignedPeriod;
+
+        if(ev.ctrlKey||ev.metaKey){
+          if(window.__selectedUnassignedPeriods.has(key)){
+            if(window.__selectedUnassignedPeriods.size>1){
+              window.__selectedUnassignedPeriods.delete(key);
+            }
+          }else{
+            window.__selectedUnassignedPeriods.add(key);
+          }
+        }else{
+          window.__selectedUnassignedPeriods=new Set([key]);
+        }
+
         renderUnassignedByPeriod();
       }));
+
+      const allButton=tabsEl.querySelector('[data-unassigned-period-all]');
+      if(allButton)allButton.addEventListener('click',()=>{
+        if(window.__selectedUnassignedPeriods.size===periodsWithUnassigned.length){
+          window.__selectedUnassignedPeriods=new Set([periodsWithUnassigned[0].key]);
+        }else{
+          window.__selectedUnassignedPeriods=new Set(periodsWithUnassigned.map(p=>p.key));
+        }
+        renderUnassignedByPeriod();
+      });
 
       qsa('[data-unassigned-incidence]',tableEl).forEach(row=>row.addEventListener('click',()=>{
         const number=row.dataset.unassignedIncidence;
@@ -6509,15 +6723,16 @@ function renderRealtime(){
 
       if(exportBtn){
         exportBtn.disabled=false;
+        exportBtn.textContent=selectedPeriods.length>1?'⇩ Exportar períodos':'⇩ Exportar período';
         exportBtn.onclick=()=>downloadCsv(
-          `incidencias_sem_atribuicao_${String(selectedPeriod.key).replace(/[^a-z0-9]+/gi,'_')}_${isoDate(new Date())}.csv`,
-          selectedPeriod.unassignedRows.map(r=>({
-            Periodo:selectedPeriod.label,
+          `incidencias_sem_atribuicao_${selectedPeriods.map(p=>p.key).join('_')}_${isoDate(new Date())}.csv`,
+          rows.map(r=>({
+            Periodo:r._selectedPeriodLabel||'---',
             Incidencia:r.number||'---',
             'Nivel de Tensao':r.ntRaw||'---',
-            OSM:isOsm(r)?'SIM':'NÃO',
             'Afetacao (Cli Af Atual)':Number(r.clientsCurrent)||0,
-            Alimentador:r.feeder||'---'
+            Alimentador:r.feeder||'---',
+            OSM:isOsm(r)?'SIM':'NÃO'
           }))
         );
       }
@@ -7102,5 +7317,8 @@ document.addEventListener('DOMContentLoaded',init);
 <!-- OSM_NA_TABELA_SEM_ATRIBUICAO_V1 -->
 <!-- OSM_DIREITA_E_ORDENACAO_TABELA_SEM_ATRIBUICAO_V2 -->
 <!-- OBSERVACAO_NO_DETALHE_DA_INCIDENCIA_V1 -->
+<!-- AJUSTES_LAYOUT_MULTI_PERIODO_ATRIBUICAO_V1 -->
+<!-- TABELAS_DURACAO_LOGO_ABAIXO_CONH_AFETACOES_V1 -->
+<!-- LINHA_DURACAO_E_SEM_ATRIBUICAO_50_50_V1 -->
 </body>
 </html>
