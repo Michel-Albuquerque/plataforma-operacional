@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-07-31T11:23:57",
+  "gerado_em": "2026-07-31T11:29:04",
   "versao": 1,
   "callback_disponivel": false,
   "arquivos": {
@@ -17,9 +17,9 @@
     },
     "modal": {
       "arquivo": "modal.json.gz",
-      "linhas": 440,
-      "tamanho_bytes": 32874,
-      "modificado_em": "2026-07-31T11:23:55"
+      "linhas": 436,
+      "tamanho_bytes": 31998,
+      "modificado_em": "2026-07-31T11:29:01"
     }
   }
 }
