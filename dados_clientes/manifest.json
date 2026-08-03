@@ -1,0 +1,18 @@
+{
+  "gerado_em": "2026-08-03T15:15:24",
+  "versao": 1,
+  "arquivos": {
+    "validacao": {
+      "arquivo": "validacao.json.gz",
+      "linhas": 44093,
+      "tamanho_bytes": 7531313,
+      "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
+      "fonte_modificada_em": "2026-08-03T15:12:14"
+    }
+  },
+  "erros": {
+    "callback": "Object of type datetime is not JSON serializable",
+    "reincidencia_principal": "Object of type datetime is not JSON serializable",
+    "reincidencia_oficial": "Object of type datetime is not JSON serializable"
+  }
+}
