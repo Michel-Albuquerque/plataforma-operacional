@@ -1,13 +1,13 @@
 {
-  "gerado_em": "2026-08-03T17:16:44",
+  "gerado_em": "2026-08-03T17:26:34",
   "versao": 1,
   "arquivos": {
     "validacao": {
       "arquivo": "validacao.json.gz",
       "linhas": 336,
-      "tamanho_bytes": 67613,
+      "tamanho_bytes": 67615,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
-      "fonte_modificada_em": "2026-08-03T17:16:22"
+      "fonte_modificada_em": "2026-08-03T17:26:20"
     }
   },
   "erros": {
