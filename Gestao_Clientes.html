@@ -7535,6 +7535,14 @@ function openValidationContact(key){
 function closeValidationContact(){document.getElementById('vpaDrawerBg')?.remove()}
 
 
+const SUPABASE_URL='https://fjgfwfnnhebfvuvvjsui.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_QexGHESAqtHDVlI1h3aM1Q_Cew_cax7';
+const SUPABASE_HEADERS={
+  'Content-Type':'application/json',
+  'apikey':SUPABASE_PUBLISHABLE_KEY,
+  'Authorization':`Bearer ${SUPABASE_PUBLISHABLE_KEY}`
+};
+
 async function cancelarUltimoReporteValidacao(key){
   const latest=vpaLatest(
     S.validationBase.find(row=>vpaKey(row)===key)
@@ -7574,13 +7582,11 @@ async function excluirReporteValidacao(key,attemptId){
 
   try{
     const response=await fetch(
-      '/api/excluir-apontamento-validacao',
+      `${SUPABASE_URL}/rest/v1/rpc/cancelar_reporte_validacao`,
       {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          Evento_Id:attemptId
-        })
+        headers:SUPABASE_HEADERS,
+        body:JSON.stringify({p_evento_id:attemptId})
       }
     );
 
@@ -7630,70 +7636,67 @@ async function vpaAnexoParaBase64(anexo){
 }
 
 async function enviarRegistroValidacaoServidor(row,attempt){
-  const response=await fetch('/api/apontamento-validacao',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      Evento_Id:attempt.id||'',
-      Chave_Incidencia:vpaKey(row),
-      Numero_Incidencia:String(row[COLV.numero]||''),
-      Numero_Cliente:String(row[COLV.nCliente]||''),
-      Responsavel:attempt.responsavel||'',
-      Data_Contato:attempt.date||new Date().toISOString(),
-      Telefone_Utilizado:attempt.telefoneUtilizado||'',
-      Status_Contato:attempt.status||'',
-      Problema_Resolvido:attempt.resolvido||'',
-      Observacoes:attempt.observacoes||'',
-      Acao_Necessaria:attempt.acao||'Não',
-      Comentario_Acao:attempt.acaoComentario||'',
-      Anexo_Nome:attempt.anexo?.name||'',
-      Anexo_Tipo:attempt.anexo?.type||'',
-      Anexo_Base64:await vpaAnexoParaBase64(attempt.anexo),
-      Retorno_Operacional:!!attempt.retorno
-    })
+  const payload={
+    Evento_Id:attempt.id||'',
+    Chave_Incidencia:vpaKey(row),
+    Numero_Incidencia:String(row[COLV.numero]||''),
+    Numero_Cliente:String(row[COLV.nCliente]||''),
+    Responsavel:attempt.responsavel||'',
+    Data_Contato:attempt.date||new Date().toISOString(),
+    Telefone_Utilizado:attempt.telefoneUtilizado||'',
+    Status_Contato:attempt.status||'',
+    Problema_Resolvido:attempt.resolvido||'',
+    Observacoes:attempt.observacoes||'',
+    Acao_Necessaria:attempt.acao||'Não',
+    Comentario_Acao:attempt.acaoComentario||'',
+    Anexo_Nome:attempt.anexo?.name||'',
+    Anexo_Tipo:attempt.anexo?.type||'',
+    Anexo_Base64:await vpaAnexoParaBase64(attempt.anexo),
+    Retorno_Operacional:!!attempt.retorno
+  };
+  const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/salvar_reporte_validacao`,{
+    method:'POST',headers:SUPABASE_HEADERS,body:JSON.stringify({p_payload:payload})
   });
   const result=await response.json().catch(()=>({}));
-  if(!response.ok||!result.ok)throw new Error(result.error||`HTTP ${response.status}`);
+  if(!response.ok||result?.ok===false)throw new Error(result?.message||result?.error||`HTTP ${response.status}`);
 }
 
 async function carregarRegistrosValidacaoServidor(){
   try{
-    const response=await fetch(`/api/registros-validacao?t=${Date.now()}`,{cache:'no-store'});
+    const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/listar_reportes_validacao?t=${Date.now()}`,{
+      method:'POST',headers:SUPABASE_HEADERS,body:'{}',cache:'no-store'
+    });
     if(!response.ok)return false;
-    const result=await response.json();
-    if(!result.ok||!Array.isArray(result.registros))return false;
+    const data=await response.json();
+    const registros=Array.isArray(data)?data:[];
 
-    for(const item of result.registros){
+    for(const raw of registros){
+      const item=raw?.registro||raw;
       const key=normalizeCallbackKey(item.Chave_Incidencia||item['Número']||'');
       if(!key)continue;
       if(!S.validationContacts[key])S.validationContacts[key]={attempts:[]};
-      const id=String(item.Evento_Id||`${key}_${item['Data do Contato']||''}`);
+      const id=String(item.Evento_Id||`${key}_${item['Data do Contato']||item.Data_Contato||''}`);
       if(S.validationContacts[key].attempts.some(a=>a.id===id))continue;
       S.validationContacts[key].attempts.push({
         id,
-        date:item['Data do Contato']||item['Recebido pelo servidor em'],
-        responsavel:item['Responsável']||'',
-        telefoneUtilizado:item['Telefone Utilizado']||'',
-        status:item['Status do Contato']||'',
-        resolvido:item['Problema Resolvido']||null,
-        observacoes:item['Observações']||'',
-        acao:item['Ação Necessária']||'Não',
-        acaoComentario:item['Comentário da Ação']||item['Comentario da Acao']||'',
-        anexo:item['Anexo Nome']?{name:item['Anexo Nome'],type:item['Anexo Tipo']||'',data:''}:null,
-        retorno:item['Retorno Operacional']===true||String(item['Retorno Operacional']).toLowerCase()==='sim',
-        createdAt:item['Recebido pelo servidor em'],
+        date:item.Data_Contato||item['Data do Contato']||item['Recebido pelo servidor em'],
+        responsavel:item.Responsavel||item['Responsável']||'',
+        telefoneUtilizado:item.Telefone_Utilizado||item['Telefone Utilizado']||'',
+        status:item.Status_Contato||item['Status do Contato']||'',
+        resolvido:item.Problema_Resolvido||item['Problema Resolvido']||null,
+        observacoes:item.Observacoes||item['Observações']||'',
+        acao:item.Acao_Necessaria||item['Ação Necessária']||'Não',
+        acaoComentario:item.Comentario_Acao||item['Comentário da Ação']||'',
+        anexo:(item.Anexo_Nome||item['Anexo Nome'])?{name:item.Anexo_Nome||item['Anexo Nome'],type:item.Anexo_Tipo||item['Anexo Tipo']||'',data:''}:null,
+        retorno:item.Retorno_Operacional===true||String(item.Retorno_Operacional||item['Retorno Operacional']).toLowerCase()==='sim',
+        createdAt:item['Recebido pelo servidor em']||item.Data_Contato,
         revisions:[]
       });
-      const nome=String(item['Responsável']||'').trim();
-      if(nome&&!S.validationAnalysts.includes(nome))S.validationAnalysts.push(nome);
     }
-    S.validationAnalysts.sort((a,b)=>a.localeCompare(b,'pt-BR'));
     salvarContatosValidacaoLocal();
-    S.validationVersion++;
-    if(S.currentTab==='validacaoPos')renderValidacaoPos();
     return true;
   }catch(error){
-    console.warn('Registros da Validação indisponíveis:',error);
+    console.error('Falha ao carregar registros do Supabase:',error);
     return false;
   }
 }
