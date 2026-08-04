@@ -6,7 +6,34 @@
 <title>Gestão de Clientes · Plataforma Operacional</title>
 <script>
 
+function modoPublicoGitHub(){
+  return location.hostname.endsWith('github.io');
+}
 
+const fetchOriginalPlataforma=window.fetch.bind(window);
+window.fetch=async function(input,init={}){
+  const url=typeof input==='string' ? input : String(input?.url||'');
+  const method=String(init?.method||'GET').toUpperCase();
+
+  if(
+    modoPublicoGitHub() &&
+    method!=='GET' &&
+    url.includes('/api/')
+  ){
+    return new Response(
+      JSON.stringify({
+        ok:false,
+        error:'A versão pública é somente para consulta. Registros e alterações devem ser feitos na versão local.'
+      }),
+      {
+        status:503,
+        headers:{'Content-Type':'application/json; charset=utf-8'}
+      }
+    );
+  }
+
+  return fetchOriginalPlataforma(input,init);
+};
 
 /* SheetJS xlsx v0.18.5 — embutido para funcionar offline / sem depender de CDN */
 /*! xlsx.js (C) 2013-present SheetJS -- http://sheetjs.com */
@@ -729,7 +756,7 @@ body.vpa-mode #content{padding:10px 14px 22px;background:#fff}
 .vpa-main{display:grid;grid-template-columns:1.48fr .82fr;gap:10px;height:335px}.vpa-card{border:1px solid #d7e0e7;border-radius:9px;background:#fff;padding:11px 13px;min-width:0;overflow:hidden}.vpa-card h3{font:750 14px var(--font-display);margin:0;color:#071a4b}.vpa-card .sub{font-size:9.5px;color:#7a8983;margin-top:2px}.vpa-chart-head{display:flex;justify-content:space-between;gap:12px}.vpa-legend{display:flex;gap:12px;font-size:8.5px;color:#657770}.vpa-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;background:var(--c)}.vpa-chart{height:254px;margin-top:3px}.vpa-chart svg{width:100%;height:100%;display:block;font-family:var(--font-ui)}.vpa-chart [data-vpa-day]{cursor:pointer}
 .vpa-exec-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.vpa-exec-mini{height:70px;border:1px solid #d7e5dd;border-radius:7px;padding:9px}.vpa-exec-mini .label{font-size:8.5px;font-weight:800;color:#60736a}.vpa-exec-mini .value{font:750 21px var(--font-display);color:var(--tone,#008556);margin-top:4px}.vpa-exec-mini .detail{font-size:8.5px;color:#76847e}
 .vpa-alerts{display:flex;flex-direction:column;gap:5px}.vpa-alert{height:45px;border:1px solid var(--line,#dce4e0);border-radius:7px;background:linear-gradient(90deg,var(--wash,#fff),#fff 60%);display:grid;grid-template-columns:30px minmax(0,1fr) 42px 78px;align-items:center;gap:7px;padding:5px 7px;text-align:left;color:#071a4b}.vpa-alert:hover{border-color:var(--tone,#008556)}.vpa-alert .icon{width:25px;height:25px;border-radius:50%;background:var(--soft,#e7f4ee);color:var(--tone,#008556);display:grid;place-items:center;font-weight:900}.vpa-alert>span:nth-child(2){display:block;min-width:0}.vpa-alert .name{display:block;font-size:9.8px;font-weight:800;line-height:1.14}.vpa-alert .desc{display:block;font-size:8px;line-height:1.15;color:#6d7c76;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vpa-alert .count{font:750 20px var(--font-display);color:var(--tone,#008556);text-align:center}.vpa-alert .open{font-size:8.7px;color:#0065d8;font-weight:700;text-align:right}
-.vpa-queue{margin-top:9px;height:239px}.vpa-queue-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:7px}.vpa-queue-head .copy{flex:1}.vpa-pills{display:flex;gap:5px;align-items:center}.vpa-pill{height:29px;padding:0 9px;border:1px solid #cdd9d3;border-radius:6px;background:#fff;color:#52645d;font-size:9px;font-weight:700}.vpa-pill.active{background:#e6f5ee;color:#007347;border-color:#83c4a7}.vpa-table-wrap{overflow:auto;border:1px solid #d6dfdc;border-radius:7px;max-height:150px}.vpa-table{width:100%;border-collapse:collapse;min-width:1390px;font-size:9px}.vpa-table th,.vpa-table td{height:29px;border-bottom:1px solid #e3e9e6;text-align:center;padding:0 6px;white-space:nowrap}.vpa-table th{position:sticky;top:0;background:#edf3f0;color:#61746e;text-transform:uppercase;font-size:7.8px;letter-spacing:.02em;z-index:1}.vpa-table tbody tr[data-vpa-contact]{cursor:pointer}.vpa-table tr:hover td{background:#f3faf6}.vpa-table tr.recurrent td{background:#fff9ef}.vpa-table tr.critical td{background:#fff3f3}.vpa-table tr.recurrent:hover td{background:#fff3df}.vpa-table tr.critical:hover td{background:#ffe9e9}.vpa-tag{display:inline-block;padding:3px 6px;border-radius:10px;font-size:8.3px;font-weight:750}.vpa-tag.green{background:#e1f3eb;color:#00784a}.vpa-tag.red{background:#fde3e3;color:#c62626}.vpa-tag.amber{background:#fff0d3;color:#a56700}.vpa-tag.blue{background:#e4eefc;color:#155cb3}.vpa-open{border:0;background:#e7f4ee;border-radius:5px;padding:5px 8px;color:#00764c;font-size:8.8px;font-weight:800;white-space:nowrap}.vpa-cancel-report{width:24px;height:24px;border:1px solid #efb5b5;border-radius:6px;background:#fff3f3;color:#c92727;font-size:15px;font-weight:900;line-height:1;cursor:pointer}.vpa-cancel-report:hover{background:#fde2e2;border-color:#df7777}.vpa-cancel-report:disabled{opacity:.35;cursor:not-allowed}.vpa-foot{font-size:8.8px;color:#6f7c78;margin-top:6px;display:flex;gap:18px}.vpa-foot b{color:#007849}
+.vpa-queue{margin-top:9px;height:239px}.vpa-queue-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:7px}.vpa-queue-head .copy{flex:1}.vpa-pills{display:flex;gap:5px;align-items:center}.vpa-pill{height:29px;padding:0 9px;border:1px solid #cdd9d3;border-radius:6px;background:#fff;color:#52645d;font-size:9px;font-weight:700}.vpa-pill.active{background:#e6f5ee;color:#007347;border-color:#83c4a7}.vpa-table-wrap{overflow:auto;border:1px solid #d6dfdc;border-radius:7px;max-height:150px}.vpa-table{width:100%;border-collapse:collapse;min-width:1390px;font-size:9px}.vpa-table th,.vpa-table td{height:29px;border-bottom:1px solid #e3e9e6;text-align:center;padding:0 6px;white-space:nowrap}.vpa-table th{position:sticky;top:0;background:#edf3f0;color:#61746e;text-transform:uppercase;font-size:7.8px;letter-spacing:.02em;z-index:1}.vpa-table tbody tr[data-vpa-contact]{cursor:pointer}.vpa-table tr:hover td{background:#f3faf6}.vpa-table tr.recurrent td{background:#fff9ef}.vpa-table tr.critical td{background:#fff3f3}.vpa-table tr.recurrent:hover td{background:#fff3df}.vpa-table tr.critical:hover td{background:#ffe9e9}.vpa-tag{display:inline-block;padding:3px 6px;border-radius:10px;font-size:8.3px;font-weight:750}.vpa-tag.green{background:#e1f3eb;color:#00784a}.vpa-tag.red{background:#fde3e3;color:#c62626}.vpa-tag.amber{background:#fff0d3;color:#a56700}.vpa-tag.blue{background:#e4eefc;color:#155cb3}.vpa-open{border:0;background:#e7f4ee;border-radius:5px;padding:5px 8px;color:#00764c;font-size:8.8px;font-weight:800;white-space:nowrap}.vpa-foot{font-size:8.8px;color:#6f7c78;margin-top:6px;display:flex;gap:18px}.vpa-foot b{color:#007849}
 .vpa-empty{border:1px dashed #8bc5aa;background:#f5fbf8;border-radius:10px;padding:38px;text-align:center;margin-top:14px}.vpa-empty h3{font:750 18px var(--font-display);margin:0 0 7px}.vpa-empty p{font-size:11px;color:#6b7b74;max-width:680px;margin:0 auto 14px;line-height:1.45}
 .vpa-drawer-bg{position:fixed;inset:0;background:rgba(4,32,23,.28);z-index:1200}.vpa-drawer{position:fixed;right:0;top:0;bottom:0;width:min(820px,72vw);background:#fff;z-index:1201;box-shadow:-18px 0 45px rgba(6,41,27,.18);display:flex;flex-direction:column;color:#071a4b}.vpa-drawer-head{height:72px;padding:14px 18px;border-bottom:1px solid #d7e0e7;display:flex;align-items:flex-start;gap:12px}.vpa-drawer-head .copy{flex:1}.vpa-drawer-head h3{font:750 20px var(--font-display);margin:0}.vpa-drawer-head p{font-size:10.5px;color:#6f7d89;margin:4px 0 0}.vpa-priority{align-self:center;background:#e6f4ed;color:#007848;padding:6px 9px;border-radius:13px;font-size:9px;font-weight:800}.vpa-priority.recurrent{background:#fde4e4;color:#c52222}.vpa-x{border:0;background:none;color:#718079;font-size:23px}.vpa-drawer-body{padding:12px 16px;overflow:auto;flex:1}.vpa-recurrent-banner{border:1px solid #efadad;border-left:5px solid #d92626;border-radius:8px;background:linear-gradient(90deg,#fff0f0,#fff 76%);padding:9px 11px;margin-bottom:8px;display:flex;align-items:center;gap:9px;color:#b91f1f}.vpa-recurrent-banner:before{content:"!";width:17px;height:17px;border-radius:50%;background:#d92626;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:900;flex:0 0 auto}.vpa-recurrent-banner b{font-size:11px;letter-spacing:.02em}.vpa-recurrent-banner span{font-size:9px;color:#755454;margin-left:auto}.vpa-case-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.vpa-case{background:#f4f8f6;border:1px solid #e0e8e4;border-radius:7px;padding:7px}.vpa-case small{font-size:7.5px;color:#77867f;font-weight:800}.vpa-case b{display:block;font-size:10px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vpa-phone-panel{margin-top:8px;border:1px solid #bdd8cb;border-radius:8px;background:#f4fbf7;padding:9px}.vpa-phone-panel .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.vpa-phone-panel .head b{font-size:10px;color:#006f47}.vpa-phone-panel .head span{font-size:8px;color:#718078}.vpa-phone-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.vpa-phone{border:1px solid #d4e4dc;background:#fff;border-radius:7px;padding:7px 9px;text-decoration:none;color:#071a4b;display:grid;grid-template-columns:1fr auto;gap:2px 8px;transition:border-color .15s,background .15s,box-shadow .15s}.vpa-phone:hover,.vpa-phone:focus-visible{border-color:#25d366;background:#f1fff6;box-shadow:0 3px 10px rgba(37,211,102,.14);outline:none}.vpa-phone small{font-size:7.5px;color:#718078;font-weight:800}.vpa-phone b{font-size:11px}.vpa-phone em{grid-row:1/3;grid-column:2;font-size:8px;font-style:normal;color:#00894f;font-weight:800;align-self:center}.vpa-reinc-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px}.vpa-reinc-summary .vpa-case{background:#fff9f2;border-color:#f0dac1}.vpa-correlation{margin-top:8px;background:#fff3f3;border:1px solid #f3c5c5;border-left:4px solid #dc2f2f;border-radius:7px;padding:8px 9px;display:flex;align-items:center;gap:10px}.vpa-correlation .copy{flex:1}.vpa-correlation b{font-size:10px;color:#be2525}.vpa-correlation span{display:block;font-size:8.5px;color:#7f5c5c;margin-top:2px}.vpa-section-label{font-size:11px;font-weight:800;margin:12px 0 6px}.vpa-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.vpa-field label{display:block;font-size:8px;font-weight:800;color:#65756f;margin-bottom:3px}.vpa-input,.vpa-textarea{width:100%;border:1px solid #cbd7d1;border-radius:6px;background:#fff;color:#273753;font:500 10px var(--font-ui);outline:none}.vpa-input{height:36px;padding:0 9px}.vpa-textarea{height:54px;padding:7px 9px;resize:vertical}.vpa-choice-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}.vpa-choice-row.resolution{grid-template-columns:repeat(3,minmax(0,1fr))}.vpa-choice input{display:none}.vpa-choice span{height:35px;border:1px solid #d2dcd7;border-radius:6px;display:grid;place-items:center;text-align:center;font-size:8.8px;font-weight:700;color:#61726b;padding:2px}.vpa-choice input:checked+span{background:#e5f4ec;color:#007948;border-color:#69b994}.vpa-choice.no input:checked+span{background:#fde9e9;color:#c82828;border-color:#e79090}.vpa-choice.partial input:checked+span{background:#fff0d5;color:#a76800;border-color:#e4bd68}.vpa-return{height:39px;border:1px solid #d4dfda;border-radius:7px;padding:0 9px;display:flex;align-items:center;gap:8px;margin-top:8px;font-size:9px}.vpa-return .copy{flex:1}.vpa-return input{accent-color:#008556}.vpa-history{border-left:2px solid #b8d7c8;margin:0 0 0 7px;padding-left:13px}.vpa-event{position:relative;margin-bottom:8px}.vpa-event:before{content:"";position:absolute;left:-19px;top:1px;width:9px;height:9px;border-radius:50%;background:#00844a;border:2px solid #fff}.vpa-event.red:before{background:#dc2f2f}.vpa-event b{font-size:9.3px}.vpa-event p{font-size:8.2px;color:#708079;margin:2px 0}.vpa-drawer-foot{border-top:1px solid #dce4e0;padding:9px 16px;display:flex;align-items:center;gap:10px}.vpa-drawer-foot span{flex:1;font-size:8.5px;color:#718078}
 .vpa-call-grid{grid-template-columns:1fr 1fr 1fr}.vpa-edit-note{display:none;margin:8px 0 0;border:1px solid #e8bf78;border-left:4px solid #ef7b13;border-radius:7px;background:#fff8ed;padding:7px 9px;font-size:9px;color:#7a4a00}.vpa-edit-note.show{display:block}.vpa-audit-edit{border:0;background:transparent;color:#0065d8;font-size:8px;font-weight:800;padding:0 0 0 7px}.vpa-event.audit:before{background:#ef7b13}.vpa-event.audit p{color:#7a5a28}.vpa-drawer-foot{flex-wrap:wrap}.vpa-drawer-foot .vpa-btn{padding:0 11px}.vpa-drawer-foot .vpa-btn[hidden]{display:none!important}.vpa-drawer-foot .danger-lite{color:#b42323;border-color:#e6b6b6;background:#fff8f8}
@@ -928,20 +955,6 @@ body.callback-mode #content{padding:14px 18px 22px;background:#eef4f1}
     body.embedded-shell #sidebarToggle{
       display:none !important;
     }
-
-/* Evolução VPA: filtros explícitos, ação necessária e anexos */
-.vpa-control.labeled{display:flex;flex-direction:column;gap:3px;min-width:145px;height:auto;padding:5px 8px 6px}
-.vpa-control.labeled .vpa-filter-label{font-size:8px;font-weight:800;color:#68776f;letter-spacing:.04em;text-transform:uppercase;line-height:1}
-.vpa-control.labeled select{min-height:24px;padding-top:0;padding-bottom:0}
-.vpa-action-box{border:1px solid #dfe7e3;border-radius:10px;padding:10px;background:#f8fbf9}
-.vpa-action-comment[hidden]{display:none!important}
-.vpa-attachment{border:1px dashed #a9bbb2;border-radius:10px;padding:10px;background:#fbfdfc}
-.vpa-attachment input[type=file]{width:100%;font-size:11px}
-.vpa-attachment-note{margin-top:5px;font-size:10px;color:#718078}
-.vpa-action-table{margin-top:14px}
-.vpa-action-comment-cell{min-width:220px;white-space:normal!important;line-height:1.35}
-.vpa-file-link{display:inline-flex;align-items:center;gap:5px;color:#08744f;font-weight:700;text-decoration:none}
-
 </style>
 </head>
 <body>
@@ -4649,7 +4662,30 @@ function openExecutivePriorityRecord(index){
 
 let _dashboardRenderToken=0;
 function renderDashboard(){
-  if(!S.baseCompleta.length) return;
+  if(!S.baseCompleta.length){
+    const el=document.getElementById('panel-dashboard');
+    if(el){
+      const oficial=S.baseReincidencia.length;
+      el.innerHTML=`
+        <div class="dashboard-page" style="padding:18px 14px 30px">
+          <div class="card" style="padding:22px;border-left:5px solid var(--enel-green,#00875a);margin-bottom:14px">
+            <h2 style="margin:0 0 7px;color:var(--ink,#17324d)">Reincidente</h2>
+            <p style="margin:0;color:var(--ink-faint,#667582)">Visão executiva e analítica de reincidência</p>
+          </div>
+          <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px">
+            <div class="card kpi"><div class="label">Base principal</div><div class="value">0</div><div class="delta">Aguardando atualização automática</div></div>
+            <div class="card kpi accent"><div class="label">Base oficial Reincidente</div><div class="value">${fmtNum(oficial)}</div><div class="delta">Registros disponíveis</div></div>
+            <div class="card kpi"><div class="label">Situação</div><div class="value" style="font-size:22px">Atualizando</div><div class="delta">O layout será preenchido assim que a base principal chegar</div></div>
+          </div>
+          <div class="card" style="padding:42px;text-align:center">
+            <h3 style="margin:0 0 8px">Base principal da Reincidência indisponível</h3>
+            <p style="margin:0 auto 16px;max-width:720px;color:var(--ink-faint,#667582)">A página foi aberta corretamente, mas o arquivo público <b>reincidencia_principal.json.gz</b> ainda não contém dados válidos. A automação fará uma nova carga e o painel será preenchido automaticamente.</p>
+            <button class="btn primary" type="button" onclick="carregarReincidenciaLocalhost(true)">↻ Atualizar agora</button>
+          </div>
+        </div>`;
+    }
+    return;
+  }
   const renderToken=++_dashboardRenderToken;
   const {base, baseIndicador} = getFiltered();
   const rankingClientes = getClientRanking();
@@ -7087,36 +7123,6 @@ async function exportDiagnosticPptx(){
    ============================================================ */
 const VPA_STATUS=['Contato realizado','Não atendeu','Número inválido','Cliente indisponível','Retornar contato'];
 const VPA_RESOLUCAO=['Sim','Não','Parcialmente'];
-const VPA_ACAO=['Sim','Não'];
-function vpaActionValue(attempt){
-  const raw=String(attempt?.acao||'').trim();
-  if(raw==='Sim'||raw==='Não')return raw;
-  return raw?'Sim':'Não';
-}
-function vpaActionComment(attempt){
-  if(hasValidValue(attempt?.acaoComentario))return String(attempt.acaoComentario);
-  const raw=String(attempt?.acao||'').trim();
-  return raw&&raw!=='Sim'&&raw!=='Não'?raw:'';
-}
-function vpaAttachment(attempt){return attempt?.anexo&&typeof attempt.anexo==='object'?attempt.anexo:null}
-function vpaToggleActionComment(){
-  const value=document.querySelector('input[name="vpaActionRequired"]:checked')?.value||'Não';
-  const wrap=document.getElementById('vpaActionCommentWrap');
-  if(wrap)wrap.hidden=value!=='Sim';
-}
-function vpaReadAttachment(input){
-  const file=input?.files?.[0];
-  if(!file)return Promise.resolve(null);
-  const max=8*1024*1024;
-  if(file.size>max)return Promise.reject(new Error('O anexo deve ter no máximo 8 MB.'));
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>resolve({name:file.name,type:file.type||'application/octet-stream',size:file.size,data:reader.result});
-    reader.onerror=()=>reject(new Error('Não foi possível ler o anexo.'));
-    reader.readAsDataURL(file);
-  });
-}
-
 const VPA_WHATSAPP_MESSAGE=`Olá! Aqui é da Enel. Gostaríamos de saber se o serviço finalizado pela nossa equipe em campo foi efetivamente resolvido.
 
 Estamos realizando uma pesquisa de acompanhamento para garantir a qualidade dos nossos serviços e a satisfação dos nossos clientes.
@@ -7159,7 +7165,7 @@ const VPA_AUDIT_FIELDS=[
   ['date','Data da validação'],['responsavel','Responsável pelo contato'],
   ['telefoneUtilizado','Telefone utilizado'],['status','Status do contato'],
   ['resolvido','Problema resolvido'],['observacoes','Observações'],
-  ['acao','Ação necessária'],['acaoComentario','Comentário da ação'],['anexoNome','Anexo'],['retorno','Retorno operacional']
+  ['acao','Ação necessária'],['retorno','Retorno operacional']
 ];
 function vpaAttemptSnapshot(attempt){
   return {
@@ -7169,9 +7175,7 @@ function vpaAttemptSnapshot(attempt){
     status:attempt?.status||null,
     resolvido:attempt?.resolvido||null,
     observacoes:attempt?.observacoes||'',
-    acao:vpaActionValue(attempt),
-    acaoComentario:vpaActionComment(attempt),
-    anexoNome:vpaAttachment(attempt)?.name||'',
+    acao:attempt?.acao||'',
     retorno:!!attempt?.retorno
   };
 }
@@ -7207,11 +7211,7 @@ function vpaFillValidationForm(attempt){
   document.querySelectorAll('input[name="vpaStatus"]').forEach(input=>input.checked=input.value===(value.status||'Contato realizado'));
   document.querySelectorAll('input[name="vpaResolution"]').forEach(input=>input.checked=input.value===value.resolvido);
   const notes=document.getElementById('vpaNotes');if(notes)notes.value=value.observacoes;
-  document.querySelectorAll('input[name="vpaActionRequired"]').forEach(input=>input.checked=input.value===(value.acao||'Não'));
-  const actionComment=document.getElementById('vpaActionComment');if(actionComment)actionComment.value=value.acaoComentario||'';
-  vpaToggleActionComment();
-  const attachmentName=document.getElementById('vpaAttachmentCurrent');
-  if(attachmentName)attachmentName.textContent=value.anexoNome?`Anexo atual: ${value.anexoNome}`:'Nenhum anexo salvo.';
+  const action=document.getElementById('vpaAction');if(action)action.value=value.acao;
   const operationalReturn=document.getElementById('vpaReturn');if(operationalReturn)operationalReturn.checked=value.retorno;
 }
 function clearValidationFields(){
@@ -7384,19 +7384,18 @@ function renderValidacaoPos(){
   const rate=a.rows.length?a.contacted.length/a.rows.length*100:0,resolution=a.conclusive.length?a.resolved.length/a.conclusive.length*100:0;
   const queue=vpaSortedQueue(a.rows).slice(0,50);
   const belowRows=a.belowTeams.reduce((n,g)=>n+g.rows.length,0),topProcess=a.topProcess[0],topProcessCount=a.topProcess[1].length;
-  const actionRows=vpaSortedQueue(a.rows.filter(row=>vpaActionValue(vpaLatest(row))==='Sim'));
   el.innerHTML=`<div class="vpa">
     <div class="vpa-head"><div class="vpa-title"><div class="vpa-crumb">Validação Pós-Atendimento</div><h2>Validação Pós-Atendimento</h2><p>Auditoria da percepção do cliente e da efetividade real dos serviços executados em campo</p></div><div class="vpa-actions"><button class="vpa-btn contact" id="vpaRegister">☎ Registrar contato</button><button class="vpa-btn import" id="vpaReload">↻ Atualizar base</button><button class="vpa-btn" id="vpaExport">▣ Exportar casos</button><button class="vpa-btn primary" id="vpaPpt">⇩ Baixar apresentação</button></div></div>
     <div class="vpa-toolbar">
       <div class="vpa-control active"><input type="date" id="vpaDateFrom" value="${dateFromValue}" title="Data inicial"></div>
       <div class="vpa-control active"><input type="date" id="vpaDateTo" value="${dateToValue}" title="Data final"></div>
-      <div class="vpa-control labeled"><span class="vpa-filter-label">Equipe Desl.</span><select data-vpa-filter="equipes"><option value="">Todos</option>${equipes.map(v=>option(v,v,vpaSelectValue(f.equipes))).join('')}</select></div>
-      <div class="vpa-control labeled"><span class="vpa-filter-label">Processo</span><select data-vpa-filter="processos"><option value="">Todos</option>${processos.map(v=>option(v,v,vpaSelectValue(f.processos))).join('')}</select></div>
-      <div class="vpa-control labeled"><span class="vpa-filter-label">Causa</span><select data-vpa-filter="causas"><option value="">Todos</option>${causas.map(v=>option(v,v,vpaSelectValue(f.causas))).join('')}</select></div>
-      <div class="vpa-control labeled"><span class="vpa-filter-label">Reincidência</span><select data-vpa-filter="reincidencias"><option value="">Todos</option>${option('reincidente','Somente reincidentes',vpaSelectValue(f.reincidencias))}${option('nao-reincidente','Não reincidentes',vpaSelectValue(f.reincidencias))}</select></div>
-      <div class="vpa-control labeled"><span class="vpa-filter-label">Status do contato</span><select data-vpa-filter="statuses"><option value="">Todos</option>${['Pendente',...VPA_STATUS].map(v=>option(v,v,vpaSelectValue(f.statuses))).join('')}</select></div>
-      <div class="vpa-control labeled"><span class="vpa-filter-label">Problema resolvido</span><select data-vpa-filter="resolucoes"><option value="">Todos</option>${VPA_RESOLUCAO.map(v=>option(v,v,vpaSelectValue(f.resolucoes))).join('')}</select></div>
-      <div class="vpa-control labeled"><span class="vpa-filter-label">Responsável</span><select data-vpa-filter="responsaveis"><option value="">Todos</option>${S.validationAnalysts.map(v=>option(v,v,vpaSelectValue(f.responsaveis))).join('')}</select></div>
+      <div class="vpa-control"><select data-vpa-filter="equipes"><option value="">Equipe Desl.</option>${equipes.map(v=>option(v,v,vpaSelectValue(f.equipes))).join('')}</select></div>
+      <div class="vpa-control"><select data-vpa-filter="processos"><option value="">Processo</option>${processos.map(v=>option(v,v,vpaSelectValue(f.processos))).join('')}</select></div>
+      <div class="vpa-control"><select data-vpa-filter="causas"><option value="">Causa</option>${causas.map(v=>option(v,v,vpaSelectValue(f.causas))).join('')}</select></div>
+      <div class="vpa-control"><select data-vpa-filter="reincidencias"><option value="">Reincidência</option>${option('reincidente','Somente reincidentes',vpaSelectValue(f.reincidencias))}${option('nao-reincidente','Não reincidentes',vpaSelectValue(f.reincidencias))}</select></div>
+      <div class="vpa-control"><select data-vpa-filter="statuses"><option value="">Status do contato</option>${['Pendente',...VPA_STATUS].map(v=>option(v,v,vpaSelectValue(f.statuses))).join('')}</select></div>
+      <div class="vpa-control"><select data-vpa-filter="resolucoes"><option value="">Problema resolvido</option>${VPA_RESOLUCAO.map(v=>option(v,v,vpaSelectValue(f.resolucoes))).join('')}</select></div>
+      <div class="vpa-control"><select data-vpa-filter="responsaveis"><option value="">Responsável</option>${S.validationAnalysts.map(v=>option(v,v,vpaSelectValue(f.responsaveis))).join('')}</select></div>
       <div class="vpa-control"><input id="vpaSearch" value="${esc(f.search)}" placeholder="Buscar Nº Cliente ou incidência"></div>
     </div>
     <div class="vpa-filter-note"><span><b aria-hidden="true">i</b> Última atualização: <b>${fmtDateTime(S.validationProcessedAt)}</b> · ${fmtNum(a.rows.length)} registros no filtro · clique em qualquer indicador para abrir os casos</span><span class="spacer"></span><button class="vpa-clear" id="vpaClear">↻ Limpar filtros</button></div>
@@ -7421,11 +7420,8 @@ function renderValidacaoPos(){
       </section>
     </div>
     <section class="vpa-card vpa-queue"><div class="vpa-queue-head"><div class="copy"><h3>Fila operacional de validação</h3><div class="sub">Casos reincidentes aparecem primeiro; selecione um registro para lançar a ligação e consultar todo o contexto</div></div><div class="vpa-pills"><button class="vpa-pill active" onclick="openValidationDrill('all')">Todos ${fmtNum(a.rows.length)}</button><button class="vpa-pill" onclick="openValidationDrill('recurrent')">Reincidentes ${fmtNum(a.recurrent.length)}</button><button class="vpa-pill" onclick="openValidationDrill('nonContacted')">Pendentes ${fmtNum(a.nonContacted.length)}</button><button class="vpa-pill" onclick="openValidationDrill('returns')">Retornar ${fmtNum(a.returns.length)}</button><button class="vpa-pill" onclick="openValidationDrill('critical')">Críticos ${fmtNum(a.critical.length)}</button></div></div>
-      <div class="vpa-table-wrap"><table class="vpa-table"><thead><tr><th>Nº Cliente</th><th>Incidência</th><th>Data fim</th><th>Equipe Desl.</th><th>Processo</th><th>Causa</th><th>Responsável</th><th>Status do contato</th><th>Problema resolvido</th><th>Retorno operacional</th><th>Reincidência</th><th>Registro do contato</th><th>Cancelar</th></tr></thead><tbody>${queue.length?queue.map(vpaQueueRow).join(''):`<tr><td colspan="13" style="height:65px;color:#74817c">Nenhum registro no filtro atual.</td></tr>`}</tbody></table></div>
+      <div class="vpa-table-wrap"><table class="vpa-table"><thead><tr><th>Nº Cliente</th><th>Incidência</th><th>Data fim</th><th>Equipe Desl.</th><th>Processo</th><th>Causa</th><th>Responsável</th><th>Status do contato</th><th>Problema resolvido</th><th>Retorno operacional</th><th>Reincidência</th><th>Registro do contato</th></tr></thead><tbody>${queue.length?queue.map(vpaQueueRow).join(''):`<tr><td colspan="12" style="height:65px;color:#74817c">Nenhum registro no filtro atual.</td></tr>`}</tbody></table></div>
       <div class="vpa-foot"><span>✓ <b>Todos os indicadores, gráficos e alertas possuem drill-down.</b></span><span>✓ Os contatos ficam em histórico próprio e não são sobrescritos.</span><span>✓ A reincidência continua definida exclusivamente pela base oficial.</span></div>
-    </section>
-    <section class="vpa-card vpa-queue vpa-action-table"><div class="vpa-queue-head"><div class="copy"><h3>Casos com ação necessária</h3><div class="sub">Registros cujo último contato foi marcado como “Sim” para ação necessária</div></div><div class="vpa-pills"><span class="vpa-pill active">${fmtNum(actionRows.length)} caso(s)</span></div></div>
-      <div class="vpa-table-wrap"><table class="vpa-table"><thead><tr><th>Nº Cliente</th><th>Incidência</th><th>Data fim</th><th>Equipe</th><th>Processo</th><th>Responsável</th><th>Comentário da ação</th><th>Anexo</th><th>Abrir</th></tr></thead><tbody>${actionRows.length?actionRows.map(row=>{const latest=vpaLatest(row),attachment=vpaAttachment(latest);return `<tr><td>${esc(row[COLV.nCliente]||'—')}</td><td>${esc(formatNumero(row[COLV.numero]))}</td><td>${fmtDateTime(row.__dataFim)}</td><td>${esc(row[COLV.equipeDesl]||'—')}</td><td>${esc(row.__processo||'—')}</td><td>${esc(latest?.responsavel||'—')}</td><td class="vpa-action-comment-cell">${esc(vpaActionComment(latest)||'Sem comentário')}</td><td>${attachment?`<a class="vpa-file-link" href="${esc(attachment.data||'#')}" download="${esc(attachment.name||'anexo')}">📎 ${esc(attachment.name||'Anexo')}</a>`:'—'}</td><td><button class="vpa-open" onclick="openValidationContact('${vpaKey(row)}')">Abrir →</button></td></tr>`}).join(''):`<tr><td colspan="9" style="height:65px;color:#74817c">Nenhum caso marcado com ação necessária.</td></tr>`}</tbody></table></div>
     </section></div>`;
   wireValidationPage();
 }
@@ -7439,8 +7435,7 @@ function vpaQueueRow(row){
   const latest=vpaLatest(row),priority=vpaPriority(row),status=latest?.status||'Pendente',resolution=latest?.resolvido||'—';
   const rowClass=priority==='Crítica'?'critical':row.__isRecurrent?'recurrent':'';
   const recurrence=row.__isRecurrent?`<span class="vpa-tag red">Reincidente · ${fmtNum(row.__reincCount)}${row.__reinc24?' · ≤24h':''}</span>`:'—';
-  const cancelButton=latest?.id?`<button class="vpa-cancel-report" type="button" title="Cancelar o último registro de contato" aria-label="Cancelar o último registro de contato" onclick="event.stopPropagation();cancelarUltimoReporteValidacao('${vpaKey(row)}')">×</button>`:'—';
-  return `<tr class="${rowClass}" data-vpa-contact="${vpaKey(row)}"><td>${esc(row[COLV.nCliente]||'—')}</td><td>${esc(formatNumero(row[COLV.numero]))}</td><td>${fmtDateTime(row.__dataFim)}</td><td>${esc(row[COLV.equipeDesl]||'—')}</td><td>${esc(row.__processo||'—')}</td><td>${esc(row[COLV.causa]||'—')}</td><td>${esc(latest?.responsavel||'—')}</td><td><span class="vpa-tag ${status==='Contato realizado'?'green':'amber'}">${esc(status)}</span></td><td><span class="vpa-tag ${resolution==='Sim'?'green':resolution==='Não'?'red':resolution==='Parcialmente'?'amber':''}">${esc(resolution)}</span></td><td>${latest?.retorno?'<span class="vpa-tag amber">Necessário</span>':'Não'}</td><td>${recurrence}</td><td><button class="vpa-open" onclick="event.stopPropagation();openValidationContact('${vpaKey(row)}')">Registrar contato →</button></td><td>${cancelButton}</td></tr>`;
+  return `<tr class="${rowClass}" data-vpa-contact="${vpaKey(row)}"><td>${esc(row[COLV.nCliente]||'—')}</td><td>${esc(formatNumero(row[COLV.numero]))}</td><td>${fmtDateTime(row.__dataFim)}</td><td>${esc(row[COLV.equipeDesl]||'—')}</td><td>${esc(row.__processo||'—')}</td><td>${esc(row[COLV.causa]||'—')}</td><td>${esc(latest?.responsavel||'—')}</td><td><span class="vpa-tag ${status==='Contato realizado'?'green':'amber'}">${esc(status)}</span></td><td><span class="vpa-tag ${resolution==='Sim'?'green':resolution==='Não'?'red':resolution==='Parcialmente'?'amber':''}">${esc(resolution)}</span></td><td>${latest?.retorno?'<span class="vpa-tag amber">Necessário</span>':'Não'}</td><td>${recurrence}</td><td><button class="vpa-open" onclick="event.stopPropagation();openValidationContact('${vpaKey(row)}')">Registrar contato →</button></td></tr>`;
 }
 function wireValidationPage(){
   const importBtn=document.getElementById('vpaImport');if(importBtn)importBtn.onclick=()=>{const fi=document.getElementById('fileInputMain');fi.value='';fi.click()};
@@ -7500,7 +7495,7 @@ function openValidationContact(key){
   ].map(([k,v])=>`<div class="vpa-case"><small>${k}</small><b title="${esc(v)}">${esc(v)}</b></div>`).join('')}</div>`:'';
   const recurrenceHistory=(row.__reincHistory||[]).slice(0,8).map(item=>`<div class="vpa-event red"><b>${fmtDateTime(vpaDate(item.newDate||item.previousDate))} · ${esc(formatNumero(item.previousNumber))} → ${esc(formatNumero(item.newNumber))}</b><p>${esc(item.previousCause||'Causa anterior não informada')} → ${esc(item.currentCause||'Causa atual não informada')} · ${vpaIntervalLabel(item.intervalHours)} · ${esc(item.status||'status não informado')}</p></div>`).join('');
   const contactHistory=attempts.flatMap(a=>{
-    const contact=`<div class="vpa-event ${a.resolvido==='Não'||a.resolvido==='Parcialmente'?'red':''}"><b>${fmtDateTime(vpaDate(a.date))} · ${esc(a.status)}</b><button class="vpa-audit-edit" onclick="startValidationEdit('${key}','${esc(a.id)}')">Editar este registro</button><button class="vpa-audit-edit" style="right:142px;color:#b42318;border-color:#efb0aa;background:#fff5f4" onclick="excluirReporteValidacao('${key}','${esc(a.id)}')">Excluir reporte</button><p>${esc(a.responsavel||'—')}${a.telefoneUtilizado?` · Telefone: ${esc(a.telefoneUtilizado)}`:''}${a.resolvido?` · Problema resolvido: ${esc(a.resolvido)}`:''}${a.retorno?' · retorno operacional solicitado':''}${vpaActionValue(a)==='Sim'?` · ação necessária: ${esc(vpaActionComment(a)||'sem comentário')}`:''}${vpaAttachment(a)?` · anexo: ${esc(vpaAttachment(a).name)}`:''}${a.observacoes?` · ${esc(a.observacoes)}`:''}</p></div>`;
+    const contact=`<div class="vpa-event ${a.resolvido==='Não'||a.resolvido==='Parcialmente'?'red':''}"><b>${fmtDateTime(vpaDate(a.date))} · ${esc(a.status)}</b><button class="vpa-audit-edit" onclick="startValidationEdit('${key}','${esc(a.id)}')">Editar este registro</button><button class="vpa-audit-edit" style="right:142px;color:#b42318;border-color:#efb0aa;background:#fff5f4" onclick="excluirReporteValidacao('${key}','${esc(a.id)}')">Excluir reporte</button><p>${esc(a.responsavel||'—')}${a.telefoneUtilizado?` · Telefone: ${esc(a.telefoneUtilizado)}`:''}${a.resolvido?` · Problema resolvido: ${esc(a.resolvido)}`:''}${a.retorno?' · retorno operacional solicitado':''}${a.observacoes?` · ${esc(a.observacoes)}`:''}</p></div>`;
     const revisions=(a.revisions||[]).map(revision=>{
       const changeText=Object.entries(revision.changes||{}).map(([field,change])=>`${esc(change.label)}: ${esc(vpaAuditValue(field,change.before))} → ${esc(vpaAuditValue(field,change.after))}`).join(' · ');
       return `<div class="vpa-event audit"><b>${fmtDateTime(vpaDate(revision.editedAt))} · Alteração por ${esc(revision.editedBy||'—')}</b><p>${changeText||'Alteração registrada sem diferença textual.'}</p></div>`;
@@ -7517,14 +7512,11 @@ function openValidationContact(key){
     <div class="vpa-edit-note" id="vpaEditNote"></div><div class="vpa-field" id="vpaEditActorWrap" hidden style="margin-top:8px"><label>RESPONSÁVEL PELA ALTERAÇÃO</label><input class="vpa-input" id="vpaEditedBy" list="vpaAnalysts" placeholder="Informe quem está realizando a correção"></div>
     <div class="vpa-field" style="margin-top:8px"><label>STATUS DO CONTATO</label><div class="vpa-choice-row">${VPA_STATUS.map((s,i)=>`<label class="vpa-choice"><input type="radio" name="vpaStatus" value="${esc(s)}" ${(latest?.status||'Contato realizado')===s?'checked':''}><span>${esc(s)}</span></label>`).join('')}</div></div>
     <div class="vpa-field" style="margin-top:8px"><label>PROBLEMA RESOLVIDO</label><div class="vpa-choice-row resolution">${VPA_RESOLUCAO.map(s=>`<label class="vpa-choice ${s==='Não'?'no':s==='Parcialmente'?'partial':''}"><input type="radio" name="vpaResolution" value="${esc(s)}" ${latest?.resolvido===s?'checked':''}><span>${esc(s)}</span></label>`).join('')}</div></div>
-    <div class="vpa-form-grid" style="margin-top:8px"><div class="vpa-field"><label>OBSERVAÇÕES</label><textarea class="vpa-textarea" id="vpaNotes" placeholder="Registre a percepção do cliente"></textarea></div><div class="vpa-field vpa-action-box"><label>AÇÃO NECESSÁRIA</label><div class="vpa-choice-row resolution">${VPA_ACAO.map(value=>`<label class="vpa-choice ${value==='Não'?'no':''}"><input type="radio" name="vpaActionRequired" value="${value}" ${vpaActionValue(latest)===value?'checked':''}><span>${value}</span></label>`).join('')}</div><div class="vpa-action-comment" id="vpaActionCommentWrap" ${vpaActionValue(latest)==='Sim'?'':'hidden'} style="margin-top:8px"><label>COMENTÁRIO DA AÇÃO</label><textarea class="vpa-textarea" id="vpaActionComment" placeholder="Descreva a ação necessária">${esc(vpaActionComment(latest))}</textarea></div></div></div>
-    <div class="vpa-attachment" style="margin-top:8px"><label>ANEXO OPCIONAL — DOCUMENTO OU FOTO</label><input id="vpaAttachment" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"><div class="vpa-attachment-note" id="vpaAttachmentCurrent">${vpaAttachment(latest)?`Anexo atual: ${esc(vpaAttachment(latest).name)}`:'Nenhum anexo salvo.'} · Limite de 8 MB.</div></div>
+    <div class="vpa-form-grid" style="margin-top:8px"><div class="vpa-field"><label>OBSERVAÇÕES</label><textarea class="vpa-textarea" id="vpaNotes" placeholder="Registre a percepção do cliente"></textarea></div><div class="vpa-field"><label>AÇÃO NECESSÁRIA</label><textarea class="vpa-textarea" id="vpaAction" placeholder="Descreva a ação operacional"></textarea></div></div>
     <label class="vpa-return"><span class="copy"><b>Necessidade de retorno para a equipe operacional</b><br><small>O caso será incluído automaticamente na fila de devolução.</small></span><input type="checkbox" id="vpaReturn" ${latest?.retorno?'checked':''}></label>
     ${row.__isRecurrent?`<div class="vpa-section-label">Histórico resumido das reincidências</div><div class="vpa-history">${recurrenceHistory}</div>`:''}<div class="vpa-section-label">Histórico dos contatos e rastreabilidade</div><div class="vpa-history">${history}</div></div>
     <div class="vpa-drawer-foot"><span>A exclusão remove somente o reporte selecionado. A incidência permanece na fila de Validação.</span><button class="vpa-btn danger-lite" id="vpaClearFields">Limpar campos</button>${latest?'<button class="vpa-btn" id="vpaEditValidation">Editar validação</button>':''}<button class="vpa-btn" id="vpaCancelEdit" hidden>Cancelar alterações</button><button class="vpa-btn" id="vpaSaveClose">Salvar e fechar</button><button class="vpa-btn primary" id="vpaSaveNext">Salvar e próximo caso →</button></div>`;
   bg.appendChild(drawer);document.body.appendChild(bg);
-  document.querySelectorAll('input[name="vpaActionRequired"]').forEach(input=>input.onchange=vpaToggleActionComment);
-  vpaToggleActionComment();
   document.getElementById('vpaBaseFull').onclick=()=>openValidationBaseDetails(key);
   document.getElementById('vpaClearFields').onclick=clearValidationFields;
   const editValidation=document.getElementById('vpaEditValidation');if(editValidation)editValidation.onclick=()=>startValidationEdit(key,latest?.id);
@@ -7534,25 +7526,6 @@ function openValidationContact(key){
 }
 function closeValidationContact(){document.getElementById('vpaDrawerBg')?.remove()}
 
-
-const SUPABASE_URL='https://fjgfwfnnhebfvuvvjsui.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_QexGHESAqtHDVlI1h3aM1Q_Cew_cax7';
-const SUPABASE_HEADERS={
-  'Content-Type':'application/json',
-  'apikey':SUPABASE_PUBLISHABLE_KEY,
-  'Authorization':`Bearer ${SUPABASE_PUBLISHABLE_KEY}`
-};
-
-async function cancelarUltimoReporteValidacao(key){
-  const latest=vpaLatest(
-    S.validationBase.find(row=>vpaKey(row)===key)
-  );
-  if(!latest?.id){
-    alert('Este caso não possui registro de contato para cancelar.');
-    return;
-  }
-  await excluirReporteValidacao(key,latest.id);
-}
 
 async function excluirReporteValidacao(key,attemptId){
   const row=S.validationBase.find(r=>vpaKey(r)===key);
@@ -7582,11 +7555,13 @@ async function excluirReporteValidacao(key,attemptId){
 
   try{
     const response=await fetch(
-      `${SUPABASE_URL}/rest/v1/rpc/cancelar_reporte_validacao`,
+      '/api/excluir-apontamento-validacao',
       {
         method:'POST',
-        headers:SUPABASE_HEADERS,
-        body:JSON.stringify({p_evento_id:attemptId})
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          Evento_Id:attemptId
+        })
       }
     );
 
@@ -7609,12 +7584,8 @@ async function excluirReporteValidacao(key,attemptId){
 
     salvarContatosValidacaoLocal();
     S.validationVersion++;
-    callbackToast('Registro de contato cancelado. A incidência foi mantida.');
-    if(document.getElementById('vpaDrawerBg')){
-      openValidationContact(key);
-    }else{
-      renderValidacaoPos();
-    }
+    callbackToast('Reporte excluído. A incidência foi mantida.');
+    openValidationContact(key);
 
   }catch(error){
     console.error(error);
@@ -7625,78 +7596,65 @@ async function excluirReporteValidacao(key,attemptId){
   }
 }
 
-async function vpaAnexoParaBase64(anexo){
-  if(!anexo||!anexo.file)return '';
-  return await new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>resolve(String(reader.result||''));
-    reader.onerror=()=>reject(new Error('Não foi possível ler o anexo.'));
-    reader.readAsDataURL(anexo.file);
-  });
-}
-
 async function enviarRegistroValidacaoServidor(row,attempt){
-  const payload={
-    Evento_Id:attempt.id||'',
-    Chave_Incidencia:vpaKey(row),
-    Numero_Incidencia:String(row[COLV.numero]||''),
-    Numero_Cliente:String(row[COLV.nCliente]||''),
-    Responsavel:attempt.responsavel||'',
-    Data_Contato:attempt.date||new Date().toISOString(),
-    Telefone_Utilizado:attempt.telefoneUtilizado||'',
-    Status_Contato:attempt.status||'',
-    Problema_Resolvido:attempt.resolvido||'',
-    Observacoes:attempt.observacoes||'',
-    Acao_Necessaria:attempt.acao||'Não',
-    Comentario_Acao:attempt.acaoComentario||'',
-    Anexo_Nome:attempt.anexo?.name||'',
-    Anexo_Tipo:attempt.anexo?.type||'',
-    Anexo_Base64:await vpaAnexoParaBase64(attempt.anexo),
-    Retorno_Operacional:!!attempt.retorno
-  };
-  const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/salvar_reporte_validacao`,{
-    method:'POST',headers:SUPABASE_HEADERS,body:JSON.stringify({p_payload:payload})
+  const response=await fetch('/api/apontamento-validacao',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      Evento_Id:attempt.id||'',
+      Chave_Incidencia:vpaKey(row),
+      Numero_Incidencia:String(row[COLV.numero]||''),
+      Numero_Cliente:String(row[COLV.nCliente]||''),
+      Responsavel:attempt.responsavel||'',
+      Data_Contato:attempt.date||new Date().toISOString(),
+      Telefone_Utilizado:attempt.telefoneUtilizado||'',
+      Status_Contato:attempt.status||'',
+      Problema_Resolvido:attempt.resolvido||'',
+      Observacoes:attempt.observacoes||'',
+      Acao_Necessaria:attempt.acao||'',
+      Retorno_Operacional:!!attempt.retorno
+    })
   });
   const result=await response.json().catch(()=>({}));
-  if(!response.ok||result?.ok===false)throw new Error(result?.message||result?.error||`HTTP ${response.status}`);
+  if(!response.ok||!result.ok)throw new Error(result.error||`HTTP ${response.status}`);
 }
 
 async function carregarRegistrosValidacaoServidor(){
   try{
-    const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/listar_reportes_validacao?t=${Date.now()}`,{
-      method:'POST',headers:SUPABASE_HEADERS,body:'{}',cache:'no-store'
-    });
+    const response=await fetch(`/api/registros-validacao?t=${Date.now()}`,{cache:'no-store'});
     if(!response.ok)return false;
-    const data=await response.json();
-    const registros=Array.isArray(data)?data:[];
+    const result=await response.json();
+    if(!result.ok||!Array.isArray(result.registros))return false;
 
-    for(const raw of registros){
-      const item=raw?.registro||raw;
+    for(const item of result.registros){
       const key=normalizeCallbackKey(item.Chave_Incidencia||item['Número']||'');
       if(!key)continue;
       if(!S.validationContacts[key])S.validationContacts[key]={attempts:[]};
-      const id=String(item.Evento_Id||`${key}_${item['Data do Contato']||item.Data_Contato||''}`);
+      const id=String(item.Evento_Id||`${key}_${item['Data do Contato']||''}`);
       if(S.validationContacts[key].attempts.some(a=>a.id===id))continue;
       S.validationContacts[key].attempts.push({
         id,
-        date:item.Data_Contato||item['Data do Contato']||item['Recebido pelo servidor em'],
-        responsavel:item.Responsavel||item['Responsável']||'',
-        telefoneUtilizado:item.Telefone_Utilizado||item['Telefone Utilizado']||'',
-        status:item.Status_Contato||item['Status do Contato']||'',
-        resolvido:item.Problema_Resolvido||item['Problema Resolvido']||null,
-        observacoes:item.Observacoes||item['Observações']||'',
-        acao:item.Acao_Necessaria||item['Ação Necessária']||'Não',
-        acaoComentario:item.Comentario_Acao||item['Comentário da Ação']||'',
-        anexo:(item.Anexo_Nome||item['Anexo Nome'])?{name:item.Anexo_Nome||item['Anexo Nome'],type:item.Anexo_Tipo||item['Anexo Tipo']||'',data:''}:null,
-        retorno:item.Retorno_Operacional===true||String(item.Retorno_Operacional||item['Retorno Operacional']).toLowerCase()==='sim',
-        createdAt:item['Recebido pelo servidor em']||item.Data_Contato,
+        date:item['Data do Contato']||item['Recebido pelo servidor em'],
+        responsavel:item['Responsável']||'',
+        telefoneUtilizado:item['Telefone Utilizado']||'',
+        status:item['Status do Contato']||'',
+        resolvido:item['Problema Resolvido']||null,
+        observacoes:item['Observações']||'',
+        acao:item['Ação Necessária']||'',
+        retorno:item['Retorno Operacional']===true||String(item['Retorno Operacional']).toLowerCase()==='sim',
+        createdAt:item['Recebido pelo servidor em'],
         revisions:[]
       });
+      const nome=String(item['Responsável']||'').trim();
+      if(nome&&!S.validationAnalysts.includes(nome))S.validationAnalysts.push(nome);
     }
+    S.validationAnalysts.sort((a,b)=>a.localeCompare(b,'pt-BR'));
     salvarContatosValidacaoLocal();
+    S.validationVersion++;
+    if(S.currentTab==='validacaoPos')renderValidacaoPos();
     return true;
   }catch(error){
-    console.error('Falha ao carregar registros do Supabase:',error);
+    console.warn('Registros da Validação indisponíveis:',error);
     return false;
   }
 }
@@ -7712,12 +7670,6 @@ async function saveValidationContact(key,next){
   if(!status){alert('Selecione o status do contato.');return}
   if(status==='Contato realizado'&&!resolvido){alert('Informe se o problema foi resolvido.');return}
   if(!S.validationContacts[key])S.validationContacts[key]={attempts:[]};
-  const actionRequired=document.querySelector('input[name="vpaActionRequired"]:checked')?.value||'Não';
-  const actionComment=document.getElementById('vpaActionComment')?.value.trim()||'';
-  if(actionRequired==='Sim'&&!actionComment){alert('Descreva a ação necessária no campo de comentários.');return}
-  let attachment=null;
-  try{attachment=await vpaReadAttachment(document.getElementById('vpaAttachment'))}catch(error){alert(error.message);return}
-  const currentExisting=editAttemptId?S.validationContacts[key]?.attempts?.find(attempt=>attempt.id===editAttemptId):null;
   const current={
     date:document.getElementById('vpaCallDate').value||new Date().toISOString(),
     responsavel,
@@ -7725,9 +7677,7 @@ async function saveValidationContact(key,next){
     status,
     resolvido:status==='Contato realizado'?resolvido:null,
     observacoes:document.getElementById('vpaNotes').value.trim(),
-    acao:actionRequired,
-    acaoComentario:actionRequired==='Sim'?actionComment:'',
-    anexo:attachment||vpaAttachment(currentExisting)||null,
+    acao:document.getElementById('vpaAction').value.trim(),
     retorno:document.getElementById('vpaReturn').checked
   };
   let editedBy='';
@@ -7790,9 +7740,7 @@ function validationExportRow(row){
   out['Status do contato']=latest?.status||'Pendente';
   out['Problema resolvido']=latest?.resolvido||null;
   out['Observações do contato']=latest?.observacoes||null;
-  out['Ação necessária']=vpaActionValue(latest);
-  out['Comentário da ação']=vpaActionComment(latest)||null;
-  out['Anexo']=vpaAttachment(latest)?.name||null;
+  out['Ação necessária']=latest?.acao||null;
   out['Retorno operacional']=latest?.retorno?'Sim':'Não';
   out['Quantidade de alterações']=revisions.length;
   out['Última alteração em']=lastRevision?fmtDateTime(vpaDate(lastRevision.editedAt)):null;
@@ -7818,9 +7766,7 @@ function exportValidationCases(){
         'Status do Contato':attempt.status||'',
         'Problema Resolvido':attempt.resolvido||'',
         'Observações do Reporte':attempt.observacoes||'',
-        'Ação Necessária':vpaActionValue(attempt),
-        'Comentário da Ação':vpaActionComment(attempt),
-        'Anexo':vpaAttachment(attempt)?.name||'',
+        'Ação Necessária':attempt.acao||'',
         'Retorno Operacional':attempt.retorno?'Sim':'Não'
       });
     }
@@ -9321,16 +9267,9 @@ function abrirAbaSolicitadaPelaUrl(){
 
   if(!permitidas.includes(tab))return;
 
-  const disponivel=
-    tab==='validacaoPos'
-      ? S.validationBase.length>0
-      : tab==='callbackContingencia'
-        ? (S.callbackBase.length>0||S.callbackSourceBase.length>0)
-        : (S.baseCompleta.length>0||S.baseReincidencia.length>0);
-
-  if(disponivel){
-    switchTab(tab);
-  }
+  // Exibe sempre o layout solicitado. As próprias páginas mostram o estado
+  // de carregamento ou ausência de dados sem redirecionar para Importar Base.
+  switchTab(tab);
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
@@ -9353,9 +9292,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 /* ============================================================
    15. INIT
    ============================================================ */
-window.addEventListener('beforeunload', function(e){
-  if(S.baseCompleta.length||S.baseReincidencia.length||S.validationBase.length||S.callbackSourceBase.length||S.callbackBase.length||S.callbackAvisosBase.length){ e.preventDefault(); e.returnValue=''; }
-});
+// Navegação entre páginas liberada sem alerta de saída.
 document.addEventListener('click', ()=>document.querySelectorAll('.fpanel.open').forEach(p=>p.classList.remove('open')));
 
 </script>
