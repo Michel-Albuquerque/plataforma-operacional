@@ -899,6 +899,19 @@ body.action-mode #filterbar{display:none!important}
 .cb-report-status{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;font-size:9.5px;font-weight:850}
 .cb-report-status.pending{background:#fff2d8;color:#855500}
 .cb-report-status.closed{background:#e8eef3;color:#526574}
+
+.cb-situation-badge{
+  display:inline-flex;align-items:center;border-radius:999px;
+  padding:4px 9px;font-size:10px;font-weight:850;white-space:nowrap
+}
+.cb-situation-badge.supply{background:#dff6e9;color:#087443}
+.cb-situation-badge.no-supply{background:#fde7e7;color:#b42318}
+.cb-situation-badge.return{background:#fff1d6;color:#8a5a00}
+.cb-situation-badge.inconclusive{background:#e8eef8;color:#3f5f8a}
+.cb-situation-badge.other{background:#eef1f3;color:#52606d}
+.cb-situation-badge.no-answer{background:#f4e8fb;color:#7b3fa0}
+.cb-situation-badge.pending{background:#f1f3f2;color:#5e6b65}
+
 .cb-report-notes{white-space:normal;min-width:220px;max-width:420px;line-height:1.35}
 
 body.callback-mode #content{padding:14px 18px 22px;background:#eef4f1}
@@ -8544,6 +8557,18 @@ async function cancelarReporteCallback(eventId,key){
   }
 }
 
+
+function callbackSituationClass(value){
+  const normalized=normalizeHeaderKey(value||'');
+  if(normalized==='CLIENTE COM FORNECIMENTO')return 'supply';
+  if(normalized==='CLIENTE SEM FORNECIMENTO')return 'no-supply';
+  if(normalized==='SOLICITA RETORNO')return 'return';
+  if(normalized==='INFORMACAO INCONCLUSIVA')return 'inconclusive';
+  if(normalized==='CLIENTE NAO ATENDEU')return 'no-answer';
+  if(!normalized||normalized==='PENDENTE'||normalized==='SEM CALLBACK')return 'pending';
+  return 'other';
+}
+
 function exportCallbackReports(){
   const rows=callbackAllReportRows().map(item=>({
     'Número da Incidência':item.row[COLCB.numero]||item.key,
@@ -8554,8 +8579,7 @@ function exportCallbackReports(){
     'Cliente Atendeu':item.contact.answered||'',
     'Tipo de Contato':item.contact.contactType||'',
     'Situação Informada':item.contact.situation||'',
-    'Observações':item.contact.notes||'',
-    'Situação Atual':item.pending?'Pendente no Tempo Real':'Encerrada / saiu do Tempo Real'
+    'Observações':item.contact.notes||''
   }));
   if(!rows.length){alert('Ainda não existem reportes registrados.');return}
   exportRowsXlsx(rows,`historico_completo_reportes_callback_${stamp()}.xlsx`,'Reportes');
@@ -8571,9 +8595,8 @@ function renderCallbackReportsTable(){
       <td>${esc(c.analyst||'—')}</td>
       <td>${esc(c.contactType||'—')}</td>
       <td>${esc(c.answered||'—')}</td>
-      <td>${esc(c.situation||'—')}</td>
+      <td><span class="cb-situation-badge ${callbackSituationClass(c.situation)}">${esc(c.situation||'Pendente')}</span></td>
       <td class="cb-report-notes">${esc(c.notes||'—')}</td>
-      <td><span class="cb-report-status ${item.pending?'pending':'closed'}">${item.pending?'PENDENTE':'ENCERRADA'}</span></td>
       <td>${c.__eventoId?`<button class="cb-cancel-report" data-cancel-callback="${esc(c.__eventoId)}" onclick="cancelarReporteCallback('${esc(c.__eventoId)}','${esc(item.key)}')" title="Cancelar somente este reporte">×</button>`:'—'}</td>
     </tr>`;
   }).join('');
@@ -8583,8 +8606,8 @@ function renderCallbackReportsTable(){
       <button class="cb-btn" id="cbExportReports">Exportar reportes</button>
     </div>
     <div class="cb-table-wrap"><table class="cb-table">
-      <thead><tr><th>INCIDÊNCIA</th><th>CLIENTE</th><th>DATA/HORA</th><th>ANALISTA</th><th>TIPO DE CONTATO</th><th>ATENDEU</th><th>SITUAÇÃO</th><th>OBSERVAÇÕES</th><th>STATUS ATUAL</th><th>CANCELAR</th></tr></thead>
-      <tbody>${body||'<tr><td colspan="10" class="cb-table-empty">Nenhum reporte registrado.</td></tr>'}</tbody>
+      <thead><tr><th>INCIDÊNCIA</th><th>CLIENTE</th><th>DATA/HORA</th><th>ANALISTA</th><th>TIPO DE CONTATO</th><th>ATENDEU</th><th>SITUAÇÃO</th><th>OBSERVAÇÕES</th><th>CANCELAR</th></tr></thead>
+      <tbody>${body||'<tr><td colspan="9" class="cb-table-empty">Nenhum reporte registrado.</td></tr>'}</tbody>
     </table></div>
   </section>`;
 }
