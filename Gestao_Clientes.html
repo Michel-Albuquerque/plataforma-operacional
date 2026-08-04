@@ -8153,7 +8153,7 @@ function callbackSubnav(view){
   return `<nav class="cb-subtabs" aria-label="Áreas do Callback Contingência">
     <button class="cb-subtab ${view==='active'?'active':''}" data-callback-view="active">Carteira Ativa</button>
     <button class="cb-subtab ${view==='diagnostic'?'active':''}" data-callback-view="diagnostic">Diagnóstico da Contingência</button>
-    <span class="cb-history-badge">● Tempo Real + telefones dos Avisos · ${fmtNum(S.callbackBase.length)} incidência(s)</span>
+    <span class="cb-history-badge">● Tempo Real soberano + complemento dos Avisos · ${fmtNum(S.callbackBase.length)} incidência(s)</span>
   </nav>`;
 }
 function wireCallbackSubnav(){
@@ -8244,14 +8244,15 @@ function renderCallbackContingencia(){
   if(S.callbackSelectedKey&&!displayRows.some(r=>r.__callbackKey===S.callbackSelectedKey))S.callbackSelectedKey=null;
   const selected=displayRows.find(r=>r.__callbackKey===S.callbackSelectedKey)||null;
   const analysts=callbackAnalystNames(false),activeAnalysts=callbackAnalystNames(true);
-  const eligibleRows=S.callbackBase.filter(callbackHasValidPhone),overall=callbackMetrics(eligibleRows);
+  const eligibleRows=S.callbackBase.filter(callbackHasValidPhone);
+  const overall=callbackMetrics(S.callbackBase);
   const pageSize=Math.max(20,Number(S.callbackPageSize)||20);
   const totalPages=Math.max(1,Math.ceil(displayRows.length/pageSize));
   S.callbackPage=Math.min(Math.max(1,Number(S.callbackPage)||1),totalPages);
   const pageStart=(S.callbackPage-1)*pageSize,pageEnd=Math.min(displayRows.length,pageStart+pageSize);
   const pageRows=displayRows.slice(pageStart,pageEnd);
   const tableRows=pageRows.map(row=>callbackQueueRowHtml(row,selected)).join('');
-  const distributionAverage=activeAnalysts.length?Math.ceil(overall.pending/activeAnalysts.length):0;
+  const distributionAverage=activeAnalysts.length?Math.ceil(eligibleRows.length/activeAnalysts.length):0;
   const lastDistribution=S.callbackLastDistribution?fmtDateTime(parseDateVal(S.callbackLastDistribution)):'Ainda não realizada';
   el.innerHTML=`<div class="cb">
     ${callbackSubnav('active')}
@@ -8445,7 +8446,10 @@ function callbackAllReportRows(){
     const entry=S.callbackHistoryBase[key]||{};
     const activeRow=(S.callbackBase||[]).find(row=>row.__callbackKey===key);
     const row=activeRow||entry.row||{};
-    const contacts=(S.callbackContacts[key]||[]).slice().sort((a,b)=>(parseDateVal(b.date)||0)-(parseDateVal(a.date)||0));
+    const contacts=(S.callbackContacts[key]||[])
+      .filter(contact=>String(contact.__eventoId||'').trim()!=='')
+      .slice()
+      .sort((a,b)=>(parseDateVal(b.date)||0)-(parseDateVal(a.date)||0));
     if(!contacts.length)continue;
     for(const contact of contacts){
       reports.push({
@@ -9378,83 +9382,79 @@ async function carregarBaseLocalhost(mostrarMensagem=false){
   callbackBaseLoading=true;
 
   try{
-    let rows=[];
-    let generatedAt=null;
-    let origem='';
+    const cacheBust=Date.now();
 
-    // Fonte principal: JSON compactado publicado pela automação integrada.
-    try{
-      const response=await fetch(
-        `./dados_clientes/callback.json.gz?t=${Date.now()}`,
-        {cache:'no-store'}
-      );
+    const [modalResponse,callbackResponse]=await Promise.all([
+      fetch(`./dados_emergencia/modal.json.gz?t=${cacheBust}`,{cache:'no-store'}),
+      fetch(`./dados_clientes/callback.json.gz?t=${cacheBust}`,{cache:'no-store'})
+    ]);
 
-      if(!response.ok){
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const payload=await lerJsonGzip(response);
-
-      if(!payload||!Array.isArray(payload.rows)){
-        throw new Error('Estrutura JSON inválida.');
-      }
-
-      rows=payload.rows.map(expandCallbackModalRow);
-      generatedAt=payload.generated_at||null;
-      origem='dados_clientes/callback.json.gz';
-
-    }catch(jsonError){
-      console.warn(
-        'Base consolidada do Callback indisponível.',
-        jsonError
-      );
-
-      throw new Error('Arquivo público dados_clientes/callback.json.gz não encontrado no GitHub.');
-
-      if(!response.ok){
-        throw new Error(
-          `JSON e Excel indisponíveis: HTTP ${response.status}`
-        );
-      }
-
-      const buffer=await response.arrayBuffer();
-
-      if(typeof XLSX==='undefined'){
-        throw new Error('Biblioteca XLSX não carregada.');
-      }
-
-      const workbook=XLSX.read(
-        buffer,
-        {type:'array',cellDates:true}
-      );
-
-      const preferred=
-        workbook.SheetNames.find(
-          name=>normalizeHeaderKey(name).includes('BASE HTML')
-        )||
-        workbook.SheetNames.find(
-          name=>normalizeHeaderKey(name).includes('BASE PRONTA')
-        )||
-        workbook.SheetNames[0];
-
-      rows=XLSX.utils.sheet_to_json(
-        workbook.Sheets[preferred],
-        {defval:''}
-      );
-
-      origem='base_pronta_html.xlsx';
+    if(!modalResponse.ok){
+      throw new Error(`Tempo Real indisponível: HTTP ${modalResponse.status}`);
     }
 
-    // A carteira é reconstruída pela fotografia atual, enquanto contatos,
-    // analistas, atribuições e histórico permanecem carregados do servidor.
+    const modalPayload=await lerJsonGzip(modalResponse);
+    if(!modalPayload||!Array.isArray(modalPayload.rows)){
+      throw new Error('Estrutura do Tempo Real inválida.');
+    }
+
+    let complementoRows=[];
+    if(callbackResponse.ok){
+      try{
+        const callbackPayload=await lerJsonGzip(callbackResponse);
+        if(callbackPayload&&Array.isArray(callbackPayload.rows)){
+          complementoRows=callbackPayload.rows;
+        }
+      }catch(error){
+        console.warn('Complemento de Avisos indisponível.',error);
+      }
+    }
+
+    const complementoPorIncidencia=new Map();
+
+    for(const original of complementoRows){
+      const row=expandCallbackModalRow(original);
+      const key=normalizeCallbackKey(
+        callbackReadyValue(row,['Chave_Incidencia',COLCB.numero,'Número da Incidência'])
+      );
+      if(key)complementoPorIncidencia.set(key,row);
+    }
+
+    const rows=[];
+    const vistos=new Set();
+
+    for(const original of modalPayload.rows){
+      const modal=expandCallbackModalRow(original);
+      const key=normalizeCallbackKey(
+        callbackReadyValue(modal,['Chave_Incidencia',COLCB.numero,'Número da Incidência'])
+      );
+
+      if(!key||vistos.has(key))continue;
+      vistos.add(key);
+
+      const complemento=complementoPorIncidencia.get(key)||{};
+      const merged={...complemento};
+
+      for(const [campo,valor] of Object.entries(modal)){
+        if(valor!==undefined&&valor!==null&&String(valor).trim()!==''){
+          merged[campo]=valor;
+        }
+      }
+
+      merged.Chave_Incidencia=key;
+      merged[COLCB.numero]=merged[COLCB.numero]||key;
+      merged.Status_Carteira='ATIVA';
+      rows.push(merged);
+    }
+
     processCallbackReadyRows(
       rows,
-      origem,
+      'Tempo Real + Avisos',
       {silent:true,openTab:false}
     );
 
-    if(generatedAt){
-      const dataGeracao=new Date(generatedAt);
+    if(modalPayload.generated_at){
+      const dataGeracao=new Date(modalPayload.generated_at);
       if(!Number.isNaN(dataGeracao.getTime())){
         S.callbackProcessedAt=dataGeracao;
       }
@@ -9465,7 +9465,7 @@ async function carregarBaseLocalhost(mostrarMensagem=false){
     callbackPendingSeen.clear();
     await sincronizarApontamentosPendentes();
 
-    callbackNextRefresh=Date.now()+300000;
+    callbackNextRefresh=Date.now()+60000;
     startCallbackCountdown();
 
     if(S.currentTab==='callbackContingencia'){
@@ -9474,26 +9474,17 @@ async function carregarBaseLocalhost(mostrarMensagem=false){
 
     if(mostrarMensagem){
       callbackToast(
-        `Callback atualizado: ${fmtNum(rows.length)} registro(s).`
+        `${fmtNum(S.callbackBase.length)} incidência(s) atuais carregadas do Tempo Real e complementadas pelos Avisos.`
       );
     }
 
     return true;
-
   }catch(error){
-    console.error(
-      'Falha ao carregar base automática do Callback:',
-      error
-    );
-
+    console.error('Falha ao carregar Callback:',error);
     if(mostrarMensagem){
-      callbackToast(
-        `Falha na atualização do Callback: ${error.message}`
-      );
+      alert(`Não foi possível atualizar o Callback.\n\n${error.message}`);
     }
-
     return false;
-
   }finally{
     callbackBaseLoading=false;
   }
