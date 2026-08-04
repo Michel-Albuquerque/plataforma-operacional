@@ -878,6 +878,14 @@ body.action-mode #content{padding:14px 18px 28px;background:#f3f6f4}
 @media(max-width:760px){body.action-mode #content{padding:8px}.action-head{align-items:flex-start;flex-direction:column}.action-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.action-toolbar{grid-template-columns:1fr 1fr}.action-card{grid-template-columns:1fr}.action-thumb{height:150px}.action-meta{grid-template-columns:1fr 1fr}.action-side{grid-template-columns:1fr}.action-form-grid{grid-template-columns:1fr}.action-field.full{grid-column:auto}.action-attachments{grid-template-columns:1fr 1fr}}
 
 /* Callback Contingência */
+/* Tabela permanente de reportes do Callback */
+.cb-reports-card{margin-top:14px}
+.cb-reports-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.cb-report-status{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;font-size:9.5px;font-weight:850}
+.cb-report-status.pending{background:#fff2d8;color:#855500}
+.cb-report-status.closed{background:#e8eef3;color:#526574}
+.cb-report-notes{white-space:normal;min-width:220px;max-width:420px;line-height:1.35}
+
 body.callback-mode #content{padding:14px 18px 22px;background:#eef4f1}
 .cb{display:grid;gap:12px;color:var(--ink);min-width:0}.cb-head{display:flex;align-items:center;gap:14px}.cb-head .copy{flex:1;min-width:0}.cb-head h2{font:700 24px var(--font-display);margin:0}.cb-head p{font-size:11px;color:var(--ink-faint);margin:3px 0 0}.cb-actions{display:flex;gap:7px;flex-wrap:wrap}.cb-btn{height:34px;border:1px solid var(--border);border-radius:8px;background:#fff;padding:0 12px;color:var(--ink);font:700 10px var(--font-ui);cursor:pointer}.cb-btn:hover{border-color:#008556}.cb-btn.primary{background:#008556;color:#fff;border-color:#008556}.cb-btn.danger{color:#c93636}.cb-update{font-size:9px;color:var(--ink-faint);text-align:right}.cb-update b{display:block;color:#007e5b;font-size:13px;margin-top:2px}
 .cb-filterbar{display:grid;grid-template-columns:1.05fr 1.05fr .8fr 1fr .8fr .8fr .8fr 1.25fr auto;gap:7px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px;align-items:end}.cb-filter label{display:block;font-size:7.5px;font-weight:800;color:#7b8b84;margin:0 0 3px}.cb-filter select,.cb-filter input{width:100%;height:34px;border:1px solid #d2ddd8;border-radius:7px;background:#fff;padding:0 8px;font:500 10px var(--font-ui);color:var(--ink);outline:none}.cb-filter input:focus,.cb-filter select:focus{border-color:#008556;box-shadow:0 0 0 2px rgba(0,133,86,.08)}
@@ -8230,7 +8238,7 @@ function renderCallbackContingencia(){
   const lastDistribution=S.callbackLastDistribution?fmtDateTime(parseDateVal(S.callbackLastDistribution)):'Ainda não realizada';
   el.innerHTML=`<div class="cb">
     ${callbackSubnav('active')}
-    <div class="cb-head"><div class="copy"><h2>Callback Contingência</h2><p>Central operacional de contato, distribuição de carteira e confirmação do fornecimento</p></div><div class="cb-actions"><button class="cb-btn" id="cbReload">↻ Atualizar base</button><button class="cb-btn" id="cbManage">Gerenciar analistas</button><button class="cb-btn" id="cbExport">Exportar fila</button></div></div>
+    <div class="cb-head"><div class="copy"><h2>Callback Contingência</h2><p>Central operacional de contato, distribuição de carteira e confirmação do fornecimento</p></div><div class="cb-actions"><button class="cb-btn" id="cbReload">↻ Atualizar base</button><button class="cb-btn" id="cbManage">Gerenciar analistas</button><button class="cb-btn" id="cbExport">Baixar pendentes com reporte</button></div></div>
     <section class="cb-portfolio">
       <div class="cb-portfolio-title"><small>CARTEIRA ATUAL</small><h3>Distribuição por carga aberta</h3><span class="cb-auto-badge">● Balanceamento dinâmico ativo</span></div>
       <div class="cb-portfolio-metric"><small>PENDENTES</small><b>${fmtNum(overall.pending)}</b><span>incidências abertas</span></div>
@@ -8411,6 +8419,71 @@ function renderCallbackRegister(row){
     <div class="cb-history">${history.length?history.slice(0,4).map(h=>`<div><b>${fmtDateTime(parseDateVal(h.date))}</b> · ${esc(h.analyst||'Sem responsável')} · ${esc(h.situation||'Sem situação')} · ${esc(h.contactType||'')}</div>`).join(''):'<div>Nenhum contato registrado.</div>'}</div>
   </aside>`;
 }
+
+function callbackAllReportRows(){
+  const activeKeys=new Set((S.callbackBase||[]).map(row=>row.__callbackKey));
+  const keys=new Set([...Object.keys(S.callbackHistoryBase||{}),...Object.keys(S.callbackContacts||{})]);
+  const reports=[];
+  for(const key of keys){
+    const entry=S.callbackHistoryBase[key]||{};
+    const activeRow=(S.callbackBase||[]).find(row=>row.__callbackKey===key);
+    const row=activeRow||entry.row||{};
+    const contacts=(S.callbackContacts[key]||[]).slice().sort((a,b)=>(parseDateVal(b.date)||0)-(parseDateVal(a.date)||0));
+    for(const contact of contacts){
+      reports.push({
+        key,
+        row,
+        contact,
+        pending:activeKeys.has(key)
+      });
+    }
+  }
+  return reports.sort((a,b)=>(parseDateVal(b.contact.date)||0)-(parseDateVal(a.contact.date)||0));
+}
+function exportCallbackReports(){
+  const rows=callbackAllReportRows().map(item=>({
+    'Número da Incidência':item.row[COLCB.numero]||item.key,
+    'Número do Cliente':item.row.__client||'',
+    'Nome do Cliente':item.row.__clientName||'',
+    'Data e Hora do Reporte':fmtDateTime(parseDateVal(item.contact.date)),
+    'Analista':item.contact.analyst||'',
+    'Cliente Atendeu':item.contact.answered||'',
+    'Tipo de Contato':item.contact.contactType||'',
+    'Situação Informada':item.contact.situation||'',
+    'Observações':item.contact.notes||'',
+    'Situação Atual':item.pending?'Pendente no Tempo Real':'Encerrada / saiu do Tempo Real'
+  }));
+  if(!rows.length){alert('Ainda não existem reportes registrados.');return}
+  exportRowsXlsx(rows,`historico_completo_reportes_callback_${stamp()}.xlsx`,'Reportes');
+}
+function renderCallbackReportsTable(){
+  const reports=callbackAllReportRows();
+  const body=reports.map(item=>{
+    const row=item.row||{},c=item.contact||{};
+    return `<tr>
+      <td>${esc(row[COLCB.numero]||item.key||'—')}</td>
+      <td>${esc(row.__client||'—')}</td>
+      <td>${fmtDateTime(parseDateVal(c.date))}</td>
+      <td>${esc(c.analyst||'—')}</td>
+      <td>${esc(c.contactType||'—')}</td>
+      <td>${esc(c.answered||'—')}</td>
+      <td>${esc(c.situation||'—')}</td>
+      <td class="cb-report-notes">${esc(c.notes||'—')}</td>
+      <td><span class="cb-report-status ${item.pending?'pending':'closed'}">${item.pending?'PENDENTE':'ENCERRADA'}</span></td>
+    </tr>`;
+  }).join('');
+  return `<section class="cb-card cb-reports-card">
+    <div class="cb-reports-toolbar">
+      <div><h3 style="margin:0">Tabela de Reportes</h3><p style="margin:3px 0 0;color:var(--ink-faint)">Histórico permanente, inclusive para incidências que já saíram do Tempo Real</p></div>
+      <button class="cb-btn" id="cbExportReports">Exportar reportes</button>
+    </div>
+    <div class="cb-table-wrap"><table class="cb-table">
+      <thead><tr><th>INCIDÊNCIA</th><th>CLIENTE</th><th>DATA/HORA</th><th>ANALISTA</th><th>TIPO DE CONTATO</th><th>ATENDEU</th><th>SITUAÇÃO</th><th>OBSERVAÇÕES</th><th>STATUS ATUAL</th></tr></thead>
+      <tbody>${body||'<tr><td colspan="9" class="cb-table-empty">Nenhum reporte registrado.</td></tr>'}</tbody>
+    </table></div>
+  </section>`;
+}
+
 function renderCallbackBottom(rows){
   const workload=callbackAnalystWorkload(rows);
   const workloadRows=workload.length?workload.map(item=>`<tr><td class="analyst">${esc(item.name)} ${item.active?'':'<span class="cb-status">INATIVO</span>'}</td><td class="cb-work-total">${fmtNum(item.total)}</td><td class="cb-work-done">${fmtNum(item.supply)}</td><td class="cb-work-nosupply">${fmtNum(item.noSupply)}</td><td class="cb-work-open">${fmtNum(item.pendingContact)}</td><td><span class="cb-treated-rate">${fmtPct(item.treatedPct)}</span></td></tr>`).join(''):`<tr><td colspan="6" class="cb-table-empty">Nenhuma carteira distribuída no filtro atual.</td></tr>`;
@@ -8419,7 +8492,7 @@ function renderCallbackBottom(rows){
       <div class="cb-ranking-head"><div><h3>Carteira por Analista</h3><p>Gestão da carteira, avanço das tratativas e situação informada pelos clientes</p></div><span class="cb-status">${fmtNum(workload.length)} analista(s)</span></div>
       <table class="cb-ranking-table"><thead><tr><th>Analista</th><th>Total na Carteira</th><th>Com Fornecimento</th><th>Sem Fornecimento</th><th>Pendente de Ligação</th><th>% Carteira Tratada</th></tr></thead><tbody>${workloadRows}</tbody></table>
     </section>
-  </div>`;
+  </div>${renderCallbackReportsTable()}`;
 }
 function wireCallbackEvents(){
   wireCallbackSubnav();
@@ -8439,6 +8512,7 @@ function wireCallbackEvents(){
   ['cbManage','cbManageBottom'].forEach(id=>{const b=document.getElementById(id);if(b)b.onclick=openCallbackAnalystManager});
   const expManual=document.getElementById('cbExportManual');if(expManual)expManual.onclick=exportCallbackManualSnapshot;
   const exp=document.getElementById('cbExport');if(exp)exp.onclick=exportCallbackQueue;
+  const expReports=document.getElementById('cbExportReports');if(expReports)expReports.onclick=exportCallbackReports;
   const pagePrev=document.getElementById('cbPagePrev');if(pagePrev)pagePrev.onclick=()=>{S.callbackPage=Math.max(1,S.callbackPage-1);S.callbackVersion++;renderCallbackContingencia()};
   const pageNext=document.getElementById('cbPageNext');if(pageNext)pageNext.onclick=()=>{S.callbackPage++;S.callbackVersion++;renderCallbackContingencia()};
   const loadMore=document.getElementById('cbLoadMore');if(loadMore)loadMore.onclick=()=>{S.callbackPageSize=(Number(S.callbackPageSize)||20)+20;S.callbackPage=1;S.callbackVersion++;renderCallbackContingencia()};
@@ -8521,11 +8595,14 @@ function openCallbackAnalystManager(){
   };
 }
 function exportCallbackQueue(){
-  const rows=getFilteredCallback().map(row=>{
-    const latest=callbackLatest(row),phones=callbackValidPhones(row);
-    return {'Número da Incidência':row[COLCB.numero],'Número do Cliente':row.__client,'Nome do Cliente':row.__clientName,'Data da Incidência':fmtDateTime(row.__data),'Duração':callbackDurationLabel(row.__durationMinutes),'Nível de Tensão':row.__tension,'Cli Af Atual':row.__cliAfAtual,'Nº Avisos':row.__avisos,'Ponto Elétrico':row[COLCB.pontoEletrico],'ConH / COMH':callbackAvisoValue(row,['ConH','COMH','ComH']),'Equipe':row[COLCB.equipe],'Status Operacional':row[COLCB.statusExecucao],'Telefone 1':phones[0]?callbackPhoneDisplay(phones[0]):'','Telefone 2':phones[1]?callbackPhoneDisplay(phones[1]):'','Demais Telefones':phones.slice(2).map(callbackPhoneDisplay).join(' | '),'Quantidade de Tentativas':callbackHistory(row).length,'Data do Último Contato':latest?fmtDateTime(parseDateVal(latest.date)):'','Cliente Atendeu':latest?.answered||'','Tipo de Contato':latest?.contactType||'','Último Status':latest?.situation||'Pendente','Observações':latest?.notes||'','Analista':S.callbackAssignments[row.__callbackKey]||''};
-  });
-  exportRowsXlsx(rows,`fila_callback_contingencia_${stamp()}.xlsx`,'Fila Callback');
+  const rows=getFilteredCallback()
+    .filter(row=>callbackHistory(row).length>0)
+    .map(row=>{
+      const latest=callbackLatest(row),phones=callbackValidPhones(row);
+      return {'Número da Incidência':row[COLCB.numero],'Número do Cliente':row.__client,'Nome do Cliente':row.__clientName,'Data da Incidência':fmtDateTime(row.__data),'Duração':callbackDurationLabel(row.__durationMinutes),'Nível de Tensão':row.__tension,'Cli Af Atual':row.__cliAfAtual,'Nº Avisos':row.__avisos,'Ponto Elétrico':row[COLCB.pontoEletrico],'ConH / COMH':callbackAvisoValue(row,['ConH','COMH','ComH']),'Equipe':row[COLCB.equipe],'Status Operacional':row[COLCB.statusExecucao],'Telefone 1':phones[0]?callbackPhoneDisplay(phones[0]):'','Telefone 2':phones[1]?callbackPhoneDisplay(phones[1]):'','Demais Telefones':phones.slice(2).map(callbackPhoneDisplay).join(' | '),'Quantidade de Tentativas':callbackHistory(row).length,'Data do Último Contato':latest?fmtDateTime(parseDateVal(latest.date)):'','Cliente Atendeu':latest?.answered||'','Tipo de Contato':latest?.contactType||'','Último Status':latest?.situation||'Pendente','Observações':latest?.notes||'','Analista':S.callbackAssignments[row.__callbackKey]||''};
+    });
+  if(!rows.length){alert('Nenhuma incidência pendente com reporte no filtro atual.');return}
+  exportRowsXlsx(rows,`pendentes_callback_com_reporte_${stamp()}.xlsx`,'Pendentes com Reporte');
 }
 function callbackHistoricalEntries(){
   return Object.values(S.callbackHistoryBase||{}).map(entry=>{
