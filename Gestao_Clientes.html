@@ -8437,6 +8437,7 @@ function callbackAllReportRows(){
     const entry=S.callbackHistoryBase[key]||{};
     const activeRow=(S.callbackBase||[]).find(row=>row.__callbackKey===key);
     const row=activeRow||entry.row||{};
+    if(!callbackHasOperationalReportStatus(row))continue;
     const contacts=(S.callbackContacts[key]||[]).slice().sort((a,b)=>(parseDateVal(b.date)||0)-(parseDateVal(a.date)||0));
     for(const contact of contacts){
       reports.push({
@@ -8646,7 +8647,7 @@ function callbackHistoricalEntries(){
     row.__avisos=callbackNumber(row.__avisos!=null?row.__avisos:row[COLCB.avisos]);
     row.__cliAfAtual=callbackNumber(row.__cliAfAtual!=null?row.__cliAfAtual:row[COLCB.cliAfAtual])||0;
     return {...entry,key:row.__callbackKey,row,firstSeen:parseDateVal(entry.firstSeen),lastSeen:parseDateVal(entry.lastSeen),closedAt:parseDateVal(entry.closedAt)};
-  }).filter(entry=>entry.key);
+  }).filter(entry=>entry.key&&callbackHasOperationalReportStatus(entry.row));
 }
 function callbackDiagnosticComh(row){
   const value=callbackAvisoValue(row,['ConH','CONH','COMH','ComH','Comh']);
@@ -9155,7 +9156,7 @@ async function carregarValidacaoLocalhost(mostrarMensagem=false){
         throw new Error('Estrutura JSON inválida.');
       }
 
-      rows=payload.rows;
+      rows=payload.rows.map(expandCallbackModalRow);
       generatedAt=payload.generated_at||null;
       origem='dados_clientes/validacao.json.gz';
 
@@ -9240,6 +9241,66 @@ async function carregarValidacaoLocalhost(mostrarMensagem=false){
   }finally{
     validationBaseLoading=false;
   }
+}
+
+
+function expandCallbackModalRow(row){
+  if(!row||typeof row!=='object')return {};
+  const map={
+    n:'Número',
+    st:'Estado',
+    di:'Data',
+    dp:'Data Previsão',
+    du:'Duração',
+    tp:'Tipo',
+    su:'Sucursal',
+    pe:'Ponto Elétrico',
+    al:'Alimentador',
+    nt:'Nivel de Tensão',
+    pr:'Prioridade',
+    av:'Nº Avisos',
+    cc:'Cli Af Atual',
+    c24:'Cli Af. > 24hs Atual',
+    c3n:'Cli Norm < 3 Min',
+    c3:'Cli Af > 3 min',
+    ch:'ConH',
+    rc:'Risco Compen',
+    eq:'Equipe',
+    se:'Status Execução',
+    tr:'Tipo Reclamação',
+    ca:'Causa',
+    cd:'CD',
+    osm:'OSM',
+    tmp:'TMP',
+    tmd:'TMD',
+    tme:'TME',
+    tma:'TMA',
+    tpv:'TMA Previsto',
+    cb:'Callback',
+    ob:'Observação',
+    pc:'Processos',
+    pc2:'Processo'
+  };
+  const expanded={...row};
+  for(const [shortKey,longKey] of Object.entries(map)){
+    if(Object.prototype.hasOwnProperty.call(row,shortKey) &&
+       !Object.prototype.hasOwnProperty.call(expanded,longKey)){
+      expanded[longKey]=row[shortKey];
+    }
+  }
+  return expanded;
+}
+function callbackStatusValue(row){
+  return String(
+    row?.Callback ??
+    row?.callback ??
+    row?.cb ??
+    ''
+  ).trim();
+}
+function callbackHasOperationalReportStatus(row){
+  const status=normalizeHeaderKey(callbackStatusValue(row));
+  return Boolean(status) && status!=='SEM CALLBACK';
 }
 
 let callbackBaseLoading=false;
