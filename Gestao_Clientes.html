@@ -7968,7 +7968,6 @@ function getFilteredCallback(){
   const f=S.callbackFilters||makeCallbackFilters();
   const q=String(f.search||'').trim().toUpperCase();
   return S.callbackBase.filter(row=>{
-    if(!callbackHasValidPhone(row))return false;
     const latest=callbackLatest(row),situation=latest&&latest.situation?latest.situation:'Pendente';
     const assigned=S.callbackAssignments[row.__callbackKey]||'';
     if(f.analyst&&assigned!==f.analyst)return false;
@@ -8145,7 +8144,7 @@ function callbackSubnav(view){
   return `<nav class="cb-subtabs" aria-label="Áreas do Callback Contingência">
     <button class="cb-subtab ${view==='active'?'active':''}" data-callback-view="active">Carteira Ativa</button>
     <button class="cb-subtab ${view==='diagnostic'?'active':''}" data-callback-view="diagnostic">Diagnóstico da Contingência</button>
-    <span class="cb-history-badge">● Histórico permanente · ${fmtNum(historyCount)} incidência(s)</span>
+    <span class="cb-history-badge">● Fotografia atual do Tempo Real · ${fmtNum(S.callbackBase.length)} incidência(s)</span>
   </nav>`;
 }
 function wireCallbackSubnav(){
@@ -8216,7 +8215,7 @@ function renderCallbackContingencia(){
   const subtitle=document.getElementById('pageSubtitle');if(subtitle)subtitle.textContent=S.callbackView==='diagnostic'?'Diagnóstico gerencial, histórico permanente e efetividade da contingência':'Carteira Ativa operacional para confirmação do fornecimento';
   if(S.callbackView==='diagnostic'){renderCallbackDiagnostic(el);return}
   if(!S.callbackBase.length){
-    el.innerHTML=`<div class="cb">${callbackSubnav('active')}<div class="cb-head"><div class="copy"><h2>Callback Contingência</h2><p>Carteira Ativa operacional</p></div><div class="cb-actions"><button class="cb-btn primary" id="cbReloadEmpty">↻ Atualizar base</button></div></div><div class="card" style="padding:55px;text-align:center"><h3>Nenhuma incidência ativa na fotografia atual</h3><p style="color:var(--ink-faint)">A carteira é carregada automaticamente pela automação integrada. Incidências ausentes na nova fotografia deixam a Carteira Ativa, mas contatos, analistas, atribuições e histórico permanecem preservados.</p><button class="cb-btn primary" id="cbReloadEmpty2" style="margin-top:14px">Atualizar agora</button></div></div>`;
+    el.innerHTML=`<div class="cb">${callbackSubnav('active')}<div class="cb-head"><div class="copy"><h2>Callback Contingência</h2><p>Carteira Ativa operacional</p></div><div class="cb-actions"><button class="cb-btn primary" id="cbReloadEmpty">↻ Atualizar base</button></div></div><div class="card" style="padding:55px;text-align:center"><h3>Nenhuma incidência disponível na fotografia atual</h3><p style="color:var(--ink-faint)">A carteira é carregada automaticamente pela automação integrada. Incidências ausentes na nova fotografia deixam a Carteira Ativa, mas contatos, analistas, atribuições e histórico permanecem preservados.</p><button class="cb-btn primary" id="cbReloadEmpty2" style="margin-top:14px">Atualizar agora</button></div></div>`;
     wireCallbackSubnav();
     ['cbReloadEmpty','cbReloadEmpty2'].forEach(id=>{
       const botao=document.getElementById(id);
