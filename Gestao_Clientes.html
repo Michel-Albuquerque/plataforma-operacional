@@ -1652,9 +1652,37 @@ async function salvarCallbackOperacaoLocal(){
     historyBase:S.callbackHistoryBase,transitions:S.callbackTransitions,
     updatedAt:new Date()
   });
+
   try{
-    await fetch('/api/estado-callback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({analysts:S.callbackAnalysts,assignments:S.callbackAssignments,lastDistribution:S.callbackLastDistribution})});
-  }catch(error){console.warn('Persistência do estado no servidor indisponível:',error)}
+    const payload={
+      id:1,
+      analistas:S.callbackAnalysts||[],
+      atribuicoes:S.callbackAssignments||{},
+      ultima_distribuicao:S.callbackLastDistribution
+        ? new Date(S.callbackLastDistribution).toISOString()
+        : null,
+      atualizado_em:new Date().toISOString()
+    };
+
+    const response=await fetch(
+      `${SUPABASE_URL}/rest/v1/estado_callback`,
+      {
+        method:'POST',
+        headers:{
+          ...SUPABASE_HEADERS,
+          'Prefer':'resolution=merge-duplicates,return=minimal'
+        },
+        body:JSON.stringify(payload)
+      }
+    );
+
+    if(!response.ok){
+      const result=await response.json().catch(()=>({}));
+      throw new Error(result?.message||`HTTP ${response.status}`);
+    }
+  }catch(error){
+    console.warn('Persistência do estado do Callback no Supabase indisponível:',error);
+  }
 }
 async function tentarRestaurarDoLocal(){
   setLoading(true, 'Carregando base salva…', 'Você já tinha importado dados antes — recuperando automaticamente', 30);
@@ -8909,15 +8937,41 @@ function startCallbackCountdown(){
 
 async function carregarEstadoCallbackServidor(){
   try{
-    const response=await fetch(`/api/estado-callback?t=${Date.now()}`,{cache:'no-store'});
-    if(!response.ok)return false;
-    const result=await response.json();if(!result.ok)return false;
-    const estado=result.estado||{};
-    if(Array.isArray(estado.analysts)&&estado.analysts.length)S.callbackAnalysts=estado.analysts;
-    if(estado.assignments&&typeof estado.assignments==='object')S.callbackAssignments={...S.callbackAssignments,...estado.assignments};
-    if(estado.lastDistribution)S.callbackLastDistribution=parseDateVal(estado.lastDistribution)||estado.lastDistribution;
+    const response=await fetch(
+      `${SUPABASE_URL}/rest/v1/estado_callback?id=eq.1&select=*`,
+      {
+        cache:'no-store',
+        headers:SUPABASE_HEADERS
+      }
+    );
+
+    if(!response.ok){
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result=await response.json();
+    const estado=Array.isArray(result)?result[0]:null;
+    if(!estado)return false;
+
+    if(Array.isArray(estado.analistas)&&estado.analistas.length){
+      S.callbackAnalysts=estado.analistas;
+    }
+
+    if(estado.atribuicoes&&typeof estado.atribuicoes==='object'){
+      S.callbackAssignments={...estado.atribuicoes};
+    }
+
+    if(estado.ultima_distribuicao){
+      S.callbackLastDistribution=
+        parseDateVal(estado.ultima_distribuicao)||
+        estado.ultima_distribuicao;
+    }
+
     return true;
-  }catch(error){console.warn('Estado callback indisponível:',error);return false}
+  }catch(error){
+    console.warn('Estado do Callback no Supabase indisponível:',error);
+    return false;
+  }
 }
 
 
