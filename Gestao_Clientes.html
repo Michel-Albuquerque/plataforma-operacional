@@ -878,6 +878,12 @@ body.action-mode #content{padding:14px 18px 28px;background:#f3f6f4}
 @media(max-width:760px){body.action-mode #content{padding:8px}.action-head{align-items:flex-start;flex-direction:column}.action-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.action-toolbar{grid-template-columns:1fr 1fr}.action-card{grid-template-columns:1fr}.action-thumb{height:150px}.action-meta{grid-template-columns:1fr 1fr}.action-side{grid-template-columns:1fr}.action-form-grid{grid-template-columns:1fr}.action-field.full{grid-column:auto}.action-attachments{grid-template-columns:1fr 1fr}}
 
 /* Callback Contingência */
+
+/* Isolamento visual entre módulos */
+body.callback-mode #filterbar,
+body.vpa-mode #filterbar,
+body.action-mode #filterbar{display:none!important}
+
 /* Tabela permanente de reportes do Callback */
 .cb-reports-card{margin-top:14px}
 .cb-reports-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
@@ -2497,8 +2503,10 @@ function processCallbackReadyRows(rows,fileName,options={}){
       if(!exists)S.callbackContacts[key].push({date:contactDate||now,answered,contactType,situation,analyst,notes,importedFromReadyBase:true});
     }
   }
+  // A Carteira Ativa é exatamente a fotografia atual do Tempo Real.
+  // Elegibilidade permanece apenas como atributo/filtro, sem adicionar ou preservar linhas.
   S.callbackSourceBase=activeRows.map(callbackCleanRow);
-  S.callbackBase=eligibleRows;
+  S.callbackBase=activeRows;
   S.callbackFileName=fileName;
   S.callbackProcessedAt=now;
   S.callbackStats=stats;
@@ -3303,8 +3311,11 @@ function switchTab(tab){
   document.getElementById('panel-'+tab).classList.add('active');
   document.getElementById('pageTitle').textContent = TAB_META[tab].title;
   document.getElementById('pageSubtitle').textContent = TAB_META[tab].sub;
-  document.getElementById('filterbar').classList.toggle('hidden', tab==='upload'||tab==='diagnostico'||tab==='validacaoPos'||tab==='acao'||tab==='callbackContingencia');
-  if(S.filtersByTab[tab]&&tab!=='diagnostico'&&tab!=='validacaoPos'&&tab!=='acao') renderFilterBar();
+  const filterbar=document.getElementById('filterbar');
+  const hideGlobalFilters=tab==='upload'||tab==='diagnostico'||tab==='validacaoPos'||tab==='acao'||tab==='callbackContingencia';
+  filterbar.classList.toggle('hidden',hideGlobalFilters);
+  filterbar.style.display=hideGlobalFilters?'none':'';
+  if(S.filtersByTab[tab]&&!hideGlobalFilters) renderFilterBar();
   renderTopbarActions(tab);
   rerenderActiveTab();
 }
@@ -8202,7 +8213,13 @@ function renderCallbackSupply(el){
     </section></div>`;
   wireCallbackEvents();
 }
+function callbackHideForeignFilters(){
+  const bar=document.getElementById('filterbar');
+  if(bar){bar.classList.add('hidden');bar.style.display='none'}
+}
+
 function renderCallbackContingencia(){
+  callbackHideForeignFilters();
   const el=document.getElementById('panel-callbackContingencia');if(!el)return;
   const subtitle=document.getElementById('pageSubtitle');if(subtitle)subtitle.textContent=S.callbackView==='diagnostic'?'Diagnóstico gerencial, histórico permanente e efetividade da contingência':'Carteira Ativa operacional para confirmação do fornecimento';
   if(S.callbackView==='diagnostic'){renderCallbackDiagnostic(el);return}
