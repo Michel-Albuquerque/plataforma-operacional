@@ -8437,8 +8437,8 @@ function callbackAllReportRows(){
     const entry=S.callbackHistoryBase[key]||{};
     const activeRow=(S.callbackBase||[]).find(row=>row.__callbackKey===key);
     const row=activeRow||entry.row||{};
-    if(!callbackHasOperationalReportStatus(row))continue;
     const contacts=(S.callbackContacts[key]||[]).slice().sort((a,b)=>(parseDateVal(b.date)||0)-(parseDateVal(a.date)||0));
+    if(!contacts.length)continue;
     for(const contact of contacts){
       reports.push({
         key,
@@ -8647,7 +8647,11 @@ function callbackHistoricalEntries(){
     row.__avisos=callbackNumber(row.__avisos!=null?row.__avisos:row[COLCB.avisos]);
     row.__cliAfAtual=callbackNumber(row.__cliAfAtual!=null?row.__cliAfAtual:row[COLCB.cliAfAtual])||0;
     return {...entry,key:row.__callbackKey,row,firstSeen:parseDateVal(entry.firstSeen),lastSeen:parseDateVal(entry.lastSeen),closedAt:parseDateVal(entry.closedAt)};
-  }).filter(entry=>entry.key&&callbackHasOperationalReportStatus(entry.row));
+  }).filter(entry=>{
+    if(!entry.key)return false;
+    const possuiReporte=(S.callbackContacts[entry.key]||[]).length>0;
+    return possuiReporte||callbackHasOperationalReportStatus(entry.row);
+  });
 }
 function callbackDiagnosticComh(row){
   const value=callbackAvisoValue(row,['ConH','CONH','COMH','ComH','Comh']);
@@ -9331,7 +9335,7 @@ async function carregarBaseLocalhost(mostrarMensagem=false){
         throw new Error('Estrutura JSON inválida.');
       }
 
-      rows=payload.rows;
+      rows=payload.rows.map(expandCallbackModalRow);
       generatedAt=payload.generated_at||null;
       origem='dados_emergencia/modal.json.gz';
 
