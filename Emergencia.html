@@ -6018,6 +6018,7 @@ function renderRealtime(){
       {label:'Incidência',value:r=>r.number},
       {label:'NT',value:r=>r.ntRaw||'---'},
       {label:'Equipe',value:r=>r.team||r.teamAssigned||'---'},
+      {label:'OSM',sortValue:r=>isOsm(r)?1:0,html:r=>badge(isOsm(r)?'SIM':'NÃO',isOsm(r)?'blue':'neutral')},
       {label:'AL',value:r=>r.feeder||'---'},
       {label:'Duração',value:r=>`${fmt1(realtimeAgeHours(r,now))}h`,sortValue:r=>realtimeAgeHours(r,now),class:'num'},
       {label:'Afetação',value:r=>fmtInt(r.clientsCurrent),sortValue:r=>Number(r.clientsCurrent)||0,class:'num impact-value'}
