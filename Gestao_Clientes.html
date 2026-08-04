@@ -8579,19 +8579,42 @@ async function saveCallbackContact(){
     Data_Ultimo_Contato:sentAt.toISOString()
   };
   try{
-    const response=await fetch('/api/apontamento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const result=await response.json();
-    if(!response.ok||!result.ok)throw new Error(result.error||'Falha ao salvar no servidor.');
+    const supabasePayload={
+      chave_incidencia:String(row.__callbackKey||''),
+      numero_incidencia:String(row[COLCB.numero]||row.__callbackKey||''),
+      analista:analyst,
+      cliente_atendeu:answered,
+      tipo_contato:contactType,
+      situacao_cliente:situation,
+      comentario:notes,
+      data_ultimo_contato:sentAt.toISOString(),
+      cancelado:false
+    };
+    const response=await fetch(
+      `${SUPABASE_URL}/rest/v1/reportes_callback`,
+      {
+        method:'POST',
+        headers:{
+          ...SUPABASE_HEADERS,
+          'Prefer':'return=representation'
+        },
+        body:JSON.stringify(supabasePayload)
+      }
+    );
+    const result=await response.json().catch(()=>[]);
+    if(!response.ok)throw new Error(result?.message||result?.error||`HTTP ${response.status}`);
+    const saved=Array.isArray(result)?result[0]:result;
+    const eventId=String(saved?.id||'');
     if(!S.callbackContacts[row.__callbackKey])S.callbackContacts[row.__callbackKey]=[];
-    S.callbackContacts[row.__callbackKey].push({date:sentAt,answered,contactType,situation,analyst,notes,__eventoId:result.evento_id||''});
+    S.callbackContacts[row.__callbackKey].push({date:sentAt,answered,contactType,situation,analyst,notes,__eventoId:eventId});
     S.callbackAssignments[row.__callbackKey]=analyst;
-    if(result.evento_id)callbackPendingSeen.add(result.evento_id);
+    if(eventId)callbackPendingSeen.add(eventId);
     S.callbackSelectedKey=null;S.callbackVersion++;salvarCallbackOperacaoLocal();closeCallbackRegisterDrawer();
     renderCallbackContingencia();
     requestAnimationFrame(()=>{window.scrollTo(0,pageScroll);const table=document.querySelector('.cb-table-wrap');if(table)table.scrollTop=tableScroll});
-    callbackToast(`Contato salvo na fila às ${sentAt.toLocaleTimeString('pt-BR')}.`);
+    callbackToast(`Contato salvo no Supabase às ${sentAt.toLocaleTimeString('pt-BR')}.`);
   }catch(error){
-    console.error(error);alert(`Não foi possível salvar o apontamento no servidor.\n\n${error.message}`);
+    console.error(error);alert(`Não foi possível salvar o apontamento no Supabase.\n\n${error.message}`);
   }finally{
     if(saveButton){saveButton.disabled=false;saveButton.textContent='Salvar contato'}
   }
@@ -9359,15 +9382,15 @@ const CALLBACK_SYNC_INTERVAL_MS=20000;
 const callbackPendingSeen=new Set();
 function callbackPendingDate(value){const d=parseDateVal(value);return d||new Date()}
 function applyPendingCallbackRecord(item){
-  const eventId=String(item.Evento_Id||'').trim();
-  const key=normalizeCallbackKey(item.Chave_Incidencia||item['Número']||item.Numero_Incidencia||'');
+  const eventId=String(item.Evento_Id||item.evento_id||item.id||'').trim();
+  const key=normalizeCallbackKey(item.Chave_Incidencia||item.chave_incidencia||item['Número']||item.Numero_Incidencia||item.numero_incidencia||'');
   if(!key)return false;
-  const answered=String(item['Cliente Atendeu']||item.Cliente_Atendeu||'').trim();
-  const contactType=String(item['Tipo de Contato']||item.Tipo_Contato||'').trim();
-  const situation=String(item['Situação do Cliente']||item.Situacao_Cliente||'').trim();
-  const analyst=String(item.Analista||'').trim();
-  const notes=String(item['Comentário']||item.Comentario||'').trim();
-  const date=callbackPendingDate(item['Data do Último Contato']||item.Data_Ultimo_Contato);
+  const answered=String(item['Cliente Atendeu']||item.Cliente_Atendeu||item.cliente_atendeu||'').trim();
+  const contactType=String(item['Tipo de Contato']||item.Tipo_Contato||item.tipo_contato||'').trim();
+  const situation=String(item['Situação do Cliente']||item.Situacao_Cliente||item.situacao_cliente||'').trim();
+  const analyst=String(item.Analista||item.analista||'').trim();
+  const notes=String(item['Comentário']||item.Comentario||item.comentario||'').trim();
+  const date=callbackPendingDate(item['Data do Último Contato']||item.Data_Ultimo_Contato||item.data_ultimo_contato||item.criado_em);
   if(!S.callbackContacts[key])S.callbackContacts[key]=[];
   const duplicate=S.callbackContacts[key].some(c=>(eventId&&c.__eventoId===eventId)||(String(c.analyst||'')===analyst&&String(c.situation||'')===situation&&String(c.notes||'')===notes&&Math.abs((parseDateVal(c.date)||new Date(0)).getTime()-date.getTime())<2000));
   if(!duplicate)S.callbackContacts[key].push({date,answered,contactType,situation,analyst,notes,__eventoId:eventId});
@@ -9377,14 +9400,26 @@ function applyPendingCallbackRecord(item){
 }
 async function sincronizarApontamentosPendentes(){
   try{
-    const response=await fetch(`/api/apontamentos-dia?t=${Date.now()}`,{cache:'no-store'});
-    if(!response.ok)return;
-    const result=await response.json();
-    if(!result.ok||!Array.isArray(result.registros))return;
+    const response=await fetch(
+      `${SUPABASE_URL}/rest/v1/reportes_callback?select=*&cancelado=eq.false&order=data_ultimo_contato.asc`,
+      {
+        cache:'no-store',
+        headers:SUPABASE_HEADERS
+      }
+    );
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    const registros=await response.json();
+    if(!Array.isArray(registros))return;
     let changed=false;
-    result.registros.forEach(item=>{if(applyPendingCallbackRecord(item))changed=true});
-    if(changed){S.callbackVersion++;salvarCallbackOperacaoLocal();renderCallbackContingencia()}
-  }catch(error){console.warn('Sincronização de apontamentos indisponível:',error)}
+    registros.forEach(item=>{if(applyPendingCallbackRecord(item))changed=true});
+    if(changed){
+      S.callbackVersion++;
+      salvarCallbackOperacaoLocal();
+      if(S.currentTab==='callbackContingencia')renderCallbackContingencia();
+    }
+  }catch(error){
+    console.warn('Sincronização do Callback no Supabase indisponível:',error)
+  }
 }
 
 function tabInicialDaUrl(){
