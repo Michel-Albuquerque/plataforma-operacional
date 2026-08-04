@@ -1779,7 +1779,9 @@ async function tentarRestaurarDoLocal(){
     }
     else{
       setLoading(false);refreshNavAvailability();enrichValidationBase();enrichCallbackBase();renderUploadSummary();
-      switchTab(S.validationBase.length?'validacaoPos':(S.callbackBase.length||Object.keys(S.callbackHistoryBase||{}).length)?'callbackContingencia':'upload');
+      if(!requestedInitialTab && !userNavigationLocked && S.currentTab==='upload'){
+        switchTab(S.validationBase.length?'validacaoPos':(S.callbackBase.length||Object.keys(S.callbackHistoryBase||{}).length)?'callbackContingencia':'upload');
+      }
     }
   } else { renderUploadScreenInitial(); }
 }
@@ -2103,7 +2105,9 @@ function onDataReady(isRestore){
   refreshNavAvailability();
   renderFilterBar();
   renderUploadSummary();
-  switchTab('visaoCliente');
+  if(!window.__suppressAutoTabSwitch && S.currentTab==='upload' && !requestedInitialTab){
+    switchTab('visaoCliente');
+  }
   if(!isRestore) salvarBasePrincipalLocal();
 }
 function refreshNavAvailability(){
@@ -3264,6 +3268,10 @@ function updateResultCount(){
 /* ============================================================
    7. NAV / TAB SWITCHING
    ============================================================ */
+let userNavigationLocked=false;
+let requestedInitialTab=null;
+function markUserNavigation(){ userNavigationLocked=true; }
+
 const TAB_META = {
   upload:{title:'Importar base de incidências', sub:'Envie o Excel exportado da operação para iniciar a análise'},
   dashboard:{title:'Reincidente', sub:'Visão executiva e analítica de reincidência — mês a mês e acumulado no ano'},
@@ -3490,6 +3498,7 @@ function renderTopbarActions(tab){
 document.querySelectorAll('.nav-item[data-tab]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     if(btn.hasAttribute('disabled'))return;
+    markUserNavigation();
     if(btn.dataset.tab==='dashboard'&&!S.baseCompleta.length&&!S.baseReincidencia.length&&(S.validationBase.length||S.callbackBase.length)){
       switchTab(S.validationBase.length?'validacaoPos':'callbackContingencia');
       return;
@@ -3500,6 +3509,7 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(btn=>{
 document.querySelectorAll('.reincidente-tab[data-inner-tab]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     if(btn.disabled)return;
+    markUserNavigation();
     switchTab(btn.dataset.innerTab);
   });
 });
@@ -8858,21 +8868,25 @@ async function carregarReincidenciaLocalhost(mostrarMensagem=false){
       return true;
     }
 
-    const abaAntes=S.currentTab;
     const filtrosAntes={
       ...S.filters
     };
 
-    processRawRows(
-      principalRows,
-      origemPrincipal,
-      observacoes
-    );
+    window.__suppressAutoTabSwitch=true;
+    try{
+      processRawRows(
+        principalRows,
+        origemPrincipal,
+        observacoes
+      );
 
-    processReincidenciaRows(
-      reincidenciaRows,
-      origemReincidencia
-    );
+      processReincidenciaRows(
+        reincidenciaRows,
+        origemReincidencia
+      );
+    }finally{
+      window.__suppressAutoTabSwitch=false;
+    }
 
     if(principalGeneratedAt){
       const dataPrincipal=new Date(principalGeneratedAt);
@@ -8901,10 +8915,6 @@ async function carregarReincidenciaLocalhost(mostrarMensagem=false){
     enrichCallbackBase();
     refreshNavAvailability();
     renderUploadSummary();
-
-    if(abaAntes&&abaAntes!=='upload'){
-      switchTab(abaAntes);
-    }
 
     if(mostrarMensagem){
       callbackToast(
@@ -9255,6 +9265,7 @@ function aplicarModoIntegrado(){
 
 function abrirAbaSolicitadaPelaUrl(){
   const tab=tabInicialDaUrl();
+  requestedInitialTab=tab;
   const permitidas=[
     'dashboard',
     'visaoCliente',
@@ -9266,6 +9277,7 @@ function abrirAbaSolicitadaPelaUrl(){
   ];
 
   if(!permitidas.includes(tab))return;
+  if(userNavigationLocked)return;
 
   // Exibe sempre o layout solicitado. As próprias páginas mostram o estado
   // de carregamento ou ausência de dados sem redirecionar para Importar Base.
@@ -9274,13 +9286,12 @@ function abrirAbaSolicitadaPelaUrl(){
 
 document.addEventListener('DOMContentLoaded',()=>{
   aplicarModoIntegrado();
+  abrirAbaSolicitadaPelaUrl();
   setTimeout(carregarEstadoCallbackServidor,300);
   setTimeout(()=>carregarBaseLocalhost(false),800);
   setTimeout(()=>carregarValidacaoLocalhost(false),1200);
   setTimeout(()=>carregarReincidenciaLocalhost(false),1600);
   setTimeout(()=>carregarRegistrosValidacaoServidor(),2100);
-  setTimeout(abrirAbaSolicitadaPelaUrl,2800);
-  setTimeout(abrirAbaSolicitadaPelaUrl,5000);
   setInterval(()=>carregarBaseLocalhost(false),5*60*1000);
   setInterval(()=>carregarValidacaoLocalhost(false),5*60*1000);
   setInterval(()=>carregarReincidenciaLocalhost(false),30*60*1000);
@@ -9288,6 +9299,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   setTimeout(sincronizarApontamentosPendentes,1500);
   setInterval(sincronizarApontamentosPendentes,CALLBACK_SYNC_INTERVAL_MS);
 });
+
+/* CORRECAO_NAVEGACAO_ASSINCRONA_V1: cargas automáticas não alteram a aba escolhida. */
 
 /* ============================================================
    15. INIT
