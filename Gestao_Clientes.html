@@ -885,6 +885,15 @@ body.vpa-mode #filterbar,
 body.action-mode #filterbar{display:none!important}
 
 /* Tabela permanente de reportes do Callback */
+
+.cb-cancel-report{
+  width:28px;height:28px;border-radius:8px;border:1px solid #efb7b7;
+  background:#fff5f5;color:#c62828;font-weight:900;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center
+}
+.cb-cancel-report:hover{background:#ffe5e5;border-color:#dc7b7b}
+.cb-cancel-report:disabled{opacity:.45;cursor:not-allowed}
+
 .cb-reports-card{margin-top:14px}
 .cb-reports-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .cb-report-status{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;font-size:9.5px;font-weight:850}
@@ -8144,7 +8153,7 @@ function callbackSubnav(view){
   return `<nav class="cb-subtabs" aria-label="Áreas do Callback Contingência">
     <button class="cb-subtab ${view==='active'?'active':''}" data-callback-view="active">Carteira Ativa</button>
     <button class="cb-subtab ${view==='diagnostic'?'active':''}" data-callback-view="diagnostic">Diagnóstico da Contingência</button>
-    <span class="cb-history-badge">● Fotografia atual do Tempo Real · ${fmtNum(S.callbackBase.length)} incidência(s)</span>
+    <span class="cb-history-badge">● Tempo Real + telefones dos Avisos · ${fmtNum(S.callbackBase.length)} incidência(s)</span>
   </nav>`;
 }
 function wireCallbackSubnav(){
@@ -8449,6 +8458,61 @@ function callbackAllReportRows(){
   }
   return reports.sort((a,b)=>(parseDateVal(b.contact.date)||0)-(parseDateVal(a.contact.date)||0));
 }
+
+async function cancelarReporteCallback(eventId,key){
+  const id=String(eventId||'').trim();
+  if(!id){
+    alert('Este reporte não possui identificador para cancelamento.');
+    return;
+  }
+  const report=(S.callbackContacts[key]||[]).find(
+    item=>String(item.__eventoId||'')===id
+  );
+  const detalhe=[
+    `Incidência: ${key||'—'}`,
+    `Data: ${report?.date?fmtDateTime(parseDateVal(report.date)):'—'}`,
+    `Analista: ${report?.analyst||'—'}`,
+    '',
+    'Confirma o cancelamento deste registro de Callback?',
+    'A incidência não será cancelada e continuará na carteira se permanecer no Tempo Real.'
+  ].join('\n');
+  if(!confirm(detalhe))return;
+
+  const button=document.querySelector(`[data-cancel-callback="${CSS.escape(id)}"]`);
+  if(button){button.disabled=true;button.textContent='…'}
+
+  try{
+    const response=await fetch(
+      `${SUPABASE_URL}/rest/v1/reportes_callback?id=eq.${encodeURIComponent(id)}`,
+      {
+        method:'PATCH',
+        headers:{
+          ...SUPABASE_HEADERS,
+          'Prefer':'return=representation'
+        },
+        body:JSON.stringify({cancelado:true})
+      }
+    );
+    const result=await response.json().catch(()=>[]);
+    if(!response.ok){
+      throw new Error(result?.message||result?.error||`HTTP ${response.status}`);
+    }
+
+    S.callbackContacts[key]=(S.callbackContacts[key]||[]).filter(
+      item=>String(item.__eventoId||'')!==id
+    );
+    callbackPendingSeen.delete(id);
+    S.callbackVersion++;
+    salvarCallbackOperacaoLocal();
+    renderCallbackContingencia();
+    callbackToast('Reporte cancelado. A incidência foi mantida na carteira ativa.');
+  }catch(error){
+    console.error(error);
+    alert(`Não foi possível cancelar o reporte.\n\n${error.message}`);
+    if(button){button.disabled=false;button.textContent='×'}
+  }
+}
+
 function exportCallbackReports(){
   const rows=callbackAllReportRows().map(item=>({
     'Número da Incidência':item.row[COLCB.numero]||item.key,
@@ -8479,6 +8543,7 @@ function renderCallbackReportsTable(){
       <td>${esc(c.situation||'—')}</td>
       <td class="cb-report-notes">${esc(c.notes||'—')}</td>
       <td><span class="cb-report-status ${item.pending?'pending':'closed'}">${item.pending?'PENDENTE':'ENCERRADA'}</span></td>
+      <td>${c.__eventoId?`<button class="cb-cancel-report" data-cancel-callback="${esc(c.__eventoId)}" onclick="cancelarReporteCallback('${esc(c.__eventoId)}','${esc(item.key)}')" title="Cancelar somente este reporte">×</button>`:'—'}</td>
     </tr>`;
   }).join('');
   return `<section class="cb-card cb-reports-card">
@@ -8487,8 +8552,8 @@ function renderCallbackReportsTable(){
       <button class="cb-btn" id="cbExportReports">Exportar reportes</button>
     </div>
     <div class="cb-table-wrap"><table class="cb-table">
-      <thead><tr><th>INCIDÊNCIA</th><th>CLIENTE</th><th>DATA/HORA</th><th>ANALISTA</th><th>TIPO DE CONTATO</th><th>ATENDEU</th><th>SITUAÇÃO</th><th>OBSERVAÇÕES</th><th>STATUS ATUAL</th></tr></thead>
-      <tbody>${body||'<tr><td colspan="9" class="cb-table-empty">Nenhum reporte registrado.</td></tr>'}</tbody>
+      <thead><tr><th>INCIDÊNCIA</th><th>CLIENTE</th><th>DATA/HORA</th><th>ANALISTA</th><th>TIPO DE CONTATO</th><th>ATENDEU</th><th>SITUAÇÃO</th><th>OBSERVAÇÕES</th><th>STATUS ATUAL</th><th>CANCELAR</th></tr></thead>
+      <tbody>${body||'<tr><td colspan="10" class="cb-table-empty">Nenhum reporte registrado.</td></tr>'}</tbody>
     </table></div>
   </section>`;
 }
@@ -9320,7 +9385,7 @@ async function carregarBaseLocalhost(mostrarMensagem=false){
     // Fonte principal: JSON compactado publicado pela automação integrada.
     try{
       const response=await fetch(
-        `./dados_emergencia/modal.json.gz?t=${Date.now()}`,
+        `./dados_clientes/callback.json.gz?t=${Date.now()}`,
         {cache:'no-store'}
       );
 
@@ -9336,15 +9401,15 @@ async function carregarBaseLocalhost(mostrarMensagem=false){
 
       rows=payload.rows.map(expandCallbackModalRow);
       generatedAt=payload.generated_at||null;
-      origem='dados_emergencia/modal.json.gz';
+      origem='dados_clientes/callback.json.gz';
 
     }catch(jsonError){
       console.warn(
-        'Fotografia pública do Tempo Real indisponível.',
+        'Base consolidada do Callback indisponível.',
         jsonError
       );
 
-      throw new Error('Arquivo público dados_emergencia/modal.json.gz não encontrado no GitHub.');
+      throw new Error('Arquivo público dados_clientes/callback.json.gz não encontrado no GitHub.');
 
       if(!response.ok){
         throw new Error(
