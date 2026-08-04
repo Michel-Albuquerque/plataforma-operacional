@@ -1682,17 +1682,9 @@ async function tentarRestaurarDoLocal(){
       S.actionAudit=Array.isArray(salvoAcoes.audit)?salvoAcoes.audit:[];
       S.actionVersion++;
     }
-    const salvoCallback = await idbLoad('callbackBase');
-    if(salvoCallback&&((Array.isArray(salvoCallback.rows)&&salvoCallback.rows.length)||(Array.isArray(salvoCallback.sourceRows)&&salvoCallback.sourceRows.length))){
-      S.callbackBase=Array.isArray(salvoCallback.rows)?salvoCallback.rows:[];
-      S.callbackSourceBase=Array.isArray(salvoCallback.sourceRows)&&salvoCallback.sourceRows.length
-        ? salvoCallback.sourceRows
-        : salvoCallback.rows;
-      S.callbackFileName=salvoCallback.fileName||'Tabela Incidência Modal';
-      S.callbackProcessedAt=parseDateVal(salvoCallback.processedAt)||salvoCallback.processedAt;
-      S.callbackStats=salvoCallback.stats||S.callbackStats;
-      restaurouAlgo=true;
-    }
+    // Não restaura a fotografia operacional do Callback do IndexedDB.
+    // A carteira ativa deve vir sempre da fotografia pública atual do Tempo Real.
+    await idbDelete('callbackBase');
     const salvoCallbackAvisos=await idbLoad('callbackAvisos');
     if(salvoCallbackAvisos&&Array.isArray(salvoCallbackAvisos.rows)&&salvoCallbackAvisos.rows.length){
       S.callbackAvisosBase=salvoCallbackAvisos.rows;
@@ -9264,7 +9256,7 @@ async function carregarBaseLocalhost(mostrarMensagem=false){
     // Fonte principal: JSON compactado publicado pela automação integrada.
     try{
       const response=await fetch(
-        `./dados_clientes/callback.json.gz?t=${Date.now()}`,
+        `./dados_emergencia/modal.json.gz?t=${Date.now()}`,
         {cache:'no-store'}
       );
 
@@ -9280,15 +9272,15 @@ async function carregarBaseLocalhost(mostrarMensagem=false){
 
       rows=payload.rows;
       generatedAt=payload.generated_at||null;
-      origem='dados_clientes/callback.json.gz';
+      origem='dados_emergencia/modal.json.gz';
 
     }catch(jsonError){
       console.warn(
-        'JSON do Callback indisponível; usando Excel como contingência.',
+        'Fotografia pública do Tempo Real indisponível.',
         jsonError
       );
 
-      throw new Error('Arquivo público callback.json.gz não encontrado no GitHub.');
+      throw new Error('Arquivo público dados_emergencia/modal.json.gz não encontrado no GitHub.');
 
       if(!response.ok){
         throw new Error(
@@ -9478,7 +9470,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   setTimeout(()=>carregarValidacaoLocalhost(false),1200);
   setTimeout(()=>carregarReincidenciaLocalhost(false),1600);
   setTimeout(()=>carregarRegistrosValidacaoServidor(),2100);
-  setInterval(()=>carregarBaseLocalhost(false),5*60*1000);
+  setInterval(()=>carregarBaseLocalhost(false),60*1000);
   setInterval(()=>carregarValidacaoLocalhost(false),5*60*1000);
   setInterval(()=>carregarReincidenciaLocalhost(false),30*60*1000);
   setInterval(()=>carregarRegistrosValidacaoServidor(),60*1000);
