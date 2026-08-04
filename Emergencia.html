@@ -523,7 +523,7 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
       <div class="section-head">
         <div>
           <h2>Tempo Real</h2>
-          <p>Fonte prioritária: planilha <strong>Tabela Incidência Modal</strong>. “Backlog” considera somente ocorrências herdadas de D-1 e anteriores; entradas do dia permanecem em incidências ativas.</p>
+          <p id="rtExecutiveSummary">Na Base de São Gonçalo estamos no momento com <strong>0 incidências MT</strong>. Temos <strong>0 clientes afetados</strong>, onde concentramos <strong>0% dos impactos nas 5 maiores ocorrências</strong>. Atuamos no momento com <strong>X Equipes</strong>. As <strong>0 incidências MT representam 0% da afetação total</strong>.</p>
         </div>
         <div class="section-actions">
           <button class="btn small" id="btnRealtimeRefresh">↻ Recalcular painel</button>
@@ -5996,6 +5996,12 @@ function renderRealtime(){
   const totalImpact=sum(rows.map(r=>Number(r.clientsCurrent)||0));
   const mtImpact=sum(rows.filter(r=>String(r.ntRaw||'').toUpperCase().includes('MT')).map(r=>Number(r.clientsCurrent)||0));
   const mtImpactPct=totalImpact>0?(mtImpact/totalImpact)*100:0;
+  const mtCount=rows.filter(r=>String(r.ntRaw||'').toUpperCase().includes('MT')).length;
+  const top5Impact=sum(impactAll.slice(0,5).map(r=>Number(r.clientsCurrent)||0));
+  const top5ImpactPct=totalImpact>0?(top5Impact/totalImpact)*100:0;
+  if($('rtExecutiveSummary')){
+    $('rtExecutiveSummary').innerHTML=`Na Base de São Gonçalo estamos no momento com <strong>${fmtInt(mtCount)} incidências MT</strong>. Temos <strong>${fmtInt(totalImpact)} clientes afetados</strong>, onde concentramos <strong>${fmt1(top5ImpactPct)}% dos impactos nas 5 maiores ocorrências</strong>. Atuamos no momento com <strong>X Equipes</strong>. As <strong>${fmtInt(mtCount)} incidências MT representam ${fmt1(mtImpactPct)}% da afetação total</strong>.`;
+  }
 
   function renderImpactRanking(){
     const limitValue=$('rtImpactLimit')?.value||'5';
