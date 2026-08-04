@@ -2497,12 +2497,11 @@ function processCallbackReadyRows(rows,fileName,options={}){
     const notes=String(callbackReadyValue(row,['Comentário','Comentario','Observações do Contato','Observacoes do Contato'])||'').trim();
     const contactDate=parseDateVal(callbackReadyValue(row,['Data do Último Contato','Data do Ultimo Contato','Data Contato']));
     if(analyst)S.callbackAssignments[key]=analyst;
-    if(answered||contactType||situation||notes||contactDate){
-      if(!S.callbackContacts[key])S.callbackContacts[key]=[];
-      const signature=`${contactDate?contactDate.toISOString():''}|${answered}|${contactType}|${situation}|${analyst}|${notes}`;
-      const exists=S.callbackContacts[key].some(item=>`${parseDateVal(item.date)?.toISOString()||''}|${item.answered||''}|${item.contactType||''}|${item.situation||''}|${item.analyst||''}|${item.notes||''}`===signature);
-      if(!exists)S.callbackContacts[key].push({date:contactDate||now,answered,contactType,situation,analyst,notes,importedFromReadyBase:true});
-    }
+
+    /* Os reportes do Callback vêm exclusivamente do Supabase.
+       A fotografia consolidada pode trazer valores operacionais como
+       "Sem callback" ou "Pendente"; esses valores não são contatos e não
+       podem sobrescrever o último reporte real após uma atualização. */
   }
   // A Carteira Ativa é exatamente a fotografia atual do Tempo Real.
   // Elegibilidade permanece apenas como atributo/filtro, sem adicionar ou preservar linhas.
@@ -9512,6 +9511,13 @@ function applyPendingCallbackRecord(item){
 }
 async function sincronizarApontamentosPendentes(){
   try{
+    for(const key of Object.keys(S.callbackContacts||{})){
+      S.callbackContacts[key]=(S.callbackContacts[key]||[]).filter(item=>{
+        const id=String(item.__eventoId||'').trim();
+        return Boolean(id) && !item.importedFromReadyBase;
+      });
+      if(!S.callbackContacts[key].length)delete S.callbackContacts[key];
+    }
     const response=await fetch(
       `${SUPABASE_URL}/rest/v1/reportes_callback?select=*&cancelado=eq.false&order=data_ultimo_contato.asc`,
       {
@@ -9524,11 +9530,9 @@ async function sincronizarApontamentosPendentes(){
     if(!Array.isArray(registros))return;
     let changed=false;
     registros.forEach(item=>{if(applyPendingCallbackRecord(item))changed=true});
-    if(changed){
-      S.callbackVersion++;
-      salvarCallbackOperacaoLocal();
-      if(S.currentTab==='callbackContingencia')renderCallbackContingencia();
-    }
+    S.callbackVersion++;
+    salvarCallbackOperacaoLocal();
+    if(S.currentTab==='callbackContingencia')renderCallbackContingencia();
   }catch(error){
     console.warn('Sincronização do Callback no Supabase indisponível:',error)
   }
