@@ -7740,11 +7740,29 @@ async function enviarRegistroValidacaoServidor(row,attempt){
 
 async function carregarRegistrosValidacaoServidor(){
   try{
-    const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/listar_reportes_validacao?t=${Date.now()}`,{
-      method:'POST',headers:SUPABASE_HEADERS,body:'{}',cache:'no-store'
+    // Não adicionar parâmetros inexistentes à URL de uma função RPC.
+    // O antigo ?t=... fazia o PostgREST tentar localizar uma assinatura
+    // listar_reportes_validacao(t), que não existe.
+    const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/listar_reportes_validacao`,{
+      method:'POST',
+      headers:{
+        ...SUPABASE_HEADERS,
+        'Cache-Control':'no-cache, no-store, max-age=0',
+        'Pragma':'no-cache'
+      },
+      body:'{}',
+      cache:'no-store'
     });
-    if(!response.ok)return false;
-    const data=await response.json();
+
+    const data=await response.json().catch(()=>null);
+    if(!response.ok){
+      const detalhe=
+        data?.message||
+        data?.error||
+        data?.hint||
+        `HTTP ${response.status}`;
+      throw new Error(`Falha ao ler reportes da Validação: ${detalhe}`);
+    }
     const registros=Array.isArray(data)?data:[];
 
     // O Supabase é a fonte oficial compartilhada.
@@ -7785,6 +7803,7 @@ async function carregarRegistrosValidacaoServidor(){
     return true;
   }catch(error){
     console.error('Falha ao carregar registros do Supabase:',error);
+    window.__ultimaFalhaValidacaoServidor=String(error?.message||error);
     return false;
   }
 }
@@ -7907,7 +7926,8 @@ async function saveValidationContact(key,next){
     if(!carregou){
       throw new Error(
         'O registro foi enviado, mas não foi possível confirmar a leitura '
-        +'compartilhada no servidor.'
+        +'compartilhada no servidor. '
+        +(window.__ultimaFalhaValidacaoServidor||'')
       );
     }
 
