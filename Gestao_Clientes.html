@@ -7735,6 +7735,7 @@ async function enviarRegistroValidacaoServidor(row,attempt){
   });
   const result=await response.json().catch(()=>({}));
   if(!response.ok||result?.ok===false)throw new Error(result?.message||result?.error||`HTTP ${response.status}`);
+  return result;
 }
 
 async function carregarRegistrosValidacaoServidor(){
@@ -7746,14 +7747,18 @@ async function carregarRegistrosValidacaoServidor(){
     const data=await response.json();
     const registros=Array.isArray(data)?data:[];
 
+    // O Supabase é a fonte oficial compartilhada.
+    // Só substituímos o estado local depois que a consulta terminou com sucesso.
+    const contatosServidor={};
+
     for(const raw of registros){
       const item=raw?.registro||raw;
       const key=normalizeCallbackKey(item.Chave_Incidencia||item['Número']||'');
       if(!key)continue;
-      if(!S.validationContacts[key])S.validationContacts[key]={attempts:[]};
+      if(!contatosServidor[key])contatosServidor[key]={attempts:[]};
       const id=String(item.Evento_Id||`${key}_${item['Data do Contato']||item.Data_Contato||''}`);
-      if(S.validationContacts[key].attempts.some(a=>a.id===id))continue;
-      S.validationContacts[key].attempts.push({
+      if(contatosServidor[key].attempts.some(a=>a.id===id))continue;
+      contatosServidor[key].attempts.push({
         id,
         date:item.Data_Contato||item['Data do Contato']||item['Recebido pelo servidor em'],
         responsavel:item.Responsavel||item['Responsável']||'',
@@ -7769,7 +7774,14 @@ async function carregarRegistrosValidacaoServidor(){
         revisions:[]
       });
     }
-    salvarContatosValidacaoLocal();
+
+    S.validationContacts=contatosServidor;
+    S.validationVersion++;
+    await salvarContatosValidacaoLocal();
+
+    if(S.currentTab==='validacaoPos'){
+      renderValidacaoPos();
+    }
     return true;
   }catch(error){
     console.error('Falha ao carregar registros do Supabase:',error);
@@ -7784,16 +7796,39 @@ async function saveValidationContact(key,next){
   const responsavel=document.getElementById('vpaResponsible').value.trim();
   const status=document.querySelector('input[name="vpaStatus"]:checked')?.value;
   const resolvido=document.querySelector('input[name="vpaResolution"]:checked')?.value||null;
+
   if(!responsavel){alert('Informe o responsável pelo contato.');return}
   if(!status){alert('Selecione o status do contato.');return}
-  if(status==='Contato realizado'&&!resolvido){alert('Informe se o problema foi resolvido.');return}
-  if(!S.validationContacts[key])S.validationContacts[key]={attempts:[]};
-  const actionRequired=document.querySelector('input[name="vpaActionRequired"]:checked')?.value||'Não';
-  const actionComment=document.getElementById('vpaActionComment')?.value.trim()||'';
-  if(actionRequired==='Sim'&&!actionComment){alert('Descreva a ação necessária no campo de comentários.');return}
+  if(status==='Contato realizado'&&!resolvido){
+    alert('Informe se o problema foi resolvido.');
+    return;
+  }
+
+  const actionRequired=
+    document.querySelector('input[name="vpaActionRequired"]:checked')?.value||'Não';
+  const actionComment=
+    document.getElementById('vpaActionComment')?.value.trim()||'';
+
+  if(actionRequired==='Sim'&&!actionComment){
+    alert('Descreva a ação necessária no campo de comentários.');
+    return;
+  }
+
   let attachment=null;
-  try{attachment=await vpaReadAttachment(document.getElementById('vpaAttachment'))}catch(error){alert(error.message);return}
-  const currentExisting=editAttemptId?S.validationContacts[key]?.attempts?.find(attempt=>attempt.id===editAttemptId):null;
+  try{
+    attachment=await vpaReadAttachment(
+      document.getElementById('vpaAttachment')
+    );
+  }catch(error){
+    alert(error.message);
+    return;
+  }
+
+  const attempts=(S.validationContacts[key]?.attempts||[]);
+  const currentExisting=editAttemptId
+    ? attempts.find(attempt=>attempt.id===editAttemptId)
+    : null;
+
   const current={
     date:document.getElementById('vpaCallDate').value||new Date().toISOString(),
     responsavel,
@@ -7806,38 +7841,104 @@ async function saveValidationContact(key,next){
     anexo:attachment||vpaAttachment(currentExisting)||null,
     retorno:document.getElementById('vpaReturn').checked
   };
+
+  let attempt;
   let editedBy='';
+
   if(editAttemptId){
     editedBy=document.getElementById('vpaEditedBy').value.trim();
-    if(!editedBy){alert('Informe o responsável pela alteração.');return}
-    const target=S.validationContacts[key].attempts.find(attempt=>attempt.id===editAttemptId);
-    if(!target){alert('O registro selecionado para edição não foi localizado. Feche e abra a validação novamente.');return}
-    const before=vpaAttemptSnapshot(target),changes=vpaAttemptChanges(before,current);
-    if(!Object.keys(changes).length){alert('Nenhuma alteração foi identificada no registro.');return}
-    if(!Array.isArray(target.revisions))target.revisions=[];
-    target.revisions.push({
-      id:`rev_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
-      editedAt:new Date().toISOString(),editedBy,changes,before,after:{...current}
-    });
-    Object.assign(target,current,{updatedAt:new Date().toISOString()});
+    if(!editedBy){
+      alert('Informe o responsável pela alteração.');
+      return;
+    }
+    if(!currentExisting){
+      alert(
+        'O registro selecionado para edição não foi localizado. '
+        +'Feche e abra a validação novamente.'
+      );
+      return;
+    }
+
+    const before=vpaAttemptSnapshot(currentExisting);
+    const changes=vpaAttemptChanges(before,current);
+    if(!Object.keys(changes).length){
+      alert('Nenhuma alteração foi identificada no registro.');
+      return;
+    }
+
+    attempt={
+      ...currentExisting,
+      ...current,
+      updatedAt:new Date().toISOString(),
+      revisions:[
+        ...(Array.isArray(currentExisting.revisions)
+          ? currentExisting.revisions
+          : []),
+        {
+          id:`rev_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+          editedAt:new Date().toISOString(),
+          editedBy,
+          changes,
+          before,
+          after:{...current}
+        }
+      ]
+    };
   }else{
-    S.validationContacts[key].attempts.push({
+    attempt={
       id:`${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
-      ...current,createdAt:new Date().toISOString(),revisions:[]
-    });
+      ...current,
+      createdAt:new Date().toISOString(),
+      revisions:[]
+    };
   }
-  if(!S.validationAnalysts.includes(responsavel))S.validationAnalysts.push(responsavel);
-  if(editedBy&&!S.validationAnalysts.includes(editedBy))S.validationAnalysts.push(editedBy);
-  S.validationAnalysts.sort((a,b)=>a.localeCompare(b,'pt-BR'));S.validationVersion++;
+
+  const saveButtons=[
+    document.getElementById('vpaSaveClose'),
+    document.getElementById('vpaSaveNext')
+  ].filter(Boolean);
+  saveButtons.forEach(button=>button.disabled=true);
+
   try{
-    await enviarRegistroValidacaoServidor(row,vpaLatest(row));
-    callbackToast('Registro da Validação salvo no servidor.');
+    await enviarRegistroValidacaoServidor(row,attempt);
+
+    // Confirma a gravação buscando novamente a fonte compartilhada.
+    const carregou=await carregarRegistrosValidacaoServidor();
+    if(!carregou){
+      throw new Error(
+        'O registro foi enviado, mas não foi possível confirmar a leitura '
+        +'compartilhada no servidor.'
+      );
+    }
+
+    if(!S.validationAnalysts.includes(responsavel)){
+      S.validationAnalysts.push(responsavel);
+    }
+    if(editedBy&&!S.validationAnalysts.includes(editedBy)){
+      S.validationAnalysts.push(editedBy);
+    }
+    S.validationAnalysts.sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
+    callbackToast('Registro salvo e compartilhado com todos os usuários.');
+    closeValidationContact();
+    renderValidacaoPos();
+
+    if(next){
+      const candidate=vpaSortedQueue(getFilteredValidation()).find(
+        r=>!vpaLatest(r)||vpaLatest(r).status!=='Contato realizado'
+      );
+      if(candidate)openValidationContact(vpaKey(candidate));
+    }
   }catch(error){
     console.error(error);
-    alert('Registro salvo localmente, mas não enviado ao servidor.\n\n'+error.message);
+    alert(
+      'O registro não foi salvo de forma compartilhada.\n\n'
+      +error.message
+      +'\n\nNenhuma cópia local foi considerada como registro oficial.'
+    );
+  }finally{
+    saveButtons.forEach(button=>button.disabled=false);
   }
-  salvarContatosValidacaoLocal();closeValidationContact();renderValidacaoPos();
-  if(next){const candidate=vpaSortedQueue(getFilteredValidation()).find(r=>!vpaLatest(r)||vpaLatest(r).status!=='Contato realizado');if(candidate)openValidationContact(vpaKey(candidate))}
 }
 function openValidationBaseDetails(key){
   const row=S.validationBase.find(r=>vpaKey(r)===key);if(!row)return;
@@ -9610,13 +9711,9 @@ function applyPendingCallbackRecord(item){
 }
 async function sincronizarApontamentosPendentes(){
   try{
-    for(const key of Object.keys(S.callbackContacts||{})){
-      S.callbackContacts[key]=(S.callbackContacts[key]||[]).filter(item=>{
-        const id=String(item.__eventoId||'').trim();
-        return Boolean(id) && !item.importedFromReadyBase;
-      });
-      if(!S.callbackContacts[key].length)delete S.callbackContacts[key];
-    }
+    // Reportes oficiais do Callback são exclusivamente os que possuem
+    // identificador retornado pelo Supabase.
+    const contatosServidor={};
     const response=await fetch(
       `${SUPABASE_URL}/rest/v1/reportes_callback?select=*&cancelado=eq.false&order=data_ultimo_contato.asc`,
       {
@@ -9627,10 +9724,16 @@ async function sincronizarApontamentosPendentes(){
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
     const registros=await response.json();
     if(!Array.isArray(registros))return;
-    let changed=false;
-    registros.forEach(item=>{if(applyPendingCallbackRecord(item))changed=true});
+    const contatosAnteriores=S.callbackContacts;
+    S.callbackContacts=contatosServidor;
+    callbackPendingSeen.clear();
+
+    registros.forEach(item=>applyPendingCallbackRecord(item));
+
+    // Se a leitura foi bem-sucedida, o estado compartilhado substitui
+    // integralmente qualquer cópia local antiga.
     S.callbackVersion++;
-    salvarCallbackOperacaoLocal();
+    await salvarCallbackOperacaoLocal();
     if(S.currentTab==='callbackContingencia')renderCallbackContingencia();
   }catch(error){
     console.warn('Sincronização do Callback no Supabase indisponível:',error)
@@ -9684,6 +9787,20 @@ function abrirAbaSolicitadaPelaUrl(){
   // de carregamento ou ausência de dados sem redirecionar para Importar Base.
   switchTab(tab);
 }
+
+
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-tab]');
+  if(!button)return;
+  const tab=button.dataset.tab;
+  if(tab==='validacaoPos'){
+    setTimeout(()=>carregarRegistrosValidacaoServidor(),50);
+  }
+  if(tab==='callbackContingencia'){
+    setTimeout(()=>sincronizarApontamentosPendentes(),50);
+    setTimeout(()=>carregarEstadoCallbackServidor(),100);
+  }
+});
 
 document.addEventListener('DOMContentLoaded',()=>{
   aplicarModoIntegrado();
