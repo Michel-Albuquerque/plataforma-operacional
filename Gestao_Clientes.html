@@ -2555,7 +2555,10 @@ function processCallbackReadyRows(rows,fileName,options={}){
   for(const row of S.callbackBase){const entry=S.callbackHistoryBase[row.__callbackKey];if(entry)entry.row=callbackCleanRow(row)}
   S.callbackVersion++;
   setLoading(false);invalidateCache(true);refreshNavAvailability();renderUploadSummary();
-  salvarBaseCallbackLocal();salvarCallbackOperacaoLocal();
+  if(options.persist!==false){
+    salvarBaseCallbackLocal();
+    salvarCallbackOperacaoLocal();
+  }
   if(!options.silent)showCentralImportResult('callback',fileName,stats);
   if(options.openTab!==false)switchTab('callbackContingencia');
 }
@@ -9526,7 +9529,7 @@ async function carregarBaseLocalhost(mostrarMensagem=false){
     processCallbackReadyRows(
       rows,
       'Tempo Real + Avisos',
-      {silent:true,openTab:false}
+      {silent:true,openTab:false,persist:false}
     );
 
     if(modalPayload.generated_at){
@@ -9537,6 +9540,23 @@ async function carregarBaseLocalhost(mostrarMensagem=false){
     }
 
     await carregarEstadoCallbackServidor();
+
+    // Mantém os analistas cadastrados manualmente e as distribuições das
+    // incidências que continuam pendentes. Remove somente atribuições de
+    // incidências que já saíram da fotografia atual do Tempo Real.
+    const activeKeys=new Set(
+      (S.callbackBase||[]).map(row=>String(row.__callbackKey||'')).filter(Boolean)
+    );
+    const assignmentsPruned={};
+    for(const [key,analyst] of Object.entries(S.callbackAssignments||{})){
+      if(activeKeys.has(String(key)) && String(analyst||'').trim()){
+        assignmentsPruned[String(key)]=analyst;
+      }
+    }
+    S.callbackAssignments=assignmentsPruned;
+
+    await salvarBaseCallbackLocal();
+    await salvarCallbackOperacaoLocal();
 
     callbackPendingSeen.clear();
     await sincronizarApontamentosPendentes();
@@ -9582,7 +9602,9 @@ function applyPendingCallbackRecord(item){
   if(!S.callbackContacts[key])S.callbackContacts[key]=[];
   const duplicate=S.callbackContacts[key].some(c=>(eventId&&c.__eventoId===eventId)||(String(c.analyst||'')===analyst&&String(c.situation||'')===situation&&String(c.notes||'')===notes&&Math.abs((parseDateVal(c.date)||new Date(0)).getTime()-date.getTime())<2000));
   if(!duplicate)S.callbackContacts[key].push({date,answered,contactType,situation,analyst,notes,__eventoId:eventId});
-  if(analyst)S.callbackAssignments[key]=analyst;
+  if(analyst && !S.callbackAssignments[key]){
+    S.callbackAssignments[key]=analyst;
+  }
   if(eventId)callbackPendingSeen.add(eventId);
   return !duplicate;
 }
