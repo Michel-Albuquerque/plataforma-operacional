@@ -9309,7 +9309,7 @@ async function carregarReincidenciaLocalhost(mostrarMensagem=false){
       );
 
       throw new Error(
-        'Arquivos públicos da Reincidência não encontrados no GitHub.'
+        `Falha ao abrir as bases públicas da Reincidência: ${jsonError.message}`
       );
 
       if(!principalResponse.ok){
@@ -9433,11 +9433,11 @@ async function carregarReincidenciaLocalhost(mostrarMensagem=false){
       error
     );
 
-    if(mostrarMensagem){
-      callbackToast(
-        `Falha na atualização da Reincidência: ${error.message}`
-      );
-    }
+    window.__ultimaFalhaReincidencia=String(error?.message||error);
+
+    callbackToast(
+      `Falha ao carregar a Reincidência: ${error.message}`
+    );
 
     return false;
 
@@ -9450,20 +9450,42 @@ let validationBaseLoading=false;
 
 async function lerJsonGzip(response){
   const buffer=await response.arrayBuffer();
+  const bytes=new Uint8Array(buffer);
 
-  if(typeof DecompressionStream==='undefined'){
-    throw new Error(
-      'Este navegador não possui suporte a DecompressionStream.'
-    );
+  // Alguns servidores entregam o arquivo .gz já descompactado pelo navegador
+  // por causa do cabeçalho Content-Encoding. Nesse caso, tentar descompactar
+  // novamente faz a Reincidência falhar silenciosamente.
+  const possuiCabecalhoGzip=
+    bytes.length>=2 &&
+    bytes[0]===0x1f &&
+    bytes[1]===0x8b;
+
+  let texto='';
+
+  if(possuiCabecalhoGzip){
+    if(typeof DecompressionStream==='undefined'){
+      throw new Error(
+        'Este navegador não possui suporte à descompactação GZIP.'
+      );
+    }
+
+    const stream=new Blob([buffer])
+      .stream()
+      .pipeThrough(new DecompressionStream('gzip'));
+
+    texto=await new Response(stream).text();
+  }else{
+    // Conteúdo já descompactado pelo servidor/navegador.
+    texto=new TextDecoder('utf-8').decode(bytes);
   }
 
-  const stream=new Blob([buffer])
-    .stream()
-    .pipeThrough(new DecompressionStream('gzip'));
-
-  return JSON.parse(
-    await new Response(stream).text()
-  );
+  try{
+    return JSON.parse(texto);
+  }catch(error){
+    throw new Error(
+      `O arquivo recebido não contém um JSON válido. ${error.message}`
+    );
+  }
 }
 
 async function carregarValidacaoLocalhost(mostrarMensagem=false){
