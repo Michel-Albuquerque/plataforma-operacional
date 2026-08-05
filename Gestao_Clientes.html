@@ -7457,9 +7457,12 @@ function renderValidacaoPos(){
   const rate=a.rows.length?a.contacted.length/a.rows.length*100:0,resolution=a.conclusive.length?a.resolved.length/a.conclusive.length*100:0;
   const queue=vpaSortedQueue(a.rows).slice(0,50);
   const belowRows=a.belowTeams.reduce((n,g)=>n+g.rows.length,0),topProcess=a.topProcess[0],topProcessCount=a.topProcess[1].length;
+  const reportesRealizados=vpaSortedQueue(
+    a.rows.filter(row=>String(vpaLatest(row)?.responsavel||'').trim())
+  );
   const actionRows=vpaSortedQueue(a.rows.filter(row=>vpaActionValue(vpaLatest(row))==='Sim'));
   el.innerHTML=`<div class="vpa">
-    <div class="vpa-head"><div class="vpa-title"><div class="vpa-crumb">Validação Pós-Atendimento</div><h2>Validação Pós-Atendimento</h2><p>Auditoria da percepção do cliente e da efetividade real dos serviços executados em campo</p></div><div class="vpa-actions"><button class="vpa-btn contact" id="vpaRegister">☎ Registrar contato</button><button class="vpa-btn import" id="vpaReload">↻ Atualizar base</button><button class="vpa-btn" id="vpaExport">▣ Exportar casos</button><button class="vpa-btn primary" id="vpaPpt">⇩ Baixar apresentação</button></div></div>
+    <div class="vpa-head"><div class="vpa-title"><div class="vpa-crumb">Validação Pós-Atendimento</div><h2>Validação Pós-Atendimento</h2><p>Auditoria da percepção do cliente e da efetividade real dos serviços executados em campo</p></div><div class="vpa-actions"><button class="vpa-btn contact" id="vpaRegister">☎ Registrar contato</button><button class="vpa-btn import" id="vpaReload">↻ Atualizar base</button><button class="vpa-btn" id="vpaExport">▣ Exportar reportes</button><button class="vpa-btn primary" id="vpaPpt">⇩ Baixar apresentação</button></div></div>
     <div class="vpa-toolbar">
       <div class="vpa-control active"><input type="date" id="vpaDateFrom" value="${dateFromValue}" title="Data inicial"></div>
       <div class="vpa-control active"><input type="date" id="vpaDateTo" value="${dateToValue}" title="Data final"></div>
@@ -7496,6 +7499,56 @@ function renderValidacaoPos(){
     <section class="vpa-card vpa-queue"><div class="vpa-queue-head"><div class="copy"><h3>Fila operacional de validação</h3><div class="sub">Casos reincidentes aparecem primeiro; selecione um registro para lançar a ligação e consultar todo o contexto</div></div><div class="vpa-pills"><button class="vpa-pill active" onclick="openValidationDrill('all')">Todos ${fmtNum(a.rows.length)}</button><button class="vpa-pill" onclick="openValidationDrill('recurrent')">Reincidentes ${fmtNum(a.recurrent.length)}</button><button class="vpa-pill" onclick="openValidationDrill('nonContacted')">Pendentes ${fmtNum(a.nonContacted.length)}</button><button class="vpa-pill" onclick="openValidationDrill('returns')">Retornar ${fmtNum(a.returns.length)}</button><button class="vpa-pill" onclick="openValidationDrill('critical')">Críticos ${fmtNum(a.critical.length)}</button></div></div>
       <div class="vpa-table-wrap"><table class="vpa-table"><thead><tr><th>Nº Cliente</th><th>Incidência</th><th>Data fim</th><th>Equipe Desl.</th><th>Processo</th><th>Causa</th><th>Responsável</th><th>Status do contato</th><th>Problema resolvido</th><th>Retorno operacional</th><th>Reincidência</th><th>Registro do contato</th><th>Cancelar</th></tr></thead><tbody>${queue.length?queue.map(vpaQueueRow).join(''):`<tr><td colspan="13" style="height:65px;color:#74817c">Nenhum registro no filtro atual.</td></tr>`}</tbody></table></div>
       <div class="vpa-foot"><span>✓ <b>Todos os indicadores, gráficos e alertas possuem drill-down.</b></span><span>✓ Os contatos ficam em histórico próprio e não são sobrescritos.</span><span>✓ A reincidência continua definida exclusivamente pela base oficial.</span></div>
+    </section>
+    <section class="vpa-card vpa-queue vpa-reports-table">
+      <div class="vpa-queue-head">
+        <div class="copy">
+          <h3>Reportes realizados</h3>
+          <div class="sub">Somente registros cujo último contato possui o campo Responsável preenchido</div>
+        </div>
+        <div class="vpa-pills">
+          <span class="vpa-pill active">Total ${fmtNum(reportesRealizados.length)}</span>
+        </div>
+      </div>
+      <div class="vpa-table-wrap">
+        <table class="vpa-table">
+          <thead>
+            <tr>
+              <th>Nº Cliente</th>
+              <th>Incidência</th>
+              <th>Data do reporte</th>
+              <th>Responsável</th>
+              <th>Telefone utilizado</th>
+              <th>Status do contato</th>
+              <th>Problema resolvido</th>
+              <th>Observações</th>
+              <th>Ação necessária</th>
+              <th>Retorno operacional</th>
+              <th>Abrir</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${reportesRealizados.length
+              ? reportesRealizados.map(row=>{
+                  const latest=vpaLatest(row);
+                  return `<tr>
+                    <td>${esc(row[COLV.nCliente]||'—')}</td>
+                    <td>${esc(formatNumero(row[COLV.numero]))}</td>
+                    <td>${latest?.date?fmtDateTime(vpaDate(latest.date)):'—'}</td>
+                    <td><b>${esc(latest?.responsavel||'—')}</b></td>
+                    <td>${esc(latest?.telefoneUtilizado||'—')}</td>
+                    <td>${esc(latest?.status||'—')}</td>
+                    <td>${esc(latest?.resolvido||'—')}</td>
+                    <td>${esc(latest?.observacoes||'—')}</td>
+                    <td>${esc(vpaActionValue(latest)||'Não')}</td>
+                    <td>${latest?.retorno?'Sim':'Não'}</td>
+                    <td><button class="vpa-open" onclick="openValidationContact('${vpaKey(row)}')">Abrir →</button></td>
+                  </tr>`;
+                }).join('')
+              : `<tr><td colspan="11" style="height:65px;color:#74817c">Nenhum reporte com Responsável preenchido no filtro atual.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
     </section>
     <section class="vpa-card vpa-queue vpa-action-table"><div class="vpa-queue-head"><div class="copy"><h3>Casos com ação necessária</h3><div class="sub">Registros cujo último contato foi marcado como “Sim” para ação necessária</div></div><div class="vpa-pills"><span class="vpa-pill active">${fmtNum(actionRows.length)} caso(s)</span></div></div>
       <div class="vpa-table-wrap"><table class="vpa-table"><thead><tr><th>Nº Cliente</th><th>Incidência</th><th>Data fim</th><th>Equipe</th><th>Processo</th><th>Responsável</th><th>Comentário da ação</th><th>Anexo</th><th>Abrir</th></tr></thead><tbody>${actionRows.length?actionRows.map(row=>{const latest=vpaLatest(row),attachment=vpaAttachment(latest);return `<tr><td>${esc(row[COLV.nCliente]||'—')}</td><td>${esc(formatNumero(row[COLV.numero]))}</td><td>${fmtDateTime(row.__dataFim)}</td><td>${esc(row[COLV.equipeDesl]||'—')}</td><td>${esc(row.__processo||'—')}</td><td>${esc(latest?.responsavel||'—')}</td><td class="vpa-action-comment-cell">${esc(vpaActionComment(latest)||'Sem comentário')}</td><td>${attachment?`<a class="vpa-file-link" href="${esc(attachment.data||'#')}" download="${esc(attachment.name||'anexo')}">📎 ${esc(attachment.name||'Anexo')}</a>`:'—'}</td><td><button class="vpa-open" onclick="openValidationContact('${vpaKey(row)}')">Abrir →</button></td></tr>`}).join(''):`<tr><td colspan="9" style="height:65px;color:#74817c">Nenhum caso marcado com ação necessária.</td></tr>`}</tbody></table></div>
@@ -8001,36 +8054,47 @@ function validationExportRow(row){
   return out;
 }
 function exportValidationCases(){
-  const rows=[];
-  for(const row of getFilteredValidation()){
-    const history=vpaHistory(row);
-    if(!history.length)continue;
-    for(const attempt of history){
-      rows.push({
-        ...validationExportRow(row),
-        'ID do Reporte':attempt.id||'',
-        'Data do Reporte':fmtDateTime(vpaDate(attempt.date)),
-        'Responsável do Reporte':attempt.responsavel||'',
-        'Telefone Utilizado':attempt.telefoneUtilizado||'',
-        'Status do Contato':attempt.status||'',
-        'Problema Resolvido':attempt.resolvido||'',
-        'Observações do Reporte':attempt.observacoes||'',
-        'Ação Necessária':vpaActionValue(attempt),
-        'Comentário da Ação':vpaActionComment(attempt),
-        'Anexo':vpaAttachment(attempt)?.name||'',
-        'Retorno Operacional':attempt.retorno?'Sim':'Não'
-      });
-    }
-  }
+  const rows=getFilteredValidation()
+    .filter(row=>String(vpaLatest(row)?.responsavel||'').trim())
+    .map(row=>{
+      const latest=vpaLatest(row);
+      return {
+        'Nº Cliente':row[COLV.nCliente]||'',
+        'Incidência':formatNumero(row[COLV.numero]),
+        'Data do Reporte':latest?.date?fmtDateTime(vpaDate(latest.date)):'',
+        'Responsável':String(latest?.responsavel||'').trim(),
+        'Telefone Utilizado':latest?.telefoneUtilizado||'',
+        'Status do Contato':latest?.status||'',
+        'Problema Resolvido':latest?.resolvido||'',
+        'Observações':latest?.observacoes||'',
+        'Ação Necessária':vpaActionValue(latest)||'Não',
+        'Comentário da Ação':vpaActionComment(latest)||'',
+        'Retorno Operacional':latest?.retorno?'Sim':'Não',
+        'Equipe Desl.':row[COLV.equipeDesl]||'',
+        'Processo':row.__processo||'',
+        'Causa':row[COLV.causa]||'',
+        'Cliente Reincidente':row.__isRecurrent?'Sim':'Não'
+      };
+    });
+
   if(!rows.length){
-    alert('Nenhuma incidência com reporte no filtro atual.');
+    alert('Nenhum reporte com o campo Responsável preenchido no filtro atual.');
     return;
   }
-  exportRowsXlsx(
-    rows,
-    `registros_validacao_pos_atendimento_${stamp()}.xlsx`,
-    'Registros Validação'
-  );
+
+  try{
+    exportRowsXlsx(
+      rows,
+      `reportes_realizados_validacao_${stamp()}.xlsx`,
+      'Reportes realizados'
+    );
+  }catch(error){
+    console.error('Falha ao exportar reportes realizados:',error);
+    alert(
+      'Não foi possível exportar os reportes realizados.\n\n'
+      +(error?.message||error)
+    );
+  }
 }
 async function exportValidationPptx(){
   if(!ensurePptxRuntime()){alert('O componente de PowerPoint não foi carregado.');return}
