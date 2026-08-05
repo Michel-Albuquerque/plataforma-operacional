@@ -2247,12 +2247,20 @@ function processReincidenciaRows(rows, fileName){
   if(S.currentTab !== 'upload'){ rerenderActiveTab(); }
   salvarBaseReincidenciaLocal();
 }
-/* O Processo das análises de reincidência vem exclusivamente da
-   incidência reincidente (Número Rein) localizada na base central
-   BASE INCIDÊNCIA - REINCIDÊNCIA. A base oficial de reincidência
-   define o universo, mas não fornece o Processo exibido. */
+/* A base oficial atual já contém uma linha por incidência reincidente.
+   O campo Número identifica a própria reincidência. O Processo e os
+   demais atributos são enriquecidos pela base principal usando Número.
+   "Número Rein" permanece apenas como compatibilidade com bases antigas. */
 function centralReincidenceProcess(row){
-  const value=row&&row.__nextMain&&row.__nextMain[COL.processo];
+  // Na base oficial atual, cada linha já representa a própria incidência
+  // reincidente. Portanto, quando "Número Rein" não existir, o processo
+  // deve vir da incidência informada em "Número".
+  const value=
+    row&&row.__nextMain&&row.__nextMain[COL.processo]||
+    row&&row.__prevMain&&row.__prevMain[COL.processo]||
+    row&&row.__processo||
+    row&&row[COL2.processo];
+
   return hasValidValue(value)?String(value).trim():'Não identificado';
 }
 function centralGeneratorTeam(row){
@@ -2857,9 +2865,23 @@ function vincularReincidenciaComBasePrincipal(statsOut){
   for(const r of S.baseReincidencia){
     const num = r[COL2.numero];
     const main = porNumero.get(normalizeNumero(num)) || null;
-    const nextMain = porNumero.get(normalizeNumero(r[COL2.numeroRein])) || null;
+
+    // Estrutura oficial atual:
+    // cada linha já é uma reincidência e "Número" é a incidência reincidente.
+    // Mantemos compatibilidade com bases antigas que possuam "Número Rein".
+    const numeroReincidente=
+      hasValidValue(r[COL2.numeroRein])
+        ? r[COL2.numeroRein]
+        : r[COL2.numero];
+
+    const nextMain =
+      porNumero.get(normalizeNumero(numeroReincidente)) ||
+      main ||
+      null;
+
     r.__prevMain=main;
     r.__nextMain=nextMain;
+    r.__numeroReincidente=numeroReincidente;
     if(main){
       r.__processo = main[COL.processo];
       r.__polo = main[COL.polo];
@@ -2892,9 +2914,17 @@ function vincularReincidenciaComBasePrincipal(statsOut){
       r.__nextLinked=true;
       reincidentesVinculadas++;
     }else{
-      r.__nextNumero=r[COL2.numeroRein]||null; r.__nextDataInicio=null; r.__nextDataFim=null;
-      r.__nextCausa=null; r.__nextEquipeDesl=null; r.__nextEquipeAtribuida=null;
-      r.__nextProcesso=null; r.__nextPolo=null; r.__nextCliAf3min=null; r.__nextTipoInstalacao=null; r.__nextLinked=false;
+      r.__nextNumero=r.__numeroReincidente||r[COL2.numero]||null;
+      r.__nextDataInicio=r.__dataInicio||null;
+      r.__nextDataFim=r.__dataFim||null;
+      r.__nextCausa=r[COL2.causa]||null;
+      r.__nextEquipeDesl=r[COL2.equipe]||null;
+      r.__nextEquipeAtribuida=r[COL2.equipe]||null;
+      r.__nextProcesso=r[COL2.processo]||r.__processo||null;
+      r.__nextPolo=r.__polo||null;
+      r.__nextCliAf3min=r.__cliAf3min||null;
+      r.__nextTipoInstalacao=r.__tipoInstalacao||null;
+      r.__nextLinked=Boolean(r.__linked);
     }
     r.__processoReincidencia=centralReincidenceProcess(r);
   }
