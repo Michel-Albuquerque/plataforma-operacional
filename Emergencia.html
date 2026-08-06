@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Plataforma Emergência — TMA e Incidências | Ajuste Equipes, Callback e Mapa</title>
 <style>:root{
   --enel-blue:#0057a8;
@@ -376,6 +379,58 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
 .duration-export-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .duration-period-export{margin:8px 0 8px auto}
 
+
+/* ORDENACAO_TABELA_PERIODOS_E_EXPANSAO_V1 */
+
+/* EXPANSAO_POR_CELULA_E_NAO_ATRIBUIDAS_V2 */
+.duration-summary-value-btn{
+  width:100%;border:0;background:transparent;color:inherit;font:inherit;font-weight:850;
+  padding:5px 7px;border-radius:6px;cursor:pointer;text-align:right
+}
+.duration-summary-value-btn:hover{background:#dcecf7;color:#075a99}
+.duration-summary-value-btn.active{background:#d7eaf8;color:#075a99;box-shadow:inset 0 0 0 1px #8fb9d7}
+.duration-period-label-btn{
+  width:100%;border:0;background:transparent;color:var(--enel-navy);font:inherit;font-weight:850;
+  padding:4px 5px;border-radius:6px;cursor:pointer;text-align:left
+}
+.duration-period-label-btn:hover,.duration-period-label-btn.active{background:#dcecf7;color:#075a99}
+.assignment-tag{display:inline-block;border-radius:999px;padding:3px 8px;font-size:10px;font-weight:850}
+.assignment-tag.yes{background:#e8f5eb;color:#226a35}
+.assignment-tag.no{background:#fdeaf0;color:#ad1643}
+.unassigned-period-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.unassigned-period-tab{
+  border:1px solid #cbd8e1;background:#fff;color:#435867;border-radius:999px;padding:6px 10px;
+  font-size:10.5px;font-weight:850;cursor:pointer
+}
+.unassigned-period-tab:hover{background:#eef7fd;border-color:#75aacf}
+.unassigned-period-tab.active{background:var(--enel-navy);border-color:var(--enel-navy);color:#fff}
+.unassigned-period-toolbar{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.unassigned-period-info{font-size:11px;color:var(--muted)}
+.duration-dual-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:1200px){.duration-dual-grid{grid-template-columns:1fr}}
+
+
+/* AJUSTE_CONH_IMPACTO_E_MULTISSELECAO_PERIODOS_V1 */
+.conh-impact-row{grid-template-columns:minmax(280px,1fr) minmax(0,2fr)}
+.unassigned-period-tab.selected{background:var(--enel-navy);border-color:var(--enel-navy);color:#fff}
+.unassigned-period-help{font-size:10px;color:var(--muted);margin:-3px 0 8px}
+@media(max-width:1050px){.conh-impact-row{grid-template-columns:1fr}}
+
+
+/* GRID_PADRAO_TEMPO_REAL_DUAS_INFORMACOES_V1 */
+.realtime-two-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:start;
+}
+.realtime-two-grid>.panel{
+  width:100%;
+  min-width:0;
+  height:100%;
+}
+@media(max-width:1050px){
+  .realtime-two-grid{grid-template-columns:1fr}
+}
+
 </style>
 </head>
 <body>
@@ -465,18 +520,117 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
     </section>
 
     <section class="tab-panel active" id="tab-realtime">
-      <div class="section-head"><div><h2>Tempo Real</h2><p>Fonte prioritária: planilha <strong>Tabela Incidência Modal</strong>. “Backlog” considera somente ocorrências herdadas de D-1 e anteriores; entradas do dia permanecem em incidências ativas.</p></div><div class="section-actions"><button class="btn small" id="btnRealtimeRefresh">↻ Recalcular painel</button><button class="btn small" data-export="active">⇩ Ativas CSV</button><button class="btn small" data-export="rtBacklog">⇩ Backlog D-1+ CSV</button><button class="btn small" data-export="rtNoTeam">⇩ Sem equipe CSV</button></div></div>
-      <div class="grid kpi-grid" id="rtKpis"></div>
-      <div class="grid layout-main-aside">
-        <div class="panel"><div class="panel-head"><h3>Resumo de incidências ativas</h3><small id="rtTableCount"></small></div><div class="panel-body"><div class="table-wrap" id="rtTable"></div></div></div>
-        <div class="stack">
-          <div class="panel"><div class="panel-head green"><h3>Faixa etária do backlog</h3><small>Tempo desde a entrada</small></div><div class="panel-body"><div id="chartRtAging" class="chart short"></div></div></div>
-          <div class="panel"><div class="panel-head"><h3>TOP 5 ConH</h3><small>Valor da planilha; cálculo estimado apenas quando o campo não existir</small></div><div class="panel-body"><div id="rtConh"></div></div></div>
-          <div class="panel"><div class="panel-head blue"><div><h3 id="rtImpactTitle">Maiores afetações</h3><small>Incidências ativas ordenadas pelo Cli Af Atual</small></div><div class="impact-limit-control"><label for="rtImpactLimit">Exibir</label><select id="rtImpactLimit"><option value="5">Top 5</option><option value="10">Top 10</option><option value="20">Top 20</option><option value="30">Top 30</option><option value="ALL">Todas</option></select></div></div><div class="panel-body"><div id="rtImpactTable" class="table-wrap"></div><div id="rtImpactMetrics" class="impact-summary-grid"></div></div></div>
+      <div class="section-head">
+        <div>
+          <h2>Tempo Real</h2>
+          <p id="rtExecutiveSummary">Na Base de São Gonçalo estamos no momento com <strong>0 incidências MT</strong>. Temos <strong>0 clientes afetados</strong>, onde concentramos <strong>0% dos impactos nas 5 maiores ocorrências</strong>. Atuamos no momento com <strong>X Equipes</strong>. As <strong>0 incidências MT representam 0% da afetação total</strong>.</p>
+        </div>
+        <div class="section-actions">
+          <button class="btn small" id="btnRealtimeRefresh">↻ Recalcular painel</button>
+          <button class="btn small" data-export="active">⇩ Ativas CSV</button>
+          <button class="btn small" data-export="rtBacklog">⇩ Backlog D-1+ CSV</button>
+          <button class="btn small" data-export="rtNoTeam">⇩ Sem equipe CSV</button>
         </div>
       </div>
 
-      <div class="grid equal-two" style="margin-top:12px">
+      <div class="grid kpi-grid" id="rtKpis"></div>
+
+      <!-- Linha 1 -->
+      <div class="grid realtime-two-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Resumo de incidências ativas</h3>
+            <small id="rtTableCount"></small>
+          </div>
+          <div class="panel-body">
+            <div class="table-wrap" id="rtTable"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head green">
+            <h3>Faixa etária do backlog</h3>
+            <small>Tempo desde a entrada</small>
+          </div>
+          <div class="panel-body">
+            <div id="chartRtAging" class="chart short"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Linha 2 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>TOP 5 ConH</h3>
+            <small>Valor da planilha; cálculo estimado apenas quando o campo não existir</small>
+          </div>
+          <div class="panel-body">
+            <div id="rtConh"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head blue">
+            <div>
+              <h3 id="rtImpactTitle">Maiores afetações</h3>
+              <small>Incidências ativas ordenadas pelo Cli Af Atual</small>
+            </div>
+            <div class="impact-limit-control">
+              <label for="rtImpactLimit">Exibir</label>
+              <select id="rtImpactLimit">
+                <option value="5">Top 5</option>
+                <option value="10">Top 10</option>
+                <option value="20">Top 20</option>
+                <option value="30">Top 30</option>
+                <option value="ALL">Todas</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="rtImpactTable" class="table-wrap"></div>
+            <div id="rtImpactMetrics" class="impact-summary-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Linha 3 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head blue">
+            <div>
+              <h3>Resumo operacional por faixa de duração <span class="data-badge" style="background:#dff3e6;color:#226a35;margin-left:6px">EXPANSÃO POR CÉLULA</span></h3>
+              <small>Clique no período ou em um valor para expandir somente aquele recorte</small>
+            </div>
+            <div class="duration-export-actions">
+              <button class="btn small table-xlsx-btn" id="btnExportDurationAll" type="button">⇩ Exportar toda a tabela</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="rtDurationSummaryTable" class="table-wrap duration-summary-table"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head red">
+            <div>
+              <h3>Incidências sem atribuição por período <span class="data-badge" style="background:#ffe7ee;color:#a60036;margin-left:6px">NOVO</span></h3>
+              <small>Selecione um ou mais períodos para visualizar e exportar as incidências sem equipe</small>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="rtUnassignedPeriodTabs" class="unassigned-period-tabs"></div>
+            <div class="unassigned-period-toolbar">
+              <div id="rtUnassignedPeriodInfo" class="unassigned-period-info"></div>
+              <button class="btn small table-xlsx-btn" id="btnExportUnassignedPeriod" type="button">⇩ Exportar período</button>
+            </div>
+            <div id="rtUnassignedPeriodTable" class="table-wrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Linha 4 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
         <div class="panel">
           <div class="panel-head red">
             <div>
@@ -514,34 +668,100 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
         </div>
       </div>
 
-      <div class="panel" style="margin-top:12px">
-        <div class="panel-head blue">
-          <div>
-            <h3>Resumo operacional por faixa de duração</h3>
-            <small>Clique em uma faixa para expandir as incidências do período</small>
+      <!-- Linha 5 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head blue">
+            <h3>Equipes com incidência ativa</h3>
+            <small>Prefixo e processo inferido</small>
           </div>
-          <div class="duration-export-actions"><button class="btn small table-xlsx-btn" id="btnExportDurationAll" type="button">⇩ Exportar toda a tabela</button></div>
+          <div class="panel-body"><div id="rtTeams" class="table-wrap"></div></div>
         </div>
-        <div class="panel-body">
-          <div id="rtDurationSummaryTable" class="table-wrap duration-summary-table"></div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Incidências atribuídas por processo</h3>
+            <small>Somente ocorrências ativas com equipe válida — clique para abrir e exportar</small>
+          </div>
+          <div class="panel-body"><div id="chartRtProcess" class="chart"></div></div>
         </div>
       </div>
 
-      <div class="grid equal-two" style="margin-top:12px">
-        <div class="panel"><div class="panel-head blue"><h3>Equipes com incidência ativa</h3><small>Prefixo e processo inferido</small></div><div class="panel-body"><div id="rtTeams" class="table-wrap"></div></div></div>
-        <div class="panel"><div class="panel-head"><h3>Incidências atribuídas por processo</h3><small>Somente ocorrências ativas com equipe válida — clique para abrir e exportar</small></div><div class="panel-body"><div id="chartRtProcess" class="chart"></div></div></div>
+      <!-- Linha 6 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head blue">
+            <div>
+              <h3>Equipes atuando por processo</h3>
+              <small id="rtProcessSummaryInfo">Equipes distintas, incidências atribuídas e clientes afetados</small>
+            </div>
+            <button class="btn small" data-export="rtProcessSummary">⇩ Exportar dados</button>
+          </div>
+          <div class="panel-body"><div id="rtProcessSummary" class="table-wrap compact-table"></div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head green">
+            <div>
+              <h3>Equipes por tipo de viatura</h3>
+              <small id="rtVehicleSummaryInfo">Classificação pelo 6º caractere do prefixo: S, L, R ou M</small>
+            </div>
+            <button class="btn small" data-export="rtVehicleSummary">⇩ Exportar dados</button>
+          </div>
+          <div class="panel-body"><div id="rtVehicleSummary" class="table-wrap compact-table"></div></div>
+        </div>
       </div>
-      <div class="grid equal-two" style="margin-top:12px">
-        <div class="panel"><div class="panel-head blue"><div><h3>Equipes atuando por processo</h3><small id="rtProcessSummaryInfo">Equipes distintas, incidências atribuídas e clientes afetados</small></div><button class="btn small" data-export="rtProcessSummary">⇩ Exportar dados</button></div><div class="panel-body"><div id="rtProcessSummary" class="table-wrap compact-table"></div></div></div>
-        <div class="panel"><div class="panel-head green"><div><h3>Equipes por tipo de viatura</h3><small id="rtVehicleSummaryInfo">Classificação pelo 6º caractere do prefixo: S, L, R ou M</small></div><button class="btn small" data-export="rtVehicleSummary">⇩ Exportar dados</button></div><div class="panel-body"><div id="rtVehicleSummary" class="table-wrap compact-table"></div></div></div>
+
+      <!-- Linha 7 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Callback por usuário e tipo de retorno</h3>
+            <small>Clique nas barras para abrir os contatos e exportar</small>
+          </div>
+          <div class="panel-body"><div id="chartRtCallbackUser" class="chart tall"></div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head green">
+            <div>
+              <h3>Ativas com e sem callback</h3>
+              <small>Sem callback = fora do padrão operacional</small>
+            </div>
+            <div class="inline-actions"><button class="btn small" data-export="rtCallbackFiltered">⇩ Exportar visão</button></div>
+          </div>
+          <div class="panel-body">
+            <div class="callback-toolbar">
+              <div class="callback-alert" id="rtCallbackAlert">Aguardando consolidação...</div>
+              <div class="callback-filter-group">
+                <button class="callback-filter active" data-callback-filter="ALL">Todas <span id="rtCbCountAll">0</span></button>
+                <button class="callback-filter missing" data-callback-filter="WITHOUT">Sem callback <span id="rtCbCountWithout">0</span></button>
+                <button class="callback-filter done" data-callback-filter="WITH">Com callback <span id="rtCbCountWith">0</span></button>
+                <input class="callback-search" id="rtCallbackSearch" placeholder="Buscar incidência, equipe ou usuário">
+              </div>
+            </div>
+            <div id="rtCallbackStatus" class="table-wrap"></div>
+          </div>
+        </div>
       </div>
-      <div class="grid equal-two" style="margin-top:12px">
-        <div class="panel"><div class="panel-head"><h3>Callback por usuário e tipo de retorno</h3><small>Clique nas barras para abrir os contatos e exportar</small></div><div class="panel-body"><div id="chartRtCallbackUser" class="chart tall"></div></div></div>
-        <div class="panel"><div class="panel-head green"><div><h3>Ativas com e sem callback</h3><small>Sem callback = fora do padrão operacional</small></div><div class="inline-actions"><button class="btn small" data-export="rtCallbackFiltered">⇩ Exportar visão</button></div></div><div class="panel-body"><div class="callback-toolbar"><div class="callback-alert" id="rtCallbackAlert">Aguardando consolidação...</div><div class="callback-filter-group"><button class="callback-filter active" data-callback-filter="ALL">Todas <span id="rtCbCountAll">0</span></button><button class="callback-filter missing" data-callback-filter="WITHOUT">Sem callback <span id="rtCbCountWithout">0</span></button><button class="callback-filter done" data-callback-filter="WITH">Com callback <span id="rtCbCountWith">0</span></button><input class="callback-search" id="rtCallbackSearch" placeholder="Buscar incidência, equipe ou usuário"></div></div><div id="rtCallbackStatus" class="table-wrap"></div></div></div>
-      </div>
-      <div class="grid equal-two" style="margin-top:12px">
-        <div class="panel"><div class="panel-head blue"><h3>Incidências ativas por alimentador</h3><small>Quantidade, atendimento, clientes e ConH</small></div><div class="panel-body"><div id="rtFeederTable" class="table-wrap"></div></div></div>
-        <div class="panel"><div class="panel-head"><h3>Mapa das incidências ativas</h3><small>Recorte operacional: São Gonçalo, Niterói, Itaboraí, Tanguá e Rio Bonito. Pontos sem coordenadas são consolidados no centro de referência da localidade.</small></div><div class="panel-body"><div id="chartRtMap" class="chart tall"></div></div></div>
+
+      <!-- Linha 8 -->
+      <div class="grid realtime-two-grid" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head blue">
+            <h3>Incidências ativas por alimentador</h3>
+            <small>Quantidade, atendimento, clientes e ConH</small>
+          </div>
+          <div class="panel-body"><div id="rtFeederTable" class="table-wrap"></div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Mapa das incidências ativas</h3>
+            <small>Recorte operacional: São Gonçalo, Niterói, Itaboraí, Tanguá e Rio Bonito. Pontos sem coordenadas são consolidados no centro de referência da localidade.</small>
+          </div>
+          <div class="panel-body"><div id="chartRtMap" class="chart tall"></div></div>
+        </div>
       </div>
     </section>
 
@@ -5471,7 +5691,7 @@ function openDetails(title,rows,options={}){
 function closeDetails(){$('drawerBackdrop').classList.add('hidden');$('detailDrawer').classList.add('hidden');}
 function detailColumns(){return [
   {label:'Número',value:r=>r.number},{label:'Tensão',value:r=>r.ntRaw},{label:'Estado',value:r=>r.state},{label:'Status execução',value:r=>r.executionStatus},{label:'Entrada',value:r=>brDate(r.startDate,true)},{label:'Saída',value:r=>brDate(r.endDate,true)},{label:'Turno',value:r=>r.endShift||r.startShift},{label:'TMA',value:r=>fmtInt(r.tma),class:'num'},
-  {label:'Causa',value:r=>r.cause},{label:'Equipe',value:r=>r.team},{label:'Processo',value:r=>r.process},{label:'Viatura',value:r=>r.vehicleType||classifyVehicle(r.team)},{label:'OSM',value:r=>isOsm(r)?'SIM':'NÃO'},{label:'AL',value:r=>r.feeder},{label:'Conjunto',value:r=>r.set},{label:'Cliente',value:r=>r.clientNumber},{label:'Clientes afetados',value:r=>fmtInt(r.affected),class:'num'},{label:'ConH',value:r=>fmt1(r._dataset==='modal'?realtimeConH(r):conhValue(r)),class:'num'}
+  {label:'Causa',value:r=>r.cause},{label:'Equipe',value:r=>r.team},{label:'Processo',value:r=>r.process},{label:'Viatura',value:r=>r.vehicleType||classifyVehicle(r.team)},{label:'OSM',value:r=>isOsm(r)?'SIM':'NÃO'},{label:'AL',value:r=>r.feeder},{label:'Conjunto',value:r=>r.set},{label:'Cliente',value:r=>r.clientNumber},{label:'Clientes afetados',value:r=>fmtInt(r.affected),class:'num'},{label:'ConH',value:r=>fmt1(r._dataset==='modal'?realtimeConH(r):conhValue(r)),class:'num'},{label:'Observação',value:r=>r.observation||'---'}
 ];}
 function callbackColumns(){return [
   {label:'Incidência',value:r=>r.incidentNumber||r.number},{label:'Data',value:r=>brDate(r.date,true)},{label:'Usuário',value:r=>callbackDisplayUser(r)},{label:'Contato',value:r=>r.contact},{label:'Tipo de retorno',value:r=>callbackOutcome(r)},{label:'Resultado',value:r=>r.result},{label:'Ação',value:r=>r.action},{label:'Motivo',value:r=>r.reason},{label:'Telefone',value:r=>r.phone},{label:'Observação',value:r=>r.observation}
@@ -5776,6 +5996,12 @@ function renderRealtime(){
   const totalImpact=sum(rows.map(r=>Number(r.clientsCurrent)||0));
   const mtImpact=sum(rows.filter(r=>String(r.ntRaw||'').toUpperCase().includes('MT')).map(r=>Number(r.clientsCurrent)||0));
   const mtImpactPct=totalImpact>0?(mtImpact/totalImpact)*100:0;
+  const mtCount=rows.filter(r=>String(r.ntRaw||'').toUpperCase().includes('MT')).length;
+  const top5Impact=sum(impactAll.slice(0,5).map(r=>Number(r.clientsCurrent)||0));
+  const top5ImpactPct=totalImpact>0?(top5Impact/totalImpact)*100:0;
+  if($('rtExecutiveSummary')){
+    $('rtExecutiveSummary').innerHTML=`Na Base de São Gonçalo estamos no momento com <strong>${fmtInt(mtCount)} incidências MT</strong>. Temos <strong>${fmtInt(totalImpact)} clientes afetados</strong>, onde concentramos <strong>${fmt1(top5ImpactPct)}% dos impactos nas 5 maiores ocorrências</strong>. Atuamos no momento com <strong>X Equipes</strong>. As <strong>${fmtInt(mtCount)} incidências MT representam ${fmt1(mtImpactPct)}% da afetação total</strong>.`;
+  }
 
   function renderImpactRanking(){
     const limitValue=$('rtImpactLimit')?.value||'5';
@@ -5792,6 +6018,7 @@ function renderRealtime(){
       {label:'Incidência',value:r=>r.number},
       {label:'NT',value:r=>r.ntRaw||'---'},
       {label:'Equipe',value:r=>r.team||r.teamAssigned||'---'},
+      {label:'OSM',sortValue:r=>isOsm(r)?1:0,html:r=>badge(isOsm(r)?'SIM':'NÃO',isOsm(r)?'blue':'neutral')},
       {label:'AL',value:r=>r.feeder||'---'},
       {label:'Duração',value:r=>`${fmt1(realtimeAgeHours(r,now))}h`,sortValue:r=>realtimeAgeHours(r,now),class:'num'},
       {label:'Afetação',value:r=>fmtInt(r.clientsCurrent),sortValue:r=>Number(r.clientsCurrent)||0,class:'num impact-value'}
@@ -5833,6 +6060,7 @@ function renderRealtime(){
   renderTable('rt24hRiskTable',[
     {label:'Incidência',value:r=>r.number},
     {label:'Equipe',value:r=>r.team||r.teamAssigned||'---'},
+    {label:'Atribuição',value:r=>(String(r.team||r.teamAssigned||'---').trim()==='---'?'Não':'Sim'),sortValue:r=>(String(r.team||r.teamAssigned||'---').trim()==='---'?0:1)},
     {label:'NT',value:r=>r.ntRaw||'---'},
     {label:'AL',value:r=>r.feeder||'---'},
     {label:'Cli Af Atual',value:r=>fmtInt(r.clientsCurrent),sortValue:r=>Number(r.clientsCurrent)||0,class:'num impact-value'},
@@ -6075,110 +6303,450 @@ function renderRealtime(){
     });
     return {
       ...period,
+      mtRows,btRows,assignedRows,unassignedRows,
       mt:mtRows.length,
       bt:btRows.length,
       assigned:assignedRows.length,
       unassigned:unassignedRows.length,
       affected:sum(period.rows.map(r=>Number(r.clientsCurrent)||0))
     };
-  });
+  }).filter(period=>
+    period.mt!==0||
+    period.bt!==0||
+    period.assigned!==0||
+    period.unassigned!==0||
+    period.affected!==0
+  );
 
   if($('rtDurationSummaryTable')){
-    const header=`<table><thead><tr>
-      <th>Período</th>
-      <th class="num">MT</th>
-      <th class="num">BT</th>
-      <th class="num">Inc. atribuídas</th>
-      <th class="num">Sem atribuição</th>
-      <th class="num">Cli Af Atual</th>
-    </tr></thead><tbody>`;
+    window.__durationSummarySort=window.__durationSummarySort||{key:'periodOrder',dir:1};
+    window.__durationDetailSort=window.__durationDetailSort||{};
+    window.__durationExpandedSelection=window.__durationExpandedSelection||null;
+    window.__selectedUnassignedPeriod=window.__selectedUnassignedPeriod||null;
 
-    const body=durationSummaryPeriods.map(period=>{
-      const incidenceRows=[...period.rows].sort((a,b)=>
-        b._durationHours-a._durationHours||
-        (Number(b.clientsCurrent)||0)-(Number(a.clientsCurrent)||0)||
-        String(a.number).localeCompare(String(b.number),'pt-BR')
+    const periodOrder={GT48:0,'30_48':1,'24_30':2,'16_24':3,'8_16':4,'0_8':5};
+
+    const compareValues=(a,b,dir)=>{
+      const av=a??'',bv=b??'';
+      if(typeof av==='number'&&typeof bv==='number')return (av-bv)*dir;
+      return String(av).localeCompare(String(bv),'pt-BR',{numeric:true,sensitivity:'base'})*dir;
+    };
+
+    const periodSortValue=(period,key)=>{
+      if(key==='periodOrder')return periodOrder[period.key]??999;
+      if(key==='label')return period.label;
+      return Number(period[key])||0;
+    };
+
+    const isAssignedRow=r=>{
+      const team=String(r.team||r.teamAssigned||'---').trim();
+      return Boolean(team&&team!=='---');
+    };
+
+    const assignmentLabel=r=>isAssignedRow(r)?'Sim':'Não';
+
+    const detailSortValue=(r,key)=>{
+      if(key==='number')return r.number||'';
+      if(key==='team')return r.team||r.teamAssigned||'---';
+      if(key==='assignment')return assignmentLabel(r);
+      if(key==='nt')return r.ntRaw||'---';
+      if(key==='feeder')return r.feeder||'---';
+      if(key==='duration')return Number(r._durationHours)||0;
+      if(key==='affected')return Number(r.clientsCurrent)||0;
+      return '';
+    };
+
+    const rowsForSelection=(period,selection)=>{
+      if(selection==='MT')return period.mtRows;
+      if(selection==='BT')return period.btRows;
+      if(selection==='ASSIGNED')return period.assignedRows;
+      if(selection==='UNASSIGNED')return period.unassignedRows;
+      return period.rows;
+    };
+
+    const selectionLabel=selection=>{
+      if(selection==='MT')return 'MT';
+      if(selection==='BT')return 'BT';
+      if(selection==='ASSIGNED')return 'Com atribuição';
+      if(selection==='UNASSIGNED')return 'Sem atribuição';
+      return 'Todas as incidências';
+    };
+
+    const sortButton=(scope,key,label,numeric=false,periodKey='',selection='ALL')=>{
+      const state=scope==='period'
+        ?window.__durationSummarySort
+        :(window.__durationDetailSort[`${periodKey}|${selection}`]||{key:'duration',dir:-1});
+      const active=state.key===key;
+      const arrow=active?(state.dir===1?'▲':'▼'):'↕';
+      const attrs=scope==='period'
+        ?`data-duration-summary-sort="${esc(key)}"`
+        :`data-duration-detail-sort="${esc(key)}" data-duration-detail-period="${esc(periodKey)}" data-duration-detail-selection="${esc(selection)}"`;
+      return `<button type="button" class="sort-header-btn ${numeric?'num':''} ${active?'active':''}" ${attrs}>
+        <span>${esc(label)}</span><span class="sort-arrow">${arrow}</span>
+      </button>`;
+    };
+
+    const durationExportRows=(periods,selection='ALL')=>periods.flatMap(period=>
+      rowsForSelection(period,selection).map(r=>({
+        Periodo:period.label,
+        Recorte:selectionLabel(selection),
+        Incidencia:r.number||'---',
+        Equipe:r.team||r.teamAssigned||'---',
+        Atribuicao:assignmentLabel(r),
+        'Nivel de Tensao':r.ntRaw||'---',
+        Alimentador:r.feeder||'---',
+        'Duracao (horas)':round(Number(r._durationHours)||0,2),
+        'Afetacao (Cli Af Atual)':Number(r.clientsCurrent)||0
+      }))
+    );
+
+    const renderDurationSummary=()=>{
+      const summaryState=window.__durationSummarySort;
+      const sortedPeriods=[...durationSummaryPeriods].sort((a,b)=>
+        compareValues(
+          periodSortValue(a,summaryState.key),
+          periodSortValue(b,summaryState.key),
+          summaryState.dir
+        )
       );
 
-      const details=incidenceRows.length?`<div class="duration-team-wrap duration-incidence-detail"><div class="duration-export-actions"><button class="btn small duration-period-export" type="button" data-export-duration-period="${esc(period.key)}">⇩ Exportar ${esc(period.label)}</button></div><table><thead><tr>
-        <th>Incidência</th>
-        <th>Equipe</th>
-        <th>Nível de Tensão</th>
-        <th>Alimentador</th>
-        <th class="num">Duração</th>
-        <th class="num">Afetação (Cli Af Atual)</th>
-      </tr></thead><tbody>${incidenceRows.map(r=>`<tr data-duration-incidence="${esc(r.number)}" title="Clique para abrir os detalhes da incidência">
-        <td><button class="incidence-link" data-duration-incidence-button="${esc(r.number)}">${esc(r.number||'---')}</button></td>
-        <td>${esc(r.team||r.teamAssigned||'---')}</td>
-        <td>${esc(r.ntRaw||'---')}</td>
-        <td>${esc(r.feeder||'---')}</td>
-        <td class="num">${fmt1(r._durationHours)}h</td>
-        <td class="num duration-summary-afetacao">${fmtInt(Number(r.clientsCurrent)||0)}</td>
-      </tr>`).join('')}</tbody></table></div>`:'<div class="duration-team-wrap">Nenhuma incidência nesta faixa.</div>';
+      if(!sortedPeriods.length){
+        $('rtDurationSummaryTable').innerHTML='<div class="map-empty">Nenhum período possui valores diferentes de zero.</div>';
+        return;
+      }
 
-      return `<tr class="duration-period-row" data-duration-period="${esc(period.key)}" aria-expanded="false">
-        <td><span class="duration-summary-toggle">+</span>${esc(period.label)}</td>
-        <td class="num">${fmtInt(period.mt)}</td>
-        <td class="num">${fmtInt(period.bt)}</td>
-        <td class="num">${fmtInt(period.assigned)}</td>
-        <td class="num">${fmtInt(period.unassigned)}</td>
-        <td class="num duration-summary-afetacao">${fmtInt(period.affected)}</td>
-      </tr><tr class="duration-summary-detail hidden" data-duration-detail="${esc(period.key)}"><td colspan="6">${details}</td></tr>`;
-    }).join('');
+      const header=`<table><thead><tr>
+        <th class="sortable-header">${sortButton('period','label','Período')}</th>
+        <th class="sortable-header num">${sortButton('period','mt','MT',true)}</th>
+        <th class="sortable-header num">${sortButton('period','bt','BT',true)}</th>
+        <th class="sortable-header num">${sortButton('period','assigned','Inc. atribuídas',true)}</th>
+        <th class="sortable-header num">${sortButton('period','unassigned','Sem atribuição',true)}</th>
+        <th class="sortable-header num">${sortButton('period','affected','Cli Af Atual',true)}</th>
+      </tr></thead><tbody>`;
 
-    const totals={
-      mt:sum(durationSummaryPeriods.map(p=>p.mt)),
-      bt:sum(durationSummaryPeriods.map(p=>p.bt)),
-      assigned:sum(durationSummaryPeriods.map(p=>p.assigned)),
-      unassigned:sum(durationSummaryPeriods.map(p=>p.unassigned)),
-      affected:sum(durationSummaryPeriods.map(p=>p.affected))
+      const body=sortedPeriods.map(period=>{
+        const expanded=window.__durationExpandedSelection;
+        const isExpanded=expanded?.periodKey===period.key;
+        const selection=isExpanded?expanded.selection:'ALL';
+        const selectedRows=rowsForSelection(period,selection);
+        const detailState=window.__durationDetailSort[`${period.key}|${selection}`]||{key:'duration',dir:-1};
+
+        const incidenceRows=[...selectedRows].sort((a,b)=>{
+          const primary=compareValues(
+            detailSortValue(a,detailState.key),
+            detailSortValue(b,detailState.key),
+            detailState.dir
+          );
+          if(primary!==0)return primary;
+          return String(a.number||'').localeCompare(String(b.number||''),'pt-BR',{numeric:true});
+        });
+
+        const details=isExpanded?`<div class="duration-team-wrap duration-incidence-detail">
+          <div class="duration-export-actions">
+            <strong>${esc(period.label)} • ${esc(selectionLabel(selection))} • ${fmtInt(incidenceRows.length)} incidências</strong>
+            <button class="btn small duration-period-export" type="button"
+              data-export-duration-period="${esc(period.key)}"
+              data-export-duration-selection="${esc(selection)}">⇩ Exportar este recorte</button>
+          </div>
+          <table>
+            <thead><tr>
+              <th class="sortable-header">${sortButton('detail','number','Incidência',false,period.key,selection)}</th>
+              <th class="sortable-header">${sortButton('detail','team','Equipe',false,period.key,selection)}</th>
+              <th class="sortable-header">${sortButton('detail','assignment','Atribuição',false,period.key,selection)}</th>
+              <th class="sortable-header">${sortButton('detail','nt','Nível de Tensão',false,period.key,selection)}</th>
+              <th class="sortable-header">${sortButton('detail','feeder','Alimentador',false,period.key,selection)}</th>
+              <th class="sortable-header num">${sortButton('detail','duration','Duração',true,period.key,selection)}</th>
+              <th class="sortable-header num">${sortButton('detail','affected','Afetação (Cli Af Atual)',true,period.key,selection)}</th>
+            </tr></thead>
+            <tbody>${incidenceRows.map(r=>`<tr data-duration-incidence="${esc(r.number)}" title="Clique para abrir os detalhes da incidência">
+              <td><button class="incidence-link" data-duration-incidence-button="${esc(r.number)}">${esc(r.number||'---')}</button></td>
+              <td>${esc(r.team||r.teamAssigned||'---')}</td>
+              <td><span class="assignment-tag ${isAssignedRow(r)?'yes':'no'}">${assignmentLabel(r)}</span></td>
+              <td>${esc(r.ntRaw||'---')}</td>
+              <td>${esc(r.feeder||'---')}</td>
+              <td class="num">${fmt1(r._durationHours)}h</td>
+              <td class="num duration-summary-afetacao">${fmtInt(Number(r.clientsCurrent)||0)}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>`:'';
+
+        const cellButton=(value,cellSelection,title)=>`<button type="button"
+          class="duration-summary-value-btn ${isExpanded&&selection===cellSelection?'active':''}"
+          data-duration-cell-period="${esc(period.key)}"
+          data-duration-cell-selection="${esc(cellSelection)}"
+          title="${esc(title)}">${fmtInt(value)}</button>`;
+
+        return `<tr class="duration-period-row" data-duration-period="${esc(period.key)}">
+          <td><button type="button"
+            class="duration-period-label-btn ${isExpanded&&selection==='ALL'?'active':''}"
+            data-duration-cell-period="${esc(period.key)}"
+            data-duration-cell-selection="ALL">
+            <span class="duration-summary-toggle">${isExpanded?'−':'+'}</span>${esc(period.label)}
+          </button></td>
+          <td class="num">${cellButton(period.mt,'MT',`Expandir somente MT de ${period.label}`)}</td>
+          <td class="num">${cellButton(period.bt,'BT',`Expandir somente BT de ${period.label}`)}</td>
+          <td class="num">${cellButton(period.assigned,'ASSIGNED',`Expandir somente incidências atribuídas de ${period.label}`)}</td>
+          <td class="num">${cellButton(period.unassigned,'UNASSIGNED',`Expandir somente incidências sem atribuição de ${period.label}`)}</td>
+          <td class="num">${cellButton(period.affected,'ALL',`Expandir todas as incidências de ${period.label}`)}</td>
+        </tr>
+        ${isExpanded?`<tr class="duration-summary-detail" data-duration-detail="${esc(period.key)}"><td colspan="6">${details}</td></tr>`:''}`;
+      }).join('');
+
+      const totals={
+        mt:sum(durationSummaryPeriods.map(p=>p.mt)),
+        bt:sum(durationSummaryPeriods.map(p=>p.bt)),
+        assigned:sum(durationSummaryPeriods.map(p=>p.assigned)),
+        unassigned:sum(durationSummaryPeriods.map(p=>p.unassigned)),
+        affected:sum(durationSummaryPeriods.map(p=>p.affected))
+      };
+
+      const footer=`</tbody><tfoot><tr>
+        <td>TOTAL</td>
+        <td class="num">${fmtInt(totals.mt)}</td>
+        <td class="num">${fmtInt(totals.bt)}</td>
+        <td class="num">${fmtInt(totals.assigned)}</td>
+        <td class="num">${fmtInt(totals.unassigned)}</td>
+        <td class="num duration-summary-afetacao">${fmtInt(totals.affected)}</td>
+      </tr></tfoot></table>`;
+
+      $('rtDurationSummaryTable').innerHTML=header+body+footer;
+
+      qsa('[data-duration-summary-sort]',$('rtDurationSummaryTable')).forEach(button=>button.addEventListener('click',ev=>{
+        ev.stopPropagation();
+        const key=button.dataset.durationSummarySort;
+        const current=window.__durationSummarySort;
+        window.__durationSummarySort={
+          key,
+          dir:current.key===key?-current.dir:(key==='label'?1:-1)
+        };
+        renderDurationSummary();
+      }));
+
+      qsa('[data-duration-cell-period]',$('rtDurationSummaryTable')).forEach(button=>button.addEventListener('click',ev=>{
+        ev.stopPropagation();
+        const periodKey=button.dataset.durationCellPeriod;
+        const selection=button.dataset.durationCellSelection||'ALL';
+        const current=window.__durationExpandedSelection;
+        window.__durationExpandedSelection=
+          current?.periodKey===periodKey&&current?.selection===selection
+            ?null
+            :{periodKey,selection};
+        renderDurationSummary();
+      }));
+
+      qsa('[data-duration-detail-sort]',$('rtDurationSummaryTable')).forEach(button=>button.addEventListener('click',ev=>{
+        ev.stopPropagation();
+        const periodKey=button.dataset.durationDetailPeriod;
+        const selection=button.dataset.durationDetailSelection||'ALL';
+        const stateKey=`${periodKey}|${selection}`;
+        const key=button.dataset.durationDetailSort;
+        const current=window.__durationDetailSort[stateKey]||{key:'duration',dir:-1};
+        window.__durationDetailSort[stateKey]={
+          key,
+          dir:current.key===key?-current.dir:(['number','team','assignment','nt','feeder'].includes(key)?1:-1)
+        };
+        window.__durationExpandedSelection={periodKey,selection};
+        renderDurationSummary();
+      }));
+
+      qsa('[data-export-duration-period]',$('rtDurationSummaryTable')).forEach(button=>button.addEventListener('click',ev=>{
+        ev.stopPropagation();
+        const period=durationSummaryPeriods.find(p=>p.key===button.dataset.exportDurationPeriod);
+        const selection=button.dataset.exportDurationSelection||'ALL';
+        if(!period)return;
+        downloadCsv(
+          `incidencias_${String(period.key).replace(/[^a-z0-9]+/gi,'_')}_${String(selection).toLowerCase()}_${isoDate(new Date())}.csv`,
+          durationExportRows([period],selection)
+        );
+      }));
+
+      qsa('[data-duration-incidence]',$('rtDurationSummaryTable')).forEach(row=>row.addEventListener('click',ev=>{
+        ev.stopPropagation();
+        const number=row.dataset.durationIncidence;
+        const selected=durationRows.filter(r=>String(r.number)===String(number));
+        openDetails(`Incidência ${number}`,selected);
+      }));
     };
-    const footer=`</tbody><tfoot><tr><td>TOTAL</td><td class="num">${fmtInt(totals.mt)}</td><td class="num">${fmtInt(totals.bt)}</td><td class="num">${fmtInt(totals.assigned)}</td><td class="num">${fmtInt(totals.unassigned)}</td><td class="num duration-summary-afetacao">${fmtInt(totals.affected)}</td></tr></tfoot></table>`;
-    $('rtDurationSummaryTable').innerHTML=header+body+footer;
-
-    const durationExportRows=periods=>periods.flatMap(period=>period.rows.map(r=>({
-      Periodo:period.label,
-      Incidencia:r.number||'---',
-      Equipe:r.team||r.teamAssigned||'---',
-      'Nivel de Tensao':r.ntRaw||'---',
-      Alimentador:r.feeder||'---',
-      'Duracao (horas)':round(Number(r._durationHours)||0,2),
-      'Afetacao (Cli Af Atual)':Number(r.clientsCurrent)||0
-    })));
 
     if($('btnExportDurationAll'))$('btnExportDurationAll').onclick=()=>downloadCsv(
       `resumo_faixas_duracao_${isoDate(new Date())}.csv`,
-      durationExportRows(durationSummaryPeriods)
+      durationExportRows(durationSummaryPeriods,'ALL')
     );
 
-    qsa('[data-export-duration-period]',$('rtDurationSummaryTable')).forEach(button=>button.addEventListener('click',ev=>{
-      ev.stopPropagation();
-      const period=durationSummaryPeriods.find(p=>p.key===button.dataset.exportDurationPeriod);
-      if(!period)return;
-      downloadCsv(
-        `incidencias_periodo_${String(period.key).replace(/[^a-z0-9]+/gi,'_')}_${isoDate(new Date())}.csv`,
-        durationExportRows([period])
+    const renderUnassignedByPeriod=()=>{
+      const periodsWithUnassigned=durationSummaryPeriods.filter(period=>period.unassigned>0);
+      const tabsEl=$('rtUnassignedPeriodTabs');
+      const tableEl=$('rtUnassignedPeriodTable');
+      const infoEl=$('rtUnassignedPeriodInfo');
+      const exportBtn=$('btnExportUnassignedPeriod');
+      if(!tabsEl||!tableEl)return;
+
+      if(!periodsWithUnassigned.length){
+        tabsEl.innerHTML='';
+        tableEl.innerHTML='<div class="map-empty">Não existem incidências sem atribuição nas faixas exibidas.</div>';
+        if(infoEl)infoEl.textContent='';
+        if(exportBtn)exportBtn.disabled=true;
+        return;
+      }
+
+      const validKeys=new Set(periodsWithUnassigned.map(p=>p.key));
+      if(!(window.__selectedUnassignedPeriods instanceof Set)){
+        window.__selectedUnassignedPeriods=new Set([periodsWithUnassigned[0].key]);
+      }
+      window.__selectedUnassignedPeriods=new Set(
+        [...window.__selectedUnassignedPeriods].filter(key=>validKeys.has(key))
       );
-    }));
+      if(!window.__selectedUnassignedPeriods.size){
+        window.__selectedUnassignedPeriods.add(periodsWithUnassigned[0].key);
+      }
 
-    qsa('[data-duration-period]',$('rtDurationSummaryTable')).forEach(row=>row.addEventListener('click',ev=>{
-      if(ev.target.closest('button'))return;
-      const key=row.dataset.durationPeriod;
-      const detail=$('rtDurationSummaryTable').querySelector(`[data-duration-detail="${CSS.escape(key)}"]`);
-      if(!detail)return;
-      const opening=detail.classList.contains('hidden');
-      detail.classList.toggle('hidden',!opening);
-      row.setAttribute('aria-expanded',opening?'true':'false');
-      const icon=row.querySelector('.duration-summary-toggle');
-      if(icon)icon.textContent=opening?'−':'+';
-    }));
+      const selectedPeriods=periodsWithUnassigned.filter(
+        period=>window.__selectedUnassignedPeriods.has(period.key)
+      );
 
-    qsa('[data-duration-incidence]',$('rtDurationSummaryTable')).forEach(row=>row.addEventListener('click',ev=>{
-      ev.stopPropagation();
-      const number=row.dataset.durationIncidence;
-      const selected=durationRows.filter(r=>String(r.number)===String(number));
-      openDetails(`Incidência ${number}`,selected);
-    }));
+      const rows=selectedPeriods.flatMap(period=>
+        period.unassignedRows.map(r=>({...r,_selectedPeriodLabel:period.label,_selectedPeriodKey:period.key}))
+      );
+
+      tabsEl.innerHTML=`
+        <button type="button"
+          class="unassigned-period-tab ${window.__selectedUnassignedPeriods.size===periodsWithUnassigned.length?'selected':''}"
+          data-unassigned-period-all="1">
+          Todos (${fmtInt(sum(periodsWithUnassigned.map(p=>p.unassigned)))})
+        </button>
+        ${periodsWithUnassigned.map(period=>`
+          <button type="button"
+            class="unassigned-period-tab ${window.__selectedUnassignedPeriods.has(period.key)?'selected':''}"
+            data-unassigned-period="${esc(period.key)}">
+            ${esc(period.label)} (${fmtInt(period.unassigned)})
+          </button>`).join('')}
+        <div class="unassigned-period-help">Clique para selecionar um período. Use Ctrl + clique para acrescentar ou retirar outros períodos.</div>
+      `;
+
+      const selectedLabels=selectedPeriods.map(p=>p.label);
+      if(infoEl)infoEl.textContent=`${selectedLabels.join(' + ')}: ${fmtInt(rows.length)} incidências sem atribuição`;
+
+      window.__unassignedPeriodSort=window.__unassignedPeriodSort||{key:'affected',dir:-1};
+
+      const unassignedSortValue=(r,key)=>{
+        if(key==='period')return r._selectedPeriodLabel||'';
+        if(key==='number')return r.number||'';
+        if(key==='nt')return r.ntRaw||'---';
+        if(key==='affected')return Number(r.clientsCurrent)||0;
+        if(key==='feeder')return r.feeder||'---';
+        if(key==='osm')return isOsm(r)?1:0;
+        return '';
+      };
+
+      const unassignedSortButton=(key,label,numeric=false)=>{
+        const state=window.__unassignedPeriodSort;
+        const active=state.key===key;
+        const arrow=active?(state.dir===1?'▲':'▼'):'↕';
+        return `<button type="button"
+          class="sort-header-btn ${numeric?'num':''} ${active?'active':''}"
+          data-unassigned-sort="${esc(key)}">
+          <span>${esc(label)}</span><span class="sort-arrow">${arrow}</span>
+        </button>`;
+      };
+
+      const sortedRows=[...rows].sort((a,b)=>{
+        const state=window.__unassignedPeriodSort;
+        const av=unassignedSortValue(a,state.key);
+        const bv=unassignedSortValue(b,state.key);
+        if(typeof av==='number'&&typeof bv==='number')return (av-bv)*state.dir;
+        return String(av).localeCompare(String(bv),'pt-BR',{numeric:true,sensitivity:'base'})*state.dir;
+      });
+
+      tableEl.innerHTML=`<table>
+        <thead><tr>
+          <th class="sortable-header">${unassignedSortButton('period','Período')}</th>
+          <th class="sortable-header">${unassignedSortButton('number','Incidência')}</th>
+          <th class="sortable-header">${unassignedSortButton('nt','NT')}</th>
+          <th class="sortable-header num">${unassignedSortButton('affected','Afetação',true)}</th>
+          <th class="sortable-header">${unassignedSortButton('feeder','AL')}</th>
+          <th class="sortable-header">${unassignedSortButton('osm','OSM')}</th>
+        </tr></thead>
+        <tbody>${sortedRows.map(r=>`<tr data-unassigned-incidence="${esc(r.number)}" title="Clique para abrir os detalhes">
+          <td>${esc(r._selectedPeriodLabel||'---')}</td>
+          <td><button class="incidence-link" type="button">${esc(r.number||'---')}</button></td>
+          <td>${esc(r.ntRaw||'---')}</td>
+          <td class="num duration-summary-afetacao">${fmtInt(Number(r.clientsCurrent)||0)}</td>
+          <td>${esc(r.feeder||'---')}</td>
+          <td>${isOsm(r)?'<span class="tag blue">SIM</span>':'<span class="tag">NÃO</span>'}</td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr>
+          <td>${fmtInt(selectedPeriods.length)} período(s)</td>
+          <td>TOTAL</td>
+          <td></td>
+          <td class="num duration-summary-afetacao">${fmtInt(sum(rows.map(r=>Number(r.clientsCurrent)||0)))}</td>
+          <td>${fmtInt(rows.length)} incidências</td>
+          <td>${fmtInt(rows.filter(isOsm).length)} OSM</td>
+        </tr></tfoot>
+      </table>`;
+
+      qsa('[data-unassigned-sort]',tableEl).forEach(button=>button.addEventListener('click',ev=>{
+        ev.stopPropagation();
+        const key=button.dataset.unassignedSort;
+        const current=window.__unassignedPeriodSort;
+        window.__unassignedPeriodSort={
+          key,
+          dir:current.key===key?-current.dir:(['period','number','nt','feeder'].includes(key)?1:-1)
+        };
+        renderUnassignedByPeriod();
+      }));
+
+      qsa('[data-unassigned-period]',tabsEl).forEach(button=>button.addEventListener('click',ev=>{
+        const key=button.dataset.unassignedPeriod;
+
+        if(ev.ctrlKey||ev.metaKey){
+          if(window.__selectedUnassignedPeriods.has(key)){
+            if(window.__selectedUnassignedPeriods.size>1){
+              window.__selectedUnassignedPeriods.delete(key);
+            }
+          }else{
+            window.__selectedUnassignedPeriods.add(key);
+          }
+        }else{
+          window.__selectedUnassignedPeriods=new Set([key]);
+        }
+
+        renderUnassignedByPeriod();
+      }));
+
+      const allButton=tabsEl.querySelector('[data-unassigned-period-all]');
+      if(allButton)allButton.addEventListener('click',()=>{
+        if(window.__selectedUnassignedPeriods.size===periodsWithUnassigned.length){
+          window.__selectedUnassignedPeriods=new Set([periodsWithUnassigned[0].key]);
+        }else{
+          window.__selectedUnassignedPeriods=new Set(periodsWithUnassigned.map(p=>p.key));
+        }
+        renderUnassignedByPeriod();
+      });
+
+      qsa('[data-unassigned-incidence]',tableEl).forEach(row=>row.addEventListener('click',()=>{
+        const number=row.dataset.unassignedIncidence;
+        openDetails(`Incidência ${number}`,durationRows.filter(r=>String(r.number)===String(number)));
+      }));
+
+      if(exportBtn){
+        exportBtn.disabled=false;
+        exportBtn.textContent=selectedPeriods.length>1?'⇩ Exportar períodos':'⇩ Exportar período';
+        exportBtn.onclick=()=>downloadCsv(
+          `incidencias_sem_atribuicao_${selectedPeriods.map(p=>p.key).join('_')}_${isoDate(new Date())}.csv`,
+          rows.map(r=>({
+            Periodo:r._selectedPeriodLabel||'---',
+            Incidencia:r.number||'---',
+            'Nivel de Tensao':r.ntRaw||'---',
+            'Afetacao (Cli Af Atual)':Number(r.clientsCurrent)||0,
+            Alimentador:r.feeder||'---',
+            OSM:isOsm(r)?'SIM':'NÃO'
+          }))
+        );
+      }
+    };
+
+    renderDurationSummary();
+    renderUnassignedByPeriod();
   }
 
   const teamStats=groupStats(withTeam,r=>r.team).sort((a,b)=>b.count-a.count);renderTable('rtTeams',[{label:'Equipe',value:x=>x.key},{label:'Processo',value:x=>classifyProcess(x.key)},{label:'Viatura',value:x=>classifyVehicle(x.key)},{label:'Qtd. incidências',value:x=>fmtInt(x.count),class:'num'},{label:'Clientes',value:x=>fmtInt(sum(x.rows.map(r=>r.clientsCurrent))),class:'num'},{label:'Maior duração',value:x=>`${fmt1(Math.max(...x.rows.map(r=>realtimeAgeHours(r,now))))}h`,class:'num'}],teamStats,{limit:200,sortable:true});
@@ -6577,7 +7145,6 @@ function bindEvents(){
 /* AUTO_DATA_EMERGENCIA_V1 */
 const AUTO_DATA_BASE = 'dados_emergencia/';
 let autoManifest = null;
-let autoCallbackManifest = null;
 
 const AUTO_KEYS = {
   n:'number', nt:'ntRaw', st:'state', di:'startDate', df:'endDate',
@@ -6645,86 +7212,6 @@ async function autoFetchManifest(){
   return response.json();
 }
 
-async function autoFetchCallbackManifest(){
-  const response=await fetch(
-    AUTO_DATA_BASE+'callback_manifest.json?v='+Date.now(),
-    {cache:'no-store'}
-  );
-  if(!response.ok){
-    throw new Error(
-      `Falha ao carregar callback_manifest.json: HTTP ${response.status}`
-    );
-  }
-  return response.json();
-}
-
-function autoNormalizePublishedCallback(raw,index=0){
-  const userName=String(raw?.['Nome Usuário']??'').trim();
-  const userId=String(raw?.['Usuário']??'').trim();
-  const result=String(raw?.['Resultado Ligação']??'').trim();
-  const action=String(raw?.['Medida Adotada']??'').trim();
-  const reason=String(raw?.['Motivo - Normal']??'').trim();
-
-  const callback={
-    _index:index,
-    number:normalizeIncidentNumber(raw?.['Número']),
-    date:parseDate(raw?.['Data Ligação']),
-    contact:result,
-    returnType:result,
-    action,
-    result,
-    reason,
-    phone:'',
-    userName,
-    userId,
-    user:userName||userId,
-    observation:String(raw?.['Observação']??'').trim(),
-    clientNumber:String(raw?.['Nº Cliente']??'').trim(),
-    branch:String(raw?.['Sucursal']??'').trim(),
-    company:String(raw?.['Empresa']??'').trim(),
-    profile:String(raw?.['Perfil']??'').trim(),
-    noticeNumber:String(raw?.['NúmeroAviso']??'').trim(),
-    _raw:raw
-  };
-
-  callback.user=callbackDisplayUser(callback);
-  return callback;
-}
-
-async function loadPublishedCallback(){
-  const manifest=await autoFetchCallbackManifest();
-  const payload=await autoFetchJsonGzip(
-    manifest.arquivo_publico||'callback.json.gz'
-  );
-
-  const callbacks=(payload.rows||[])
-    .map((raw,index)=>autoNormalizePublishedCallback(raw,index))
-    .filter(callback=>callback.number);
-
-  state.callbacks=callbacks;
-  state.meta.callbacks={
-    fileName:manifest.arquivo_publico||'callback.json.gz',
-    sheetName:'OperView — Ligações Callback',
-    headerRow:3,
-    headers:Array.isArray(manifest.colunas)?manifest.colunas:[],
-    mapping:{
-      number:'Número',
-      callbackDate:'Data Ligação',
-      callbackResult:'Resultado Ligação',
-      callbackAction:'Medida Adotada',
-      callbackReason:'Motivo - Normal',
-      callbackUser:'Usuário',
-      callbackUserName:'Nome Usuário',
-      observation:'Observação'
-    },
-    missing:[],
-    loadedAt:parseDate(manifest.gerado_em)||new Date()
-  };
-
-  rebuildCallbackMap();
-  return manifest;
-}
-
 function autoMeta(dataset,manifestInfo,generatedAt){
   return {
     fileName:manifestInfo?.arquivo||`${dataset}.json.gz`,
@@ -6760,83 +7247,27 @@ async function loadPublishedData(){
     mappings:{}
   };
   autoManifest=manifest;
-
-  try{
-    autoCallbackManifest=await loadPublishedCallback();
-  }catch(callbackError){
-    console.warn(
-      'Base pública de Callback indisponível; demais dados foram mantidos.',
-      callbackError
-    );
-    state.callbacks=[];
-    state.callbackMap=new Map();
-    state.meta.callbacks=null;
-  }
-
   rebuildCallbackMap();
 }
 
 async function refreshPublishedRealtime(){
-  let houveAtualizacao=false;
-  let modalAtualizado=false;
-  let callbackAtualizado=false;
-
   try{
     const manifest=await autoFetchManifest();
     const current=autoManifest?.arquivos?.modal?.modificado_em||'';
     const next=manifest?.arquivos?.modal?.modificado_em||'';
+    if(!next||next===current)return;
 
-    if(next&&next!==current){
-      const info=manifest.arquivos.modal;
-      const payload=await autoFetchJsonGzip(info.arquivo||'modal.json.gz');
-      state.modal=rehydrateIncidents(
-        (payload.rows||[]).map((r,i)=>autoExpandRow(r,'modal',i))
-      );
-      state.meta.modal=autoMeta('modal',info,manifest.gerado_em);
-      autoManifest=manifest;
-      houveAtualizacao=true;
-      modalAtualizado=true;
-    }
+    const info=manifest.arquivos.modal;
+    const payload=await autoFetchJsonGzip(info.arquivo||'modal.json.gz');
+    state.modal=rehydrateIncidents((payload.rows||[]).map((r,i)=>autoExpandRow(r,'modal',i)));
+    state.meta.modal=autoMeta('modal',info,manifest.gerado_em);
+    autoManifest=manifest;
+    refreshFilterOptions();
+    if(state.activeTab==='realtime')renderRealtime(); else renderActiveTab();
+    toast(`Tempo Real atualizado automaticamente: ${fmtInt(state.modal.length)} incidências.`,'success',4000);
   }catch(error){
     console.warn('Atualização automática do Tempo Real:',error);
   }
-
-  try{
-    const callbackManifest=await autoFetchCallbackManifest();
-    const currentCallback=autoCallbackManifest?.fonte_sha256||'';
-    const nextCallback=callbackManifest?.fonte_sha256||'';
-
-    if(nextCallback&&nextCallback!==currentCallback){
-      autoCallbackManifest=await loadPublishedCallback();
-      houveAtualizacao=true;
-      callbackAtualizado=true;
-    }
-  }catch(error){
-    console.warn('Atualização automática do Callback:',error);
-  }
-
-  if(!houveAtualizacao)return;
-
-  refreshFilterOptions();
-  if(state.activeTab==='realtime'||state.activeTab==='productivity'){
-    renderActiveTab();
-  }else{
-    updateStatus();
-  }
-
-  const partes=[];
-  if(modalAtualizado){
-    partes.push(`${fmtInt(state.modal.length)} incidências ativas`);
-  }
-  if(callbackAtualizado){
-    partes.push(`${fmtInt(state.callbacks.length)} callbacks`);
-  }
-
-  toast(
-    `Dados atualizados automaticamente: ${partes.join(' • ')}.`,
-    'success',
-    4000
-  );
 }
 
 async function init(){
@@ -6889,5 +7320,12 @@ window.EmergencyPlatform={state,readFile,renderActiveTab,setTab,buildDemoData};
 document.addEventListener('DOMContentLoaded',init);
 })();
 </script>
+<!-- BUILD_VALIDADO_EXPANSAO_CELULA_20260731_1509 -->
+<!-- OSM_NA_TABELA_SEM_ATRIBUICAO_V1 -->
+<!-- OSM_DIREITA_E_ORDENACAO_TABELA_SEM_ATRIBUICAO_V2 -->
+<!-- OBSERVACAO_NO_DETALHE_DA_INCIDENCIA_V1 -->
+<!-- AJUSTES_LAYOUT_MULTI_PERIODO_ATRIBUICAO_V1 -->
+<!-- TABELAS_DURACAO_LOGO_ABAIXO_CONH_AFETACOES_V1 -->
+<!-- LINHA_DURACAO_E_SEM_ATRIBUICAO_50_50_V1 -->
 </body>
 </html>
