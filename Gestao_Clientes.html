@@ -2247,20 +2247,15 @@ function processReincidenciaRows(rows, fileName){
   if(S.currentTab !== 'upload'){ rerenderActiveTab(); }
   salvarBaseReincidenciaLocal();
 }
-/* A base oficial atual já contém uma linha por incidência reincidente.
-   O campo Número identifica a própria reincidência. O Processo e os
-   demais atributos são enriquecidos pela base principal usando Número.
-   "Número Rein" permanece apenas como compatibilidade com bases antigas. */
+/* O Processo das análises de reincidência vem exclusivamente da
+   incidência reincidente (Número Rein) localizada na base central
+   BASE INCIDÊNCIA - REINCIDÊNCIA. A base oficial de reincidência
+   define o universo, mas não fornece o Processo exibido. */
 function centralReincidenceProcess(row){
-  // Na base oficial atual, cada linha já representa a própria incidência
-  // reincidente. Portanto, quando "Número Rein" não existir, o processo
-  // deve vir da incidência informada em "Número".
   const value=
+    row&&row[COL2.processo]||
     row&&row.__nextMain&&row.__nextMain[COL.processo]||
-    row&&row.__prevMain&&row.__prevMain[COL.processo]||
-    row&&row.__processo||
-    row&&row[COL2.processo];
-
+    row&&row.__prevMain&&row.__prevMain[COL.processo];
   return hasValidValue(value)?String(value).trim():'Não identificado';
 }
 function centralGeneratorTeam(row){
@@ -2865,20 +2860,13 @@ function vincularReincidenciaComBasePrincipal(statsOut){
   for(const r of S.baseReincidencia){
     const num = r[COL2.numero];
     const main = porNumero.get(normalizeNumero(num)) || null;
-
-    // Estrutura oficial atual:
-    // cada linha já é uma reincidência e "Número" é a incidência reincidente.
-    // Mantemos compatibilidade com bases antigas que possuam "Número Rein".
-    const numeroReincidente=
-      hasValidValue(r[COL2.numeroRein])
-        ? r[COL2.numeroRein]
-        : r[COL2.numero];
-
-    const nextMain =
-      porNumero.get(normalizeNumero(numeroReincidente)) ||
-      main ||
+    const numeroReincidente=hasValidValue(r[COL2.numeroRein])
+      ? r[COL2.numeroRein]
+      : r[COL2.numero];
+    const nextMain=
+      porNumero.get(normalizeNumero(numeroReincidente))||
+      main||
       null;
-
     r.__prevMain=main;
     r.__nextMain=nextMain;
     r.__numeroReincidente=numeroReincidente;
@@ -2914,17 +2902,9 @@ function vincularReincidenciaComBasePrincipal(statsOut){
       r.__nextLinked=true;
       reincidentesVinculadas++;
     }else{
-      r.__nextNumero=r.__numeroReincidente||r[COL2.numero]||null;
-      r.__nextDataInicio=r.__dataInicio||null;
-      r.__nextDataFim=r.__dataFim||null;
-      r.__nextCausa=r[COL2.causa]||null;
-      r.__nextEquipeDesl=r[COL2.equipe]||null;
-      r.__nextEquipeAtribuida=r[COL2.equipe]||null;
-      r.__nextProcesso=r[COL2.processo]||r.__processo||null;
-      r.__nextPolo=r.__polo||null;
-      r.__nextCliAf3min=r.__cliAf3min||null;
-      r.__nextTipoInstalacao=r.__tipoInstalacao||null;
-      r.__nextLinked=Boolean(r.__linked);
+      r.__nextNumero=r[COL2.numeroRein]||null; r.__nextDataInicio=null; r.__nextDataFim=null;
+      r.__nextCausa=null; r.__nextEquipeDesl=null; r.__nextEquipeAtribuida=null;
+      r.__nextProcesso=null; r.__nextPolo=null; r.__nextCliAf3min=null; r.__nextTipoInstalacao=null; r.__nextLinked=false;
     }
     r.__processoReincidencia=centralReincidenceProcess(r);
   }
@@ -9283,11 +9263,11 @@ async function carregarReincidenciaLocalhost(mostrarMensagem=false){
     try{
       const [principalResponse,reincResponse]=await Promise.all([
         fetch(
-          `./dados_clientes/reincidencia_principal.json.gz?t=${Date.now()}`,
+          `./dados_clientes/reincidencia_principal.json.gz`,
           {cache:'no-store'}
         ),
         fetch(
-          `./dados_clientes/reincidencia_oficial.json.gz?t=${Date.now()}`,
+          `./dados_clientes/reincidencia_oficial.json.gz`,
           {cache:'no-store'}
         )
       ]);
@@ -9339,7 +9319,7 @@ async function carregarReincidenciaLocalhost(mostrarMensagem=false){
       );
 
       throw new Error(
-        `Falha ao abrir as bases públicas da Reincidência: ${jsonError.message}`
+        'Arquivos públicos da Reincidência não encontrados no GitHub.'
       );
 
       if(!principalResponse.ok){
@@ -9463,11 +9443,11 @@ async function carregarReincidenciaLocalhost(mostrarMensagem=false){
       error
     );
 
-    window.__ultimaFalhaReincidencia=String(error?.message||error);
-
-    callbackToast(
-      `Falha ao carregar a Reincidência: ${error.message}`
-    );
+    if(mostrarMensagem){
+      callbackToast(
+        `Falha na atualização da Reincidência: ${error.message}`
+      );
+    }
 
     return false;
 
@@ -9481,41 +9461,21 @@ let validationBaseLoading=false;
 async function lerJsonGzip(response){
   const buffer=await response.arrayBuffer();
   const bytes=new Uint8Array(buffer);
-
-  // Alguns servidores entregam o arquivo .gz já descompactado pelo navegador
-  // por causa do cabeçalho Content-Encoding. Nesse caso, tentar descompactar
-  // novamente faz a Reincidência falhar silenciosamente.
-  const possuiCabecalhoGzip=
-    bytes.length>=2 &&
-    bytes[0]===0x1f &&
-    bytes[1]===0x8b;
-
+  const gzip=bytes.length>=2&&bytes[0]===0x1f&&bytes[1]===0x8b;
   let texto='';
 
-  if(possuiCabecalhoGzip){
+  if(gzip){
     if(typeof DecompressionStream==='undefined'){
-      throw new Error(
-        'Este navegador não possui suporte à descompactação GZIP.'
-      );
+      throw new Error('Navegador sem suporte à descompactação GZIP.');
     }
-
-    const stream=new Blob([buffer])
-      .stream()
+    const stream=new Blob([buffer]).stream()
       .pipeThrough(new DecompressionStream('gzip'));
-
     texto=await new Response(stream).text();
   }else{
-    // Conteúdo já descompactado pelo servidor/navegador.
     texto=new TextDecoder('utf-8').decode(bytes);
   }
 
-  try{
-    return JSON.parse(texto);
-  }catch(error){
-    throw new Error(
-      `O arquivo recebido não contém um JSON válido. ${error.message}`
-    );
-  }
+  return JSON.parse(texto);
 }
 
 async function carregarValidacaoLocalhost(mostrarMensagem=false){

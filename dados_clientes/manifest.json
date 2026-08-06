@@ -1,34 +1,40 @@
 {
-  "gerado_em": "2026-08-05T10:26:41",
-  "versao": 2,
+  "gerado_em": "2026-08-05T14:04:37",
+  "versao": 3,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 56,
-      "tamanho_bytes": 7757,
+      "linhas": 58,
+      "tamanho_bytes": 9174,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-05T10:25:53"
+      "fonte_modificada_em": "2026-08-05T13:57:35"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
-      "linhas": 519,
-      "tamanho_bytes": 103871,
+      "linhas": 539,
+      "tamanho_bytes": 108902,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
-      "fonte_modificada_em": "2026-08-05T10:26:33"
+      "fonte_modificada_em": "2026-08-05T14:03:24"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 221351,
-      "tamanho_bytes": 25066478,
+      "linhas": 17361,
+      "tamanho_bytes": 1964011,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Principal_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-03T15:14:35"
+      "fonte_modificada_em": "2026-08-03T15:14:35",
+      "linhas_origem": 221351,
+      "clientes_oficiais": 3478,
+      "modo": "historico_clientes_reincidentes"
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4298,
-      "tamanho_bytes": 86018,
+      "tamanho_bytes": 508956,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-03T15:14:36"
+      "fonte_modificada_em": "2026-08-03T15:14:36",
+      "vinculadas_principal": 4298,
+      "sem_vinculo_principal": 0,
+      "modo": "oficial_enriquecida"
     }
   },
   "erros": {}
