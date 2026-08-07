@@ -7269,6 +7269,121 @@ async function refreshPublishedRealtime(){
   }
 }
 
+
+/* CALLBACK_OPERVIEW_PUBLICADO_V1 */
+const CALLBACK_OPERVIEW_BASE = 'dados_emergencia/';
+let callbackOperViewSha = '';
+
+async function callbackOperViewFetchJsonGzip(fileName){
+  const response=await fetch(
+    CALLBACK_OPERVIEW_BASE+fileName+'?v='+Date.now(),
+    {cache:'no-store'}
+  );
+  if(!response.ok)throw new Error(`Falha ao carregar ${fileName}: HTTP ${response.status}`);
+  if(typeof DecompressionStream!=='function')throw new Error('Navegador sem suporte a GZIP.');
+  const stream=response.body.pipeThrough(new DecompressionStream('gzip'));
+  const text=await new Response(stream).text();
+  return JSON.parse(text);
+}
+
+async function callbackOperViewFetchManifest(){
+  const response=await fetch(
+    CALLBACK_OPERVIEW_BASE+'callback_manifest.json?v='+Date.now(),
+    {cache:'no-store'}
+  );
+  if(!response.ok)throw new Error(`Falha ao carregar callback_manifest.json: HTTP ${response.status}`);
+  return response.json();
+}
+
+function callbackOperViewNormalizar(raw,index=0){
+  const userName=String(raw?.['Nome Usuário']??'').trim();
+  const userId=String(raw?.['Usuário']??'').trim();
+  const result=String(raw?.['Resultado Ligação']??'').trim();
+  const action=String(raw?.['Medida Adotada']??'').trim();
+  const reason=String(raw?.['Motivo - Normal']??'').trim();
+
+  const callback={
+    _index:index,
+    number:normalizeIncidentNumber(raw?.['Número']),
+    date:parseDate(raw?.['Data Ligação']),
+    contact:result,
+    returnType:result,
+    action,
+    result,
+    reason,
+    phone:'',
+    userName,
+    userId,
+    user:userName||userId,
+    observation:String(raw?.['Observação']??'').trim(),
+    clientNumber:String(raw?.['Nº Cliente']??'').trim(),
+    branch:String(raw?.['Sucursal']??'').trim(),
+    company:String(raw?.['Empresa']??'').trim(),
+    profile:String(raw?.['Perfil']??'').trim(),
+    noticeNumber:String(raw?.['NúmeroAviso']??'').trim(),
+    _raw:raw
+  };
+
+  callback.user=callbackDisplayUser(callback);
+  return callback;
+}
+
+async function carregarCallbackOperViewPublicado(forcar=false){
+  const manifest=await callbackOperViewFetchManifest();
+  const novoSha=String(manifest?.fonte_sha256||'');
+
+  if(!forcar && novoSha && callbackOperViewSha && novoSha===callbackOperViewSha){
+    return false;
+  }
+
+  const payload=await callbackOperViewFetchJsonGzip(
+    manifest?.arquivo_publico||'callback.json.gz'
+  );
+
+  const callbacks=(payload?.rows||[])
+    .map((raw,index)=>callbackOperViewNormalizar(raw,index))
+    .filter(callback=>callback.number);
+
+  state.callbacks=callbacks;
+  state.meta.callbacks={
+    fileName:manifest?.arquivo_publico||'callback.json.gz',
+    sheetName:'OperView - Ligações Callback',
+    headerRow:1,
+    headers:Array.isArray(manifest?.colunas)?manifest.colunas:[],
+    mapping:{
+      number:'Número',
+      callbackDate:'Data Ligação',
+      callbackResult:'Resultado Ligação',
+      callbackAction:'Medida Adotada',
+      callbackReason:'Motivo - Normal',
+      callbackUser:'Usuário',
+      callbackUserName:'Nome Usuário',
+      observation:'Observação'
+    },
+    missing:[],
+    loadedAt:parseDate(manifest?.gerado_em)||new Date()
+  };
+
+  callbackOperViewSha=novoSha;
+  rebuildCallbackMap();
+  console.info('[Callback OperView] carregados:',state.callbacks.length,'registros');
+  return true;
+}
+
+async function atualizarCallbackOperViewPublicado(){
+  try{
+    const mudou=await carregarCallbackOperViewPublicado(false);
+    if(mudou){
+      if(state.activeTab==='realtime'||state.activeTab==='productivity')renderActiveTab();
+      else updateStatus();
+      console.info('[Callback OperView] base pública atualizada.');
+    }
+  }catch(error){
+    console.warn('[Callback OperView] atualização automática falhou:',error);
+  }
+}
+
+
 async function init(){
   state.activeTab='realtime';
   bindEvents();
@@ -7294,7 +7409,7 @@ async function init(){
   }catch(e){
     console.error('Falha nas bases publicadas:',e);
     toast('Não foi possível carregar as bases publicadas. Tentando dados salvos no navegador.','error',6000);
-    await restoreState();
+    await restoreState();try{await carregarCallbackOperViewPublicado(true);}catch(callbackError){console.warn('Base pública de Callback OperView indisponível.',callbackError);}
 
     if(!state.incidents.length&&new URLSearchParams(location.search).get('demo')==='1'){
       state.incidents=buildDemoData();
@@ -7316,6 +7431,7 @@ async function init(){
   setInterval(refreshPublishedRealtime,300000);
 }
 window.EmergencyPlatform={state,readFile,renderActiveTab,setTab,buildDemoData};
+setInterval(atualizarCallbackOperViewPublicado,300000);
 document.addEventListener('DOMContentLoaded',init);
 })();
 </script>
