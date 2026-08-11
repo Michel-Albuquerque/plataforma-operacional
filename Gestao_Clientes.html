@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<!-- CALLBACK_ATRIBUICAO_SEPARADA_DO_REPORTE_V3 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestão de Clientes · Plataforma Operacional</title>
+<!-- CALLBACK_ANALISTAS_PERSISTENCIA_INCREMENTAL_V2 -->
 <script>
 
 
@@ -1657,7 +1659,14 @@ async function salvarBaseCallbackAvisosLocal(){
     rows:S.callbackAvisosBase.map(avisosGeonlineCleanRow),stats:S.callbackAvisosStats
   });
 }
-async function salvarCallbackOperacaoLocal(){
+let callbackEstadoWriteQueue=Promise.resolve();
+let callbackEstadoWritesPendentes=0;
+let callbackEstadoVersaoManual=0;
+const CALLBACK_ESTADO_ID=1; // Hotfix produção: mantém o estado compartilhado atual da plataforma.
+
+async function salvarCallbackOperacaoLocal(options={}){
+  if(options.origemManual===true)callbackEstadoVersaoManual++;
+
   await idbSave('callbackContatos',{
     flowSchemaVersion:CALLBACK_FLOW_SCHEMA_VERSION,
     contacts:S.callbackContacts,analysts:S.callbackAnalysts,
@@ -1666,36 +1675,64 @@ async function salvarCallbackOperacaoLocal(){
     updatedAt:new Date()
   });
 
-  try{
-    const payload={
-      id:1,
-      analistas:S.callbackAnalysts||[],
-      atribuicoes:S.callbackAssignments||{},
-      ultima_distribuicao:S.callbackLastDistribution
-        ? new Date(S.callbackLastDistribution).toISOString()
-        : null,
-      atualizado_em:new Date().toISOString()
-    };
+  /* A persistência local é automática; o Supabase só pode ser alterado por uma
+     ação explícita. Isso impede que abas/sessões antigas regravem um cadastro
+     defasado de analistas durante as atualizações periódicas da carteira. */
+  if(options.persistirServidor!==true)return;
 
-    const response=await fetch(
-      `${SUPABASE_URL}/rest/v1/estado_callback`,
-      {
-        method:'POST',
-        headers:{
-          ...SUPABASE_HEADERS,
-          'Prefer':'resolution=merge-duplicates,return=minimal'
-        },
-        body:JSON.stringify(payload)
-      }
-    );
+  const analistas=(S.callbackAnalysts||[])
+    .map(a=>typeof a==='string'?{name:a,active:true}:{name:String(a?.name||'').trim(),active:a?.active!==false})
+    .filter(a=>a&&String(a.name||'').trim());
+  const atribuicoes={...(S.callbackAssignments||{})};
+  const ultimaDistribuicao=S.callbackLastDistribution
+    ? new Date(S.callbackLastDistribution).toISOString()
+    : null;
 
-    if(!response.ok){
-      const result=await response.json().catch(()=>({}));
-      throw new Error(result?.message||`HTTP ${response.status}`);
-    }
-  }catch(error){
-    console.warn('Persistência do estado do Callback no Supabase indisponível:',error);
+  if(options.persistirAnalistas===true && !analistas.length && options.permitirListaVazia!==true){
+    console.warn('Estado do Callback: gravação vazia de analistas ignorada para preservar o cadastro compartilhado.');
+    return;
   }
+
+  /* PATCH parcial: cada ação atualiza apenas o campo do qual é dona. Assim uma
+     atualização de carteira nunca consegue sobrescrever a lista de analistas. */
+  const payload={id:CALLBACK_ESTADO_ID,atualizado_em:new Date().toISOString()};
+  if(options.persistirAnalistas===true)payload.analistas=analistas;
+  if(options.persistirAtribuicoes===true)payload.atribuicoes=atribuicoes;
+  if(options.persistirUltimaDistribuicao===true)payload.ultima_distribuicao=ultimaDistribuicao;
+  if(Object.keys(payload).length<=2)return;
+
+  const executarGravacao=async()=>{
+    callbackEstadoWritesPendentes++;
+    try{
+      const response=await fetch(
+        `${SUPABASE_URL}/rest/v1/estado_callback`,
+        {
+          method:'POST',
+          headers:{
+            ...SUPABASE_HEADERS,
+            'Prefer':'resolution=merge-duplicates,return=minimal'
+          },
+          body:JSON.stringify(payload)
+        }
+      );
+
+      if(!response.ok){
+        const result=await response.json().catch(()=>({}));
+        throw new Error(result?.message||`HTTP ${response.status}`);
+      }
+      return true;
+    }catch(error){
+      console.warn('Persistência do estado do Callback no Supabase indisponível:',error);
+      return false;
+    }finally{
+      callbackEstadoWritesPendentes=Math.max(0,callbackEstadoWritesPendentes-1);
+    }
+  };
+
+  /* Todos os POSTs passam pela mesma fila. Assim uma gravação automática antiga
+     nunca termina depois de um cadastro manual mais novo e restaura a lista anterior. */
+  callbackEstadoWriteQueue=callbackEstadoWriteQueue.then(executarGravacao,executarGravacao);
+  return await callbackEstadoWriteQueue;
 }
 async function tentarRestaurarDoLocal(){
   setLoading(true, 'Carregando base salva…', 'Você já tinha importado dados antes — recuperando automaticamente', 30);
@@ -2540,7 +2577,8 @@ function processCallbackReadyRows(rows,fileName,options={}){
     const situation=String(callbackReadyValue(row,['Situação do Cliente','Situacao do Cliente','Último Status','Ultimo Status'])||'').trim();
     const notes=String(callbackReadyValue(row,['Comentário','Comentario','Observações do Contato','Observacoes do Contato'])||'').trim();
     const contactDate=parseDateVal(callbackReadyValue(row,['Data do Último Contato','Data do Ultimo Contato','Data Contato']));
-    if(analyst)S.callbackAssignments[key]=analyst;
+    /* O campo Analista desta fotografia é apenas informativo/histórico.
+       A atribuição atual da carteira vem exclusivamente de estado_callback.atribuicoes. */
 
     /* Os reportes do Callback vêm exclusivamente do Supabase.
        A fotografia consolidada pode trazer valores operacionais como
@@ -2652,23 +2690,10 @@ function processCallbackRows(rows,fileName){
   for(const row of S.callbackBase){
     const entry=S.callbackHistoryBase[row.__callbackKey];if(entry)entry.row=callbackCleanRow(row);
   }
-  /* Novas incidências entram distribuídas de forma equilibrada quando já há
-     analistas ativos. A desativação continua redistribuindo apenas casos abertos. */
-  const activeAnalysts=callbackAnalystNames(true);
-  if(activeAnalysts.length){
-    const activeNames=new Set(activeAnalysts.map(a=>a.name));
-    redistributeInactiveCallbackAssignments();
-    const loads=new Map(activeAnalysts.map(a=>[a.name,0]));
-    for(const row of S.callbackBase){
-      const assigned=S.callbackAssignments[row.__callbackKey]||'';
-      if(activeNames.has(assigned)&&!callbackIsFinalized(row))loads.set(assigned,loads.get(assigned)+1);
-    }
-    for(const row of S.callbackBase.filter(r=>!S.callbackAssignments[r.__callbackKey]&&!callbackIsFinalized(r))){
-      const target=[...loads.entries()].sort((a,b)=>a[1]-b[1]||a[0].localeCompare(b[0],'pt-BR'))[0];
-      S.callbackAssignments[row.__callbackKey]=target[0];loads.set(target[0],target[1]+1);
-    }
-    if(callbackEntered.length)S.callbackLastDistribution=now;
-  }
+  /* Balanceamento dinâmico encerrado.
+     A atualização do Tempo Real preserva as atribuições existentes e deixa
+     novas incidências sem responsável até a próxima divisão igualitária
+     acionada pelo botão "Distribuir carteira". */
   setLoading(false);
   refreshNavAvailability();
   renderUploadSummary();
@@ -3664,7 +3689,9 @@ function wireReincidenciaUpload(){
     };
   }
 }
-tentarRestaurarDoLocal();
+tentarRestaurarDoLocal().then(()=>{
+  carregarEstadoCallbackServidor();
+});
 
 /* ============================================================
    9. GENERIC TABLE HELPERS
@@ -7374,18 +7401,32 @@ function getValidationAnalysis(){
   }
   const belowTeams=[...teamMap.values()].map(g=>({...g,rate:g.total?g.resolved/g.total:0}))
     .filter(g=>g.rate<overallRate).sort((a,b)=>a.rate-b.rate||b.total-a.total);
+  /* CORRECAO_GRAFICO_VALIDACAO_TODOS_REPORTES_SUPABASE_V1
+     O gráfico é histórico e deve contar TODOS os reportes gravados no Supabase.
+     Antes ele usava apenas vpaLatest(r), portanto cada incidência contribuía
+     somente com o seu último contato e os dias anteriores desapareciam. */
   const dailyMap=new Map();
   for(const r of rows){
-    const latest=vpaLatest(r);if(!latest)continue;
-    const d=vpaDate(latest.date);if(!d)continue;
-    const key=toInputDate(d);
-    if(!dailyMap.has(key))dailyMap.set(key,{key,date:new Date(d.getFullYear(),d.getMonth(),d.getDate()),contacts:0,resolved:0,persists:0,critical:0,rows:[]});
-    const g=dailyMap.get(key);g.rows.push(r);
-    if(latest.status==='Contato realizado'){
-      g.contacts++;
-      if(latest.resolvido==='Sim')g.resolved++;
-      if(latest.resolvido==='Não'||latest.resolvido==='Parcialmente')g.persists++;
-      if(r.__reinc24&&latest.resolvido!=='Sim')g.critical++;
+    const keyInc=vpaKey(r);
+    const attempts=(S.validationContacts[keyInc]?.attempts||[]).slice();
+    for(const attempt of attempts){
+      const d=vpaDate(attempt?.date);if(!d)continue;
+      const key=toInputDate(d);
+      if(!dailyMap.has(key))dailyMap.set(key,{
+        key,
+        date:new Date(d.getFullYear(),d.getMonth(),d.getDate()),
+        contacts:0,resolved:0,persists:0,critical:0,
+        rows:[],attempts:[]
+      });
+      const g=dailyMap.get(key);
+      g.attempts.push({row:r,attempt});
+      if(!g.rows.includes(r))g.rows.push(r);
+      if(attempt.status==='Contato realizado'){
+        g.contacts++;
+        if(attempt.resolvido==='Sim')g.resolved++;
+        if(attempt.resolvido==='Não'||attempt.resolvido==='Parcialmente')g.persists++;
+        if(r.__reinc24&&attempt.resolvido!=='Sim')g.critical++;
+      }
     }
   }
   const daily=[...dailyMap.values()].sort((a,b)=>a.date-b.date);
@@ -8297,6 +8338,25 @@ function openCallbackWhatsApp(key,index){
 function callbackAnalystNames(activeOnly){
   return (S.callbackAnalysts||[]).map(a=>typeof a==='string'?{name:a,active:true}:a).filter(a=>a&&a.name&&(!activeOnly||a.active!==false));
 }
+function mergeCallbackAnalysts(...sources){
+  const merged=new Map();
+  const add=(item)=>{
+    if(item==null)return;
+    const obj=typeof item==='string'?{name:item,active:true}:item;
+    const name=String(obj?.name||'').trim();
+    if(!name)return;
+    const key=normalizeHeaderKey(name);
+    const prev=merged.get(key);
+    if(!prev){merged.set(key,{name,active:obj?.active!==false});return}
+    /* Um cadastro ativo nunca deve ser rebaixado por uma fotografia antiga. */
+    merged.set(key,{name:prev.name||name,active:prev.active!==false||obj?.active!==false});
+  };
+  for(const source of sources||[]){
+    if(Array.isArray(source))source.forEach(add);
+    else if(source&&typeof source==='object')Object.values(source).forEach(value=>add(value));
+  }
+  return [...merged.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+}
 function callbackIsFinalized(row){
   return callbackSituationLabel(row)==='Cliente com fornecimento';
 }
@@ -8356,20 +8416,212 @@ function callbackOpenLoadByAnalyst(analysts){
 function callbackSmartTarget(loads){
   return [...loads.values()].sort((a,b)=>a.open-b.open||b.completedToday-a.completedToday||a.totalAssigned-b.totalAssigned||a.name.localeCompare(b.name,'pt-BR'))[0]||null;
 }
-function distributeCallbackQueue(){
+async function gravarEstadoCallbackServidor(payloadParcial){
+  const payload={...(payloadParcial||{}),atualizado_em:new Date().toISOString()};
+
+  /* HOTFIX: replica exatamente a gravação manual validada no Console.
+     Somente ações explícitas chamam esta função. */
+  const response=await fetch(
+    `${SUPABASE_URL}/rest/v1/estado_callback?id=eq.${CALLBACK_ESTADO_ID}`,
+    {
+      method:'PATCH',
+      headers:{...SUPABASE_HEADERS,'Content-Type':'application/json','Prefer':'return=representation'},
+      body:JSON.stringify(payload)
+    }
+  );
+
+  const result=await response.json().catch(()=>[]);
+  if(!response.ok){
+    const msg=Array.isArray(result)?'':(result?.message||result?.error||result?.hint||'');
+    throw new Error(msg||`HTTP ${response.status}`);
+  }
+
+  const retornado=Array.isArray(result)?result[0]:result;
+  if(!retornado){
+    throw new Error(`O Supabase não retornou o estado_callback id=${CALLBACK_ESTADO_ID} após o PATCH.`);
+  }
+
+  /* Não confia apenas no retorno do PATCH. Relê a linha no servidor para
+     confirmar o estado efetivamente persistido antes de atualizar a tela. */
+  const check=await fetch(
+    `${SUPABASE_URL}/rest/v1/estado_callback?id=eq.${CALLBACK_ESTADO_ID}&select=*`,
+    {cache:'no-store',headers:SUPABASE_HEADERS}
+  );
+  if(!check.ok)throw new Error(`Falha ao confirmar estado no Supabase (HTTP ${check.status}).`);
+  const checkRows=await check.json();
+  const confirmado=Array.isArray(checkRows)?checkRows[0]:checkRows;
+  if(!confirmado)throw new Error(`estado_callback id=${CALLBACK_ESTADO_ID} não encontrado após a gravação.`);
+  return confirmado;
+}
+
+async function persistirDistribuicaoCallbackServidor(atribuicoes,ultimaDistribuicao,analistasAtivos){
+  const analistas=(analistasAtivos||[])
+    .map(a=>typeof a==='string'?{name:String(a).trim(),active:true}:{name:String(a?.name||'').trim(),active:a?.active!==false})
+    .filter(a=>a.name);
+
+  const payload={
+    analistas,
+    atribuicoes:{...(atribuicoes||{})},
+    ultima_distribuicao:ultimaDistribuicao ? new Date(ultimaDistribuicao).toISOString() : null,
+    atualizado_em:new Date().toISOString()
+  };
+
+  const estado=await gravarEstadoCallbackServidor(payload);
+
+  const gravadas=(estado.atribuicoes&&typeof estado.atribuicoes==='object')
+    ? estado.atribuicoes
+    : {};
+  const esperadas=payload.atribuicoes;
+
+  const chavesEsperadas=Object.keys(esperadas).sort();
+  const chavesGravadas=Object.keys(gravadas).sort();
+  const mesmasChaves=chavesEsperadas.length===chavesGravadas.length &&
+    chavesEsperadas.every((key,index)=>key===chavesGravadas[index]);
+  const mesmosValores=mesmasChaves && chavesEsperadas.every(
+    key=>String(gravadas[key]||'')===String(esperadas[key]||'')
+  );
+
+  if(!mesmosValores){
+    throw new Error(
+      `A distribuição retornada pelo Supabase não confere com a calculada. `+
+      `Esperadas: ${chavesEsperadas.length}; gravadas: ${chavesGravadas.length}.`
+    );
+  }
+
+  const nomesEsperados=new Set(analistas.map(a=>a.name));
+  const nomesGravados=new Set(
+    (Array.isArray(estado.analistas)?estado.analistas:[])
+      .map(a=>typeof a==='string'?String(a).trim():String(a?.name||'').trim())
+      .filter(Boolean)
+  );
+  const faltantes=[...nomesEsperados].filter(nome=>!nomesGravados.has(nome));
+  if(faltantes.length){
+    throw new Error(`O Supabase não confirmou o cadastro de: ${faltantes.join(', ')}.`);
+  }
+
+  return {atribuicoes:{...gravadas},analistas:Array.isArray(estado.analistas)?estado.analistas:analistas};
+}
+
+async function distributeCallbackQueue(){
   const analysts=callbackAnalystNames(true);
   if(!analysts.length){openCallbackAnalystManager();return}
-  const redistributed=redistributeInactiveCallbackAssignments();
-  const loads=callbackOpenLoadByAnalyst(analysts);
-  const candidates=S.callbackBase.filter(r=>callbackHasValidPhone(r)&&!S.callbackAssignments[r.__callbackKey]&&!callbackIsFinalized(r));
-  for(const row of candidates){
-    const target=callbackSmartTarget(loads);if(!target)break;
-    S.callbackAssignments[row.__callbackKey]=target.name;target.open++;target.totalAssigned++;
+
+  const names=analysts.map(a=>a.name);
+  const activeNameSet=new Set(names);
+
+  const redistribuivel=row=>{
+    if(!callbackHasValidPhone(row))return false;
+    const history=callbackHistory(row);
+    if(!history.length)return true;
+    const latest=history[0]||null;
+    const answered=normalizeHeaderKey(latest?.answered||'');
+    const situation=normalizeHeaderKey(latest?.situation||'');
+    return answered==='NAO' || situation==='CLIENTENAOATENDEU';
+  };
+
+  const activeRows=(S.callbackBase||[]).filter(row=>String(row.__callbackKey||'').trim());
+  const activeKeys=new Set(activeRows.map(row=>String(row.__callbackKey||'')));
+
+  const candidates=activeRows
+    .filter(redistribuivel)
+    .slice()
+    .sort((a,b)=>
+      (b.__durationMinutes||0)-(a.__durationMinutes||0) ||
+      String(a.__callbackKey||'').localeCompare(String(b.__callbackKey||''),'pt-BR')
+    );
+
+  if(!candidates.length){
+    callbackToast('Nenhuma incidência sem reporte ou com último retorno "Cliente não atendeu" para redistribuir.');
+    return;
   }
-  S.callbackLastDistribution=new Date();
-  S.callbackVersion++;salvarCallbackOperacaoLocal();renderCallbackContingencia();
-  callbackToast(`${fmtNum(candidates.length)} nova(s) e ${fmtNum(redistributed)} redistribuída(s). Priorizada a menor carteira aberta.`);
+
+  const candidateKeys=new Set(candidates.map(row=>String(row.__callbackKey||'')));
+
+  /* Reconstrói a carteira EXCLUSIVAMENTE a partir da fotografia ativa atual.
+     Nenhuma chave histórica/encerrada pode voltar para estado_callback. */
+  const novaDistribuicao={};
+  for(const row of activeRows){
+    const key=String(row.__callbackKey||'');
+    if(!key || candidateKeys.has(key))continue;
+    const analyst=String((S.callbackAssignments||{})[key]||'').trim();
+    if(analyst)novaDistribuicao[key]=analyst;
+  }
+
+  /* Carga congelada: somente incidências ATIVAS que já foram tratadas com um
+     feedback diferente de "Cliente não atendeu". */
+  const loads=new Map(names.map(name=>[name,0]));
+  for(const analyst of Object.values(novaDistribuicao)){
+    if(activeNameSet.has(analyst))loads.set(analyst,(loads.get(analyst)||0)+1);
+  }
+
+  const assignedEligible=new Map(names.map(name=>[name,0]));
+  for(const row of candidates){
+    const target=[...loads.entries()]
+      .sort((a,b)=>a[1]-b[1] || (assignedEligible.get(a[0])||0)-(assignedEligible.get(b[0])||0) || a[0].localeCompare(b[0],'pt-BR'))[0];
+    if(!target)continue;
+    const [name,currentLoad]=target;
+    const key=String(row.__callbackKey||'');
+    if(!activeKeys.has(key))continue;
+    novaDistribuicao[key]=name;
+    loads.set(name,currentLoad+1);
+    assignedEligible.set(name,(assignedEligible.get(name)||0)+1);
+  }
+
+  /* Segurança: antes de gravar, elimina qualquer chave que não esteja na
+     fotografia atual, mesmo que tenha escapado por algum estado local antigo. */
+  for(const key of Object.keys(novaDistribuicao)){
+    if(!activeKeys.has(String(key)))delete novaDistribuicao[key];
+  }
+
+  const ultimaDistribuicao=new Date();
+  const distribuicaoAnterior={...(S.callbackAssignments||{})};
+  const analistasAnteriores=[...(S.callbackAnalysts||[])];
+  const dataAnterior=S.callbackLastDistribution;
+
+  S.callbackAssignments={...novaDistribuicao};
+  S.callbackAnalysts=analysts.map(a=>({name:a.name,active:a.active!==false}));
+  S.callbackLastDistribution=ultimaDistribuicao;
+  S.callbackVersion++;
+  renderCallbackContingencia();
+
+  try{
+    const confirmado=await persistirDistribuicaoCallbackServidor(
+      novaDistribuicao,
+      ultimaDistribuicao,
+      S.callbackAnalysts
+    );
+
+    S.callbackAssignments={...confirmado.atribuicoes};
+    S.callbackAnalysts=mergeCallbackAnalysts(confirmado.analistas||[],S.callbackAnalysts||[]);
+    await salvarCallbackOperacaoLocal({persistirServidor:false});
+    S.callbackVersion++;
+    renderCallbackContingencia();
+
+    const resumo=names.map(name=>{
+      const recebidas=assignedEligible.get(name)||0;
+      const total=Object.values(confirmado.atribuicoes).filter(v=>v===name).length;
+      return `${name}: +${fmtNum(recebidas)} / ${fmtNum(total)} total`;
+    }).join(' · ');
+
+    callbackToast(
+      `${fmtNum(candidates.length)} incidência(s) elegível(is) redistribuída(s). `+
+      `${fmtNum(Object.keys(confirmado.atribuicoes).length)} atribuição(ões) ativa(s) confirmada(s) no Supabase. ${resumo}`
+    );
+  }catch(error){
+    console.error('Falha ao persistir redistribuição do Callback:',error);
+    S.callbackAssignments=distribuicaoAnterior;
+    S.callbackAnalysts=analistasAnteriores;
+    S.callbackLastDistribution=dataAnterior;
+    S.callbackVersion++;
+    await salvarCallbackOperacaoLocal({persistirServidor:false});
+    renderCallbackContingencia();
+    alert(
+      `A redistribuição foi calculada, mas NÃO foi confirmada no Supabase.\n\n${error.message}\n\n`+
+      `A carteira anterior foi restaurada para evitar mostrar uma distribuição divergente.`
+    );
+  }
 }
+
 function callbackFilterOptions(values,current,emptyLabel){
   return `<option value="">${emptyLabel}</option>${values.map(v=>`<option value="${esc(v)}" ${String(current)===String(v)?'selected':''}>${esc(v)}</option>`).join('')}`;
 }
@@ -8496,14 +8748,14 @@ function renderCallbackContingencia(){
     ${callbackSubnav('active')}
     <div class="cb-head"><div class="copy"><h2>Callback Contingência</h2><p>Central operacional de contato, distribuição de carteira e confirmação do fornecimento</p></div><div class="cb-actions"><button class="cb-btn" id="cbReload">↻ Atualizar base</button><button class="cb-btn" id="cbManage">Gerenciar analistas</button><button class="cb-btn" id="cbExport">Baixar pendentes com reporte</button></div></div>
     <section class="cb-portfolio">
-      <div class="cb-portfolio-title"><small>CARTEIRA ATUAL</small><h3>Distribuição por carga aberta</h3><span class="cb-auto-badge">● Balanceamento dinâmico ativo</span></div>
+      <div class="cb-portfolio-title"><small>CARTEIRA ATUAL</small><h3>Divisão igualitária da carteira</h3><span class="cb-auto-badge">● Distribuição igualitária</span></div>
       <div class="cb-portfolio-metric"><small>PENDENTES</small><b>${fmtNum(overall.pending)}</b><span>incidências abertas</span></div>
       <div class="cb-portfolio-metric"><small>DISTRIBUÍDAS</small><b>${fmtNum(overall.distributed)}</b><span>${eligibleRows.length?fmtPct(overall.distributed/eligibleRows.length*100):'0,0%'} da carteira contatável</span></div>
       <div class="cb-portfolio-metric"><small>ANALISTAS ATIVOS</small><b>${fmtNum(activeAnalysts.length)}</b><span>aptos a receber casos</span></div>
       <div class="cb-portfolio-metric"><small>INCIDÊNCIAS POR ANALISTA</small><b>${fmtNum(distributionAverage)}</b><span>média dos casos abertos</span></div>
       <div class="cb-portfolio-metric"><small>ÚLTIMA DISTRIBUIÇÃO</small><b style="font-size:12px">${esc(lastDistribution)}</b><span>registro persistido</span></div>
       <div class="cb-portfolio-action"><button class="cb-btn primary" id="cbDistribute">Distribuir carteira</button></div>
-      <div class="cb-portfolio-note"><b>Balanceamento dinâmico:</b> novas incidências vão primeiro para quem possui menor carteira aberta. Em empate, recebe primeiro quem concluiu mais casos no dia. Casos existentes não são movidos, salvo analista desativado.</div>
+      <div class="cb-portfolio-note"><b>Divisão igualitária:</b> ao clicar em Distribuir carteira, todas as incidências contatáveis em aberto são redistribuídas entre os analistas ativos, sem considerar a carga anterior. A diferença máxima entre analistas é de uma incidência.</div>
     </section>
     <div class="cb-filterbar">
       <div class="cb-filter"><label>ANALISTA</label><select id="cbFilterAnalyst">${callbackFilterOptions(analysts.map(a=>a.name),f.analyst,'Todos os analistas')}</select></div>
@@ -8916,9 +9168,11 @@ async function saveCallbackContact(){
     const eventId=String(saved?.id||'');
     if(!S.callbackContacts[row.__callbackKey])S.callbackContacts[row.__callbackKey]=[];
     S.callbackContacts[row.__callbackKey].push({date:sentAt,answered,contactType,situation,analyst,notes,__eventoId:eventId});
-    S.callbackAssignments[row.__callbackKey]=analyst;
+    /* Salvar um reporte não redefine a carteira. O responsável atual continua vindo da distribuição salva em estado_callback. */
     if(eventId)callbackPendingSeen.add(eventId);
-    S.callbackSelectedKey=null;S.callbackVersion++;salvarCallbackOperacaoLocal();closeCallbackRegisterDrawer();
+    /* O reporte é persistido em reportes_callback. Não regrava atribuicoes aqui:
+       uma tentativa de contato não pode desfazer uma redistribuição feita por outra sessão. */
+    S.callbackSelectedKey=null;S.callbackVersion++;salvarCallbackOperacaoLocal({persistirServidor:false});closeCallbackRegisterDrawer();
     renderCallbackContingencia();
     requestAnimationFrame(()=>{window.scrollTo(0,pageScroll);const table=document.querySelector('.cb-table-wrap');if(table)table.scrollTop=tableScroll});
     callbackToast(`Contato salvo no Supabase às ${sentAt.toLocaleTimeString('pt-BR')}.`);
@@ -8931,16 +9185,31 @@ async function saveCallbackContact(){
 function openCallbackAnalystManager(){
   const analysts=callbackAnalystNames(false);
   document.getElementById('modalTitle').textContent='Gerenciar analistas do Callback';
-  document.getElementById('modalBody').innerHTML=`<div class="tag-note">Cadastre os analistas que participarão da distribuição automática da carteira.</div><div class="cb-manager-list" id="cbManagerList">${analysts.map((a,i)=>`<div class="cb-manager-row"><input value="${esc(a.name)}" data-cb-manager-name="${i}"><select data-cb-manager-status="${i}"><option value="1" ${a.active===false?'':'selected'}>Ativo</option><option value="0" ${a.active===false?'selected':''}>Inativo</option></select><button class="cb-btn danger" data-cb-manager-remove="${i}">Remover</button></div>`).join('')}</div><div class="cb-manager-row"><input id="cbNewAnalyst" placeholder="Nome do novo analista"><select id="cbNewAnalystStatus"><option value="1">Ativo</option><option value="0">Inativo</option></select><button class="cb-btn" id="cbAddAnalyst">Adicionar</button></div><div style="display:flex;justify-content:flex-end;gap:7px;margin-top:12px"><button class="cb-btn" onclick="document.getElementById('modalBg').classList.remove('show')">Cancelar</button><button class="cb-btn primary" id="cbSaveAnalysts">Salvar analistas</button></div>`;
+  document.getElementById('modalBody').innerHTML=`<div class="tag-note">Cadastre os analistas que participarão da divisão igualitária da carteira.</div><div class="cb-manager-list" id="cbManagerList">${analysts.map((a,i)=>`<div class="cb-manager-row"><input value="${esc(a.name)}" data-cb-manager-name="${i}"><select data-cb-manager-status="${i}"><option value="1" ${a.active===false?'':'selected'}>Ativo</option><option value="0" ${a.active===false?'selected':''}>Inativo</option></select><button class="cb-btn danger" data-cb-manager-remove="${i}">Remover</button></div>`).join('')}</div><div class="cb-manager-row"><input id="cbNewAnalyst" placeholder="Nome do novo analista"><select id="cbNewAnalystStatus"><option value="1">Ativo</option><option value="0">Inativo</option></select><button class="cb-btn" id="cbAddAnalyst">Adicionar</button></div><div style="display:flex;justify-content:flex-end;gap:7px;margin-top:12px"><button class="cb-btn" onclick="document.getElementById('modalBg').classList.remove('show')">Cancelar</button><button class="cb-btn primary" id="cbSaveAnalysts">Salvar analistas</button></div>`;
   document.getElementById('modalBox').classList.remove('wide');document.getElementById('modalBg').classList.add('show');
   document.querySelectorAll('[data-cb-manager-remove]').forEach(b=>b.onclick=()=>{const idx=Number(b.dataset.cbManagerRemove);S.callbackAnalysts.splice(idx,1);openCallbackAnalystManager()});
   document.getElementById('cbAddAnalyst').onclick=()=>{const input=document.getElementById('cbNewAnalyst'),name=input.value.trim();if(!name)return;S.callbackAnalysts.push({name,active:document.getElementById('cbNewAnalystStatus').value==='1'});openCallbackAnalystManager()};
-  document.getElementById('cbSaveAnalysts').onclick=()=>{
+  document.getElementById('cbSaveAnalysts').onclick=async()=>{
     const next=[];document.querySelectorAll('[data-cb-manager-name]').forEach(input=>{const i=Number(input.dataset.cbManagerName),name=input.value.trim(),status=document.querySelector(`[data-cb-manager-status="${i}"]`);if(name)next.push({name,active:status.value==='1'})});
     S.callbackAnalysts=next;
-    const redistributed=redistributeInactiveCallbackAssignments();
-    S.callbackVersion++;salvarCallbackOperacaoLocal();document.getElementById('modalBg').classList.remove('show');renderCallbackContingencia();
-    callbackToast(redistributed?`Cadastro atualizado e ${fmtNum(redistributed)} incidência(s) aberta(s) redistribuída(s).`:'Cadastro de analistas atualizado.');
+    S.callbackVersion++;
+    callbackEstadoVersaoManual++;
+    try{
+      const estadoSalvo=await gravarEstadoCallbackServidor({analistas:next});
+      const confirmados=Array.isArray(estadoSalvo.analistas)?estadoSalvo.analistas:[];
+      const nomesEsperados=new Set(next.map(a=>String(a.name||'').trim()).filter(Boolean));
+      const nomesConfirmados=new Set(confirmados.map(a=>typeof a==='string'?String(a).trim():String(a?.name||'').trim()).filter(Boolean));
+      const faltantes=[...nomesEsperados].filter(nome=>!nomesConfirmados.has(nome));
+      if(faltantes.length)throw new Error(`O Supabase não confirmou: ${faltantes.join(', ')}.`);
+      S.callbackAnalysts=next.map(a=>({name:a.name,active:a.active!==false}));
+      await salvarCallbackOperacaoLocal({persistirServidor:false});
+      document.getElementById('modalBg').classList.remove('show');
+      renderCallbackContingencia();
+      callbackToast('Cadastro de analistas confirmado no Supabase. Use "Distribuir carteira" para aplicar a nova divisão.');
+    }catch(error){
+      console.error('Falha ao salvar analistas do Callback:',error);
+      alert(`Os analistas NÃO foram confirmados no Supabase.\n\n${error.message}`);
+    }
   };
 }
 function exportCallbackQueue(){
@@ -9157,9 +9426,15 @@ function startCallbackCountdown(){
 
 
 async function carregarEstadoCallbackServidor(){
+  const versaoManualNoInicio=callbackEstadoVersaoManual;
   try{
+    /* Se existe gravação em andamento, a leitura espera o estado mais novo chegar
+       ao Supabase antes de decidir o que deve prevalecer localmente. */
+    if(callbackEstadoWritesPendentes>0){
+      await callbackEstadoWriteQueue.catch(()=>{});
+    }
     const response=await fetch(
-      `${SUPABASE_URL}/rest/v1/estado_callback?id=eq.1&select=*`,
+      `${SUPABASE_URL}/rest/v1/estado_callback?id=eq.${CALLBACK_ESTADO_ID}&select=*`,
       {
         cache:'no-store',
         headers:SUPABASE_HEADERS
@@ -9171,16 +9446,32 @@ async function carregarEstadoCallbackServidor(){
     }
 
     const result=await response.json();
-    const estado=Array.isArray(result)?result[0]:null;
+    let estado=Array.isArray(result)?result[0]:null;
     if(!estado)return false;
 
-    if(Array.isArray(estado.analistas)&&estado.analistas.length){
-      S.callbackAnalysts=estado.analistas;
+    /* Uma leitura iniciada antes de um salvamento manual não pode apagar
+       analistas recém-adicionados nem redistribuições mais novas. */
+    if(versaoManualNoInicio!==callbackEstadoVersaoManual){
+      console.info('Estado do Callback: leitura antiga descartada após alteração manual.');
+      return false;
     }
 
-    if(estado.atribuicoes&&typeof estado.atribuicoes==='object'){
-      S.callbackAssignments={...estado.atribuicoes};
-    }
+    /* Nunca substitui cegamente o cadastro local. Faz união com o servidor e
+       com os responsáveis já presentes nas atribuições. Isso recupera nomes
+       que uma sessão antiga eventualmente tenha removido do JSON compartilhado. */
+    const atribuicoesServidor=(estado.atribuicoes&&typeof estado.atribuicoes==='object')
+      ? {...estado.atribuicoes}
+      : {};
+    S.callbackAnalysts=mergeCallbackAnalysts(
+      S.callbackAnalysts||[],
+      Array.isArray(estado.analistas)?estado.analistas:[],
+      Object.values(S.callbackAssignments||{}),
+      Object.values(atribuicoesServidor)
+    );
+
+    /* A distribuição do servidor é soberana. Inclusive um objeto vazio deve
+       zerar a cópia local; nunca mesclamos uma carteira antiga do navegador. */
+    S.callbackAssignments={...atribuicoesServidor};
 
     if(estado.ultima_distribuicao){
       S.callbackLastDistribution=
@@ -9188,6 +9479,10 @@ async function carregarEstadoCallbackServidor(){
         estado.ultima_distribuicao;
     }
 
+    /* Atualiza somente a cópia local, sem reenviar o estado ao servidor. */
+    await salvarCallbackOperacaoLocal({persistirServidor:false});
+    S.callbackVersion++;
+    if(S.currentTab==='callbackContingencia')renderCallbackContingencia();
     return true;
   }catch(error){
     console.warn('Estado do Callback no Supabase indisponível:',error);
@@ -9799,8 +10094,11 @@ function applyPendingCallbackRecord(item){
   if(!S.callbackContacts[key])S.callbackContacts[key]=[];
   const duplicate=S.callbackContacts[key].some(c=>(eventId&&c.__eventoId===eventId)||(String(c.analyst||'')===analyst&&String(c.situation||'')===situation&&String(c.notes||'')===notes&&Math.abs((parseDateVal(c.date)||new Date(0)).getTime()-date.getTime())<2000));
   if(!duplicate)S.callbackContacts[key].push({date,answered,contactType,situation,analyst,notes,__eventoId:eventId});
-  if(analyst && !S.callbackAssignments[key]){
-    S.callbackAssignments[key]=analyst;
+  if(analyst){
+    /* O analista do reporte entra no cadastro/histórico, mas nunca redefine
+       quem é o responsável atual pela carteira. A atribuição vigente é
+       controlada exclusivamente por estado_callback.atribuicoes. */
+    S.callbackAnalysts=mergeCallbackAnalysts(S.callbackAnalysts||[],[{name:analyst,active:true}]);
   }
   if(eventId)callbackPendingSeen.add(eventId);
   return !duplicate;
