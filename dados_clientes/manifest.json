@@ -1,37 +1,37 @@
 {
-  "gerado_em": "2026-08-12T11:10:14",
+  "gerado_em": "2026-08-12T11:35:08",
   "versao": 3,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 52,
-      "tamanho_bytes": 9057,
+      "linhas": 45,
+      "tamanho_bytes": 7786,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-12T11:09:43"
+      "fonte_modificada_em": "2026-08-12T11:28:26"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
       "linhas": 286,
-      "tamanho_bytes": 52744,
+      "tamanho_bytes": 58325,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
-      "fonte_modificada_em": "2026-08-12T11:09:46"
+      "fonte_modificada_em": "2026-08-12T11:34:45"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
       "linhas": 17568,
-      "tamanho_bytes": 1913409,
+      "tamanho_bytes": 1913408,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Principal_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-12T10:35:02",
-      "linhas_origem": 222782,
+      "fonte_modificada_em": "2026-08-12T11:32:51",
+      "linhas_origem": 222786,
       "clientes_oficiais": 3543,
       "modo": "historico_clientes_reincidentes"
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4377,
-      "tamanho_bytes": 492673,
+      "tamanho_bytes": 492674,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-12T10:35:05",
+      "fonte_modificada_em": "2026-08-12T11:32:53",
       "vinculadas_principal": 4377,
       "sem_vinculo_principal": 0,
       "modo": "oficial_enriquecida"
