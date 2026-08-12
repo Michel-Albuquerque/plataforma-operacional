@@ -7569,7 +7569,7 @@ function renderValidacaoPos(){
               <th>Incidência</th>
               <th>Data do reporte</th>
               <th>Responsável</th>
-              <th>Telefone utilizado</th>
+              <th>Telefone</th>
               <th>Status do contato</th>
               <th>Problema resolvido</th>
               <th>Observações</th>
@@ -7583,11 +7583,11 @@ function renderValidacaoPos(){
               ? reportesRealizados.map(row=>{
                   const latest=vpaLatest(row);
                   return `<tr>
-                    <td>${esc(row[COLV.nCliente]||'—')}</td>
+                    <td>${esc(vpaNumeroClienteExibicao(row))}</td>
                     <td>${esc(formatNumero(row[COLV.numero]))}</td>
                     <td>${latest?.date?fmtDateTime(vpaDate(latest.date)):'—'}</td>
                     <td><b>${esc(latest?.responsavel||'—')}</b></td>
-                    <td>${esc(latest?.telefoneUtilizado||'—')}</td>
+                    <td>${esc(vpaTelefoneExibicao(row,latest))}</td>
                     <td>${esc(latest?.status||'—')}</td>
                     <td>${esc(latest?.resolvido||'—')}</td>
                     <td>${esc(latest?.observacoes||'—')}</td>
@@ -7606,6 +7606,41 @@ function renderValidacaoPos(){
     </section></div>`;
   wireValidationPage();
 }
+
+/* CORRECAO_VALIDACAO_COLUNA_TELEFONE_V1 */
+function vpaTelefoneExibicao(row,latest){
+  const candidatos=[];
+
+  // 1) Se houve telefone efetivamente registrado no reporte, ele tem prioridade.
+  candidatos.push(latest?.telefoneUtilizado);
+
+  // 2) Telefones consolidados da incidência/cliente.
+  (row?.__phones||[]).forEach(p=>{
+    candidatos.push(p?.display);
+    candidatos.push(p?.digits);
+  });
+
+  // 3) Telefones vindos diretamente da base histórica de Avisos.
+  candidatos.push(row?.[COLV.telefone1]);
+  candidatos.push(row?.[COLV.telefone2]);
+
+  // 4) Fallbacks por nome de coluna, caso a estrutura venha sem o mapeamento COLV.
+  candidatos.push(row?.['Telefone 1']);
+  candidatos.push(row?.['Telefone 2']);
+  candidatos.push(row?.['Telefone']);
+  candidatos.push(row?.['Celular']);
+
+  for(const valor of candidatos){
+    if(valor===null||valor===undefined)continue;
+    const texto=String(valor).trim();
+    const digitos=texto.replace(/\D/g,'');
+    if(digitos.length>=8 && !/^0+$/.test(digitos)){
+      return texto;
+    }
+  }
+  return '—';
+}
+
 function vpaKpi(label,value,detail,tone,type,isText){
   return `<button class="vpa-kpi" style="--tone:${tone}" onclick="openValidationDrill('${type}')"><div class="label">${label}</div><div class="value">${isText?value:fmtNum(value)}</div><div class="detail">${detail}</div><span class="arrow">›</span></button>`;
 }
@@ -8074,6 +8109,42 @@ function openValidationBaseDetails(key){
   document.getElementById('modalBody').innerHTML=`<div class="subtabs"><button class="subtab-btn active">Base de validação <span class="subtab-count">${sourceFields.length}</span></button><button class="subtab-btn">Base principal vinculada <span class="subtab-count">${mainFields.length}</span></button></div><div style="margin-top:10px">${sourceFields.map(k=>`<div class="mfield"><div class="k">${esc(k)}</div><div class="v">${esc(row[k]??'—')}</div></div>`).join('')}${mainFields.length?`<div class="section-title">Informações complementares da base principal</div>${mainFields.map(k=>`<div class="mfield"><div class="k">${esc(k)}</div><div class="v">${esc(row.__main[k]??'—')}</div></div>`).join('')}`:''}</div>`;
   document.getElementById('modalBg').classList.add('show');
 }
+
+/* CORRECAO_VALIDACAO_CLIENTE_TELEFONES_V2 */
+function vpaNumeroClienteExibicao(row){
+  const valores=[
+    row?.[COLV.nCliente],
+    row?.__main?.[COL.nCliente],
+    row?.['Nº Cliente'],
+    row?.['Número Cliente'],
+    row?.['Numero Cliente']
+  ];
+  for(const valor of valores){
+    if(hasValidValue(valor)){
+      return String(valor).trim().replace(/[.,]0+$/,'');
+    }
+  }
+  return '—';
+}
+function vpaTelefonesClienteExibicao(row,latest){
+  const out=[],seen=new Set();
+  const add=(valor)=>{
+    if(!hasValidValue(valor))return;
+    const texto=String(valor).trim();
+    const digitos=texto.replace(/\D/g,'');
+    if(digitos.length<8)return;
+    const chave=digitos.slice(-11);
+    if(seen.has(chave))return;
+    seen.add(chave);
+    out.push(texto);
+  };
+  (row?.__phones||[]).forEach(p=>add(p?.display||p?.digits));
+  add(row?.[COLV.telefone1]);
+  add(row?.[COLV.telefone2]);
+  add(latest?.telefoneUtilizado);
+  return out.length?out.join(' | '):'—';
+}
+
 function validationExportRow(row){
   const latest=vpaLatest(row),out={},revisions=vpaAttempts(row).flatMap(attempt=>attempt.revisions||[]).sort((a,b)=>(vpaDate(a.editedAt)||0)-(vpaDate(b.editedAt)||0)),lastRevision=revisions[revisions.length-1]||null;
   Object.keys(row).filter(k=>!k.startsWith('__')).forEach(k=>out[k]=row[k]);
@@ -8110,11 +8181,11 @@ function exportValidationCases(){
     .map(row=>{
       const latest=vpaLatest(row);
       return {
-        'Nº Cliente':row[COLV.nCliente]||'',
+        'Nº Cliente':vpaNumeroClienteExibicao(row)==='—'?'':vpaNumeroClienteExibicao(row),
         'Incidência':formatNumero(row[COLV.numero]),
         'Data do Reporte':latest?.date?fmtDateTime(vpaDate(latest.date)):'',
         'Responsável':String(latest?.responsavel||'').trim(),
-        'Telefone Utilizado':latest?.telefoneUtilizado||'',
+        'Telefone':vpaTelefoneExibicao(row,latest)==='—'?'':vpaTelefoneExibicao(row,latest),
         'Status do Contato':latest?.status||'',
         'Problema Resolvido':latest?.resolvido||'',
         'Observações':latest?.observacoes||'',
