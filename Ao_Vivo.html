@@ -120,17 +120,54 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Sego
   </div>
 </div>
 <div id="tlTT"></div>
-<div class="foot">Gerado em 29/07/2026 15:50 · Painel: Produtividade UO TR - RJ - Painel Acompanhamento.csv · Deslocamentos: Produtividade UO TR - RJ - Deslocamentos.csv · Resultado: Produt_Resultado_Dia_2026-07-29_153912.xlsx · Intervalo de refeição não é exibido: as bases não trazem os horários.</div>
+<div class="foot" id="tlFoot">Carregando dados operacionais...</div>
 
 <script>
-const TL_DATA = [{"eq": "SG001SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 07", "ic": 420, "fc": 960, "login": 408, "lo": null, "ag": 932, "os": [[444, 489, 519, "DT29173715", "NÃO REALIZADO", "MEDIDOR INTERNO , CLIENTE NAO AUTORIZOU , ÁREA DE RISCO", 1, "NRE"], [522, 565, 646, "0029174607", "Trabalho Realizado", "SUBSTITUÍDO RAMAL DO CLIENTE , REFEITO CONEXOES NO MEDIDOR E DISJUNTOR E NA CS", 0, "REA"], [655, 700, 711, "0029174889", "NÃO REALIZADO", "MEDIDOR INTERNO ÁREA DE RISCO", 1, "NRE"], [724, 757, 774, "0029175887", "RAE06-OSM - SERVIÇO DE MANUTENÇÃO", "FEITO INSPEÇÃO NO  CIRCUITO , NENHUM CLIENTE AFETADO , NECESSÁRIO  GERAR OSM PRA PODA DEVIDO ARVORES DE GRANDE PORTE POR CIMA DA BT \nNO ÚLTIMO VÃO DO TRECHO GALHO ENCIMA DA BT PRESSIONANDO POSTE \nAREA DE PRESERVAÇÃO  AMBIENTAL", 1, "RAE06"], [844, 868, 871, "0029176343", "NÃO REALIZADO", "EQUIPE DE MANUTENÇÃO  NO LOCAL", 1, "NRE"], [878, 894, null, "0029176619", "", "", 0, ""]]}, {"eq": "SG002SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 356, "lo": 867, "ag": 932, "os": [[379, 417, 470, "0029173325", "Trabalho Realizado", "RECONEXAO DO CLIENTE NA REDE BT \nFALTA DE FASE \nRAMAL QUEIMADO NA REDE DA CIA .\nATEA DE RISCO \nCATARINA", 0, "REA"], [477, 490, 542, "0029174259", "Trabalho Realizado", "RECONEXAO DE CLIENTE NA REDE BT \nFALTA DE FASE \nNORMALIZADO COM UM OERFURANTE DO PEQUENO \n\nÁREA COM BARRICADAS \nDIFI IL ACESSO \nÁREA DE RISCO", 0, "REA"], [545, 578, 621, "0029174753", "Trabalho Realizado", "RECONEXAO NA REDE E NO MEDIDOR \nUTILIZADO 01 PERFURANTE DO GRANDE \nUTILIZADO UM PERFURANTE PEQUENO \n5 SERRILHADA PEQUENA", 0, "REA"], [623, 655, 709, "0029174967", "Trabalho Realizado", "CLIENTE COM FALTA DE FASE NO CS \nBORNE COM MAL CONTATO \nNORMALIZADO NA CS E NA CX DE PASSAGEM  \nUTILIZADO 02 PERFURANTES NA CX DE PASSAGEM", 0, "REA"], [766, 801, 860, "0029174869", "Trabalho Realizado", "RECONEXAO NO JUMP DA BT \nUTILIZADO 05 MT DE CABO 50\n2 PERFURANTES \nÁREA DE RISCO", 0, "REA"]]}, {"eq": "SG002SOE-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 840, "fc": 1380, "login": 827, "lo": null, "ag": 932, "os": [[850, null, null, "0029177195", "", "", 0, ""], [858, 881, 924, "0029175009", "Trabalho Realizado", "REFEITO AS CONEXÕES DO CLIENTE NA REDE", 0, "REA"], [926, null, null, "0029176877", "", "", 0, ""]]}, {"eq": "SG003SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 07", "ic": 420, "fc": 960, "login": 420, "lo": null, "ag": 932, "os": [[443, 479, 543, "DT29174213", "NÃO REALIZADO", "MEDIDOR COM GRADE CLIENTE AUSENTE", 1, "NRE"], [547, 581, 644, "0029174471", "Trabalho Realizado", "TROCA DO RAMAL DO CLIENTE", 0, "REA"], [658, 699, 769, "0029174717", "Trabalho Realizado", "REFEITO AS CONEXÕES DO CLIENTE NA REDE", 0, "REA"], [777, 811, 884, "0029175203", "Trabalho Realizado", "FUSÍVEL,  184329  NORMALIZADA ELO DE 25 K FASE A +B  CAUSA GALHOS NA REDE, FOI RETIRADO A DISTÂNCIA, EQUIPE TEVE Q CORRE O CIRCUITO APE  PÓ NAO TE ACESSO PARA O CAMINHÃO", 0, "REA"]]}, {"eq": "SG003SOE-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 900, "fc": 1439, "login": 873, "lo": null, "ag": 932, "os": [[923, null, null, "0029177193", "", "", 0, ""]]}, {"eq": "SG004SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 352, "lo": 900, "ag": 932, "os": [[381, 389, 458, "DT29173717", "Trabalho Realizado", "MEDIDOR EM FUNCIONAMENTO EM CAMPO. OBS: TEMPO DE REPARO ALTO POIS FOMOS DESCOLADOS PARA TRONCO E VOLTAMOS PARA DT. MEDIDOR EM CAMPO: 704426", 0, "REA"], [467, 499, 517, "DT29166281", "NÃO REALIZADO", "CLIENTE NAO AUTORIZOU A SUBSTITUIÇÃO,  AREA DE RISCO, EQUIPE COAGIDA PELO TRÁFICO.", 1, "NRE"], [521, 545, 600, "0029174657", "NÃO REALIZADO", "CLIENTE COM DEFEITO INTERNO, NECESSÁRIO CONTRATAR ELETRICISTA PARTICULAR. OBS: TEMPO DE REPARO ALTO POIS A COORDENADA DEU EM OUTRO ENDEREÇO,  DIFICULDADE PARA CHEGAR NO LOCAL.", 1, "NRE"], [615, 626, 628, "0029175153", "NÃO REALIZADO", "CANCELADO PELO OPERADOR", 1, "NRE"], [630, 670, 805, "0029175129", "Trabalho Realizado", "FEITO FAVORES PARA O TRÁFICO", 0, "REA"], [806, 821, 866, "0029175375", "Trabalho Realizado", "REFEITO IMENDA NO RAMAL DO CLIENTE E REFEITO CONEXÕES NO RAMAL DO CLIENTE E FEITO FAVORES PARA O TRÁFICO", 0, "REA"], [867, 868, 899, "0029175235", "Trabalho Realizado", "FEITO SERVIÇO PARA O TRÁFICO. GASTO 40 METROS DE RAMAL", 0, "REA"]]}, {"eq": "SG004SOE-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 840, "fc": 1380, "login": 855, "lo": null, "ag": 932, "os": [[861, 914, null, "0029175195", "", "", 0, ""]]}, {"eq": "SG006SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 10", "ic": 600, "fc": 1140, "login": 607, "lo": null, "ag": 932, "os": [[629, 677, 722, "0029174957", "Trabalho Realizado", "FEITO AS CONEXÕES DE NEUTRO NO MD DO CLIENTE, TROCADO O DISJUNTOR DO CLIENTE E BAY PASSADO O MD", 0, "REA"], [740, 800, 853, "0029176123", "Trabalho Realizado", "FEITO AS CONEXÕES DE NEUTRO NO POSTE DA CIA E NO MD DO CLT", 0, "REA"], [863, 885, null, "0029176249", "", "", 0, ""]]}, {"eq": "SG007SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 08", "ic": 480, "fc": 960, "login": 437, "lo": null, "ag": 932, "os": [[496, 559, 789, "0029173943", "Trabalho Realizado", "CHAVE LÂMINA 34644 FASE C PENDENTE PARTIDO PARTES INFERIOR E SUPERIOR E GRAMPO DE LINHA VIVA QUEIMADO  JOGO DE CHAVE QUEIMADA, FORAM SUBSTITUÍDO 1 JOGO DE CHAVE 2 CARTUCHO E INSTALADO 3 ELOS DE 25K FEITO PENDENTE ,FASE C", 0, "REA"], [852, 875, 919, "0029175589", "Trabalho Realizado", "NEUTRO DO CLIENTE QUEIMADO NA REDE,FOI REFEITO AS CONEXÕES DE NEUTRO NA REDE, GASTO 2 PERFURANTES PEQUENO E FOI RENIVELADO A RAMAL DO CLIENTE", 0, "REA"]]}, {"eq": "SG008SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 10", "ic": 600, "fc": 1140, "login": 581, "lo": null, "ag": 932, "os": [[609, 635, 674, "0029175257", "Trabalho Realizado", "FEITO MEDIÇÕES EQUIPE CONSTATOU QUE ESTAVA FALTA DE ENERGIA EM VÁRIOS CONSUMIDORES, PERCORRIDO O CIRCUITO O MESMO SE ENCONTRAVA NORMAL FEITO CONTATO COM A TRONCO O MESMO INFORMOU CIRCUITO MANOBRADO FEITO AS MANOBRAS CIRCUITO NORMAL !", 0, "REA"], [676, 705, 755, "0029174461", "Trabalho Realizado", "REFEITO AS CONEXÕES DO CLIENTE NA REDE ,LANÇADO 35M DE RAMAL, ALÇADO E RENIVELADO O MESMO.", 0, "REA"], [763, 784, 819, "0029176129", "Trabalho Realizado", "FEITO A SUBSTITUIÇÃO DO MEDIDOR, MEDIDOR INSTALADO: 81136846\nMEDIDOR RETIRADO: 81094197", 0, "REA"], [823, 852, 893, "0029176605", "Trabalho Realizado", "REFEITO AS CONEXÕES DO CLIENTE NA CS.", 0, "REA"], [898, null, null, "0029176043", "", "", 0, ""]]}, {"eq": "SG009SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 08", "ic": 480, "fc": 960, "login": 477, "lo": null, "ag": 932, "os": [[488, 506, 554, "0029174399", "Trabalho Realizado", "ISOLADO O RISCO.\nALÇADO E NIVELADO RAMAL DO CLIENTE.", 0, "REA"], [565, 591, 592, "0029174915", "NÃO REALIZADO", "ERRO DE CADASTRO DIVERSAS TENTATIVAS DE CONTATO COM O CLIENTE, PORÉM SEM SUCESSO. ENDEREÇO, NÃO LOCALIZADO.", 1, "NRE"], [593, 617, 672, "0029175095", "Trabalho Realizado", "(INCÊNDIO, ÁREA DE RISCO). FEITO O DESLIGAMENTO NO TRÁFEGO PARA A REALIZAÇÃO DA ATIVIDADE COM SEGURANÇA. REFEITO A CARGA DO CLIENTE( CABOS DERRETIDOS). FEITO RECONEXÃO DO RAMAL NO MEDIDOR DO CLIENTE .", 0, "REA"], [675, 707, 742, "0029175859", "Trabalho Realizado", "FEITO A TROCA DO CONECTOR QUEIMADO NA REDE\nFEITO O RENIVELAMENTO DO HAMAL DE 25 M\nFEITO O REAPERTO NOS BORNES NO MEDIDOR E NO DJUNTOR\n SENDO O GASTOS 2 CONECTORES PERFURANTES, EU 1 CONECTOR CUNHA.", 0, "REA"], [808, 819, 853, "0029175295", "Trabalho Realizado", "FEITO CONTATO COM O CENTRO DE OPERAÇÕES MÓVEIS, CLIENTE TRANSFORMADO EM DAB SOB O PROTOCOLO. LE 4 7 9 4 4 ,RENIVELADO RAMALDO, CLIENTE, REFEITO BYPASS DO DISJUNTOR.", 0, "REA"], [855, 875, 876, "0029176329", "NÃO REALIZADO", "CLIENTE FORA DE PADRÃO,DIVERSAS TENTATIVAS DE CONTATO ,SEM SUCESSO.", 1, "NRE"], [887, 914, null, "DT29177571", "", "", 0, ""]]}, {"eq": "SG009SOE-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 840, "fc": 1380, "login": 828, "lo": null, "ag": 932, "os": [[850, 873, 908, "0029177199", "Trabalho Realizado", "FEITO PODA A DISTÂNCIA. \nRENOVADO 1 ELO FUSÍVEL DE 8K NO PONTO 185563.", 0, "REA"], [923, null, null, "0029176409", "", "", 0, ""]]}, {"eq": "SG010SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 10", "ic": 600, "fc": 1140, "login": 589, "lo": null, "ag": 932, "os": [[609, 660, 800, "0029175011", "Trabalho Realizado", "EQUIPE INSTALOU RAMAL TRIFÁSICO DE BT, RENIVELADO RAMAL DO CLIENTE,  REFEITO AS CONEXÕES NA PINGADEIRA DO CLIENTE E INSTALOU MEDIDOR TRIFÁSICO NO PADRÃO DO MESMO E REFEITO ÀS CONEXÕES NO DISJUNTOR DO MESMO", 0, "REA"], [813, 871, null, "0029175165", "", "", 0, ""]]}, {"eq": "SG011SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 333, "lo": 885, "ag": 932, "os": [[384, 438, 448, "0029173827", "NÃO REALIZADO", "INCIDÊNCIA DE FIO PARTIDO , FOI INSPECIONADO E NAO IDENTIFICADO LIGADO PARA O CLIENTE E CONFIRMADO QUE NAO TERIA NENHUM RISCO.", 1, "NRE"], [466, 476, 643, "DT29174391", "Trabalho Realizado", "FEITO MANOBRAS COM A TRONCO", 0, "REA"], [657, 686, 726, "0029175745", "Trabalho Realizado", "RETIRADO RISCO DO RAMAL DO CLIENTE QUE ESTAVA QUEIMADO E NORMALIZADO TRAFO SN GASTO 1 ELO DE 2H", 0, "REA"], [801, 838, 870, "0029175907", "Trabalho Realizado", "SUBSTITUÍDO MEDIDOR COM OS BORNES QUEIMADO MEDIDOR RETIRADO 3635269\nMEDIDOR INSTALADO 4565742", 0, "REA"]]}, {"eq": "SG011SOE-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 900, "fc": 1439, "login": 883, "lo": null, "ag": 932, "os": []}, {"eq": "SG018SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 342, "lo": 897, "ag": 932, "os": [[381, 465, 511, "DT29166297", "Trabalho Realizado", "REALIZADO MEDIDOR COM DEFEITO BORNE QUEIMADO FOI FEITO SUBSTITUIÇÃO DO MEDIDOR UC NORMALIZADO", 0, "REA"], [536, 559, 603, "0029174767", "Trabalho Realizado", "REALIZADO DEFEITO DETECTADO RAMAL DE SAÍDA DE CARGA EM CURTO QUEIMADO NA CAIXA DE DERIVAÇÃO FOI REFEITO RECONEXAO UC NORMALIZADO", 0, "REA"], [611, 622, 690, "0029174623", "Trabalho Realizado", "REALIZADO DEFEITO DETECTADO RAMAL DE LIGAÇÃO LADO LINHA  E LADO CARGA  COM EMENDA, NO MEDIDOR FECHANDO CURTO, FOI RETIRADO AS EMENDA, FOI FEITO RECONEXAO UC NORMALIZADO P", 0, "REA"], [767, 803, 822, "0029176043", "RAE01-NECESSÁRIO CESTO AÉREO", "NÃO REALIZADO  DEVIDO POSTE  LOCALIZADO  NO  ALTO DO BARRANCO SEM ACESSO  A REDE, NECESSÁRIO CAMINHÃO CESTO 0COM  BRAÇO MAIOR", 1, "RAE01"], [825, 849, 891, "0029176373", "Trabalho Realizado", "REALIZADO FOI FEITO PEQUENOS CORTES DE GALHO DE ÁRVORE SOB O RAMAL DE LIGAÇÃO DO CLIENTE ,CAUSANDO OSCILAÇÃO DE TENSÃO UC NORMALIZADO", 0, "REA"]]}, {"eq": "SG018SOE-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 900, "fc": 1439, "login": 898, "lo": null, "ag": 932, "os": [[918, null, null, "0029175899", "", "", 0, ""]]}, {"eq": "SG019LXE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "EXTRA OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 07", "ic": 420, "fc": 960, "login": 402, "lo": null, "ag": 932, "os": [[438, 484, 500, "0029174063", "NÃO REALIZADO", "PADRÃO INTERNO CLIENTE AUSENTE EM TENTATIVAS DE CONTATO O MEAMO NAO ATENDEU E CHAMA ATE CAIR NA CAIXA POSTAL", 1, "NRE"], [505, 525, 546, "0029174089", "Trabalho Realizado", "FEITO MEDIÇÃO CLIENTE NORMAL PORÉM COM DEFEITO INTERNO", 0, "REA"], [563, 583, 607, "0029174911", "Trabalho Realizado", "CLIENTE COM FORNECIMENTO NORMAL SEM CABO PARTIDO NO LOCAL", 0, "REA"], [617, 645, 671, "0029175009", "RAE01-NECESSÁRIO CESTO AÉREO", "ORDEM 2 ,NECESSÁRIO CESTO AÉREO", 1, "RAE01"], [679, 691, 719, "0029175589", "RAE01-NECESSÁRIO CESTO AÉREO", "ORDEM 2 NECESSÁRIO CESTO AÉREO PARA VERIFICAR NEUTRO DO CLIENTE NA REDE", 1, "RAE01"], [731, 746, 803, "0029175661", "Trabalho Realizado", "RENOVADO ELO DE 16K NA FUSÍVEL 90538,  FASE B E RENOVADO 1 ELO DE 06K NO TRAFO 94454", 0, "REA"], [881, 901, null, "0029177283", "Trabalho Realizado", "RETIRADO MAL CONTATO NO DISJUNTOR", 0, "REA"]]}, {"eq": "SG022RXE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "EXTRA OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 07", "ic": 420, "fc": 900, "login": 420, "lo": 896, "ag": 932, "os": [[437, 474, 495, "0029173943", "RAE01-NECESSÁRIO CESTO AÉREO", "ORDEM 2 PARA CESTO AÉREO. PENDENTE PARTIDO FASE C DA CHAVE SG34644.", 1, "RAE01"], [501, 524, 558, "0029174525", "Trabalho Realizado", "FEITA EMENDA DA FASE NA CAIXA DE PASSAGEM, FASE E NEUTRO QUEIMADO", 0, "REA"], [561, 580, 619, "0029174869", "RAE01-NECESSÁRIO CESTO AÉREO", "ORDEM 2 PARA CESTO AÉREO. FALTA DE NEUTRO EM PARTE DO CIRCUITO, DIVERSOS CLIENTES RECLAMAM DE QUEDA DE TENSÃO. FEITO TESTE EM VÁRIOS MEDIDORES.", 1, "RAE01"], [633, 670, 706, "0029175195", "RAE01-NECESSÁRIO CESTO AÉREO", "ORDEM 2 PARA CESTO AÉREO. CLIENTE CONSTA COMO LIGADO, PORÉM SEM FORNECIMENTO.", 1, "RAE01"], [771, 823, 892, "0029176115", "Trabalho Realizado", "TROCA DE ELO FUSÍVEL NA FASE A DA CHAVE 186366 UTILIZADO ELO DE 16K, TROCA DE ELO FUSÍVEL FASES A E B NA CHAVE 186064 UTILIZADO ELO DE 10K. LOCAL DE DIFÍCIL ACESSO, MUITAS BARRICADAS, TERRENO ACIDENTADO, CIRCUITO EXTENSO. NENHUMA CAUSA IDENTIFICADA.", 0, "REA"]]}, {"eq": "SG023ROE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 318, "lo": 888, "ag": 932, "os": [[384, 448, 473, "DT29166283", "Trabalho Realizado", "MEDIDOR EM BOM ESTADO, REAPERTO DOS BORNES.", 0, "REA"], [523, 524, 555, "0029174133", "Trabalho Realizado", "ISOLADO DERIVAÇÃO PRÓXIMO AO TRAFO 306624.\nREDE MONOFASICO MT FROUXA PRÓXIMO A VEGETAÇÃO .\nRENOVADO 1 ELO DE 10 K NO PONTO 277443 FASE A. \nPRÓXIMO AO PONTO 38622", 0, "REA"], [558, 637, 722, "0029174079", "Trabalho Realizado", "RECUPERADO RAMAL DO CLT .\nRECONEXAO NA BT , REFEITO A CARGA DO MEDIDOR. \nÁREA DE SOMBRA. DIFÍCIL ACESSO. \nPEGAMOS ENGARRAFAMENTO.", 0, "REA"], [783, 832, 867, "0029174621", "Trabalho Realizado", "TROCA DA CARGA DO DISJUNTOR E MEDIDOR. \nRECUPERADO RAMAL DO CLT .\nCLT NORMALIZADO.", 0, "REA"]]}, {"eq": "SG024ROE-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 840, "fc": 1380, "login": 840, "lo": null, "ag": 932, "os": [[860, 896, null, "0029177097", "", "", 0, ""]]}, {"eq": "SG024SOE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 06", "ic": 360, "fc": 900, "login": 357, "lo": 887, "ag": 932, "os": [[378, 426, 444, "DT29166301", "Trabalho Realizado", "FEITO AS MEDIÇÕES \nMEDIDOR EM FUNCIONAMENTO EM CAMPO", 0, "REA"], [465, 483, 517, "0029174169", "Trabalho Realizado", "REFEITO CONEXÕES NA CAIXA DE DERIVAÇÃO DO CLIENTE", 0, "REA"], [524, 564, 741, "0029174705", "Trabalho Realizado", "REFEITO PENDENTE DA FASE A \nRENOVADO GLV\nTROCA DE ELO DE 10K, FASE A", 0, "REA"], [825, 867, 885, "0029174509", "Trabalho Realizado", "REFEITO CONEXÕES NA CAIXA DE DERIVAÇÃO DO CLIENTE", 0, "REA"]]}, {"eq": "SG026MOE-A", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Noite", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Noite / 22", "ic": 1260, "fc": 1800, "login": null, "lo": null, "ag": 932, "os": []}, {"eq": "SG026MOE-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 900, "fc": 1439, "login": null, "lo": null, "ag": 932, "os": []}, {"eq": "SG026ROE-B", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Manhã", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Manhã / 08", "ic": 480, "fc": 960, "login": 472, "lo": null, "ag": 932, "os": [[496, 543, 561, "DT29174457", "NÃO REALIZADO", "EQUIPE  CHEGOU  AO ENDEREÇO, PORÉM  MEDIDOR NÃO  LOCALIZADO.", 1, "NRE"], [566, 607, 647, "0029174937", "Trabalho Realizado", "REFEITO  CONEXÃO  NO  MEDIDOR. NEUTRO ROMPIDO.\nREFEITO  CONEXÃO  NA CAIXA  DE  PASSAGEM.\nREALIZADO  NÓ  DE KICHOFF\nREALIZADO  MEDIÇÕES  CLIENTE  NORMALIZADO.", 0, "REA"], [651, 701, 752, "0029175633", "Trabalho Realizado", "REALIZADO  A  SUBSTITUIÇÃO  DO  MEDIDOR.\nOSMED:1473443\nREFEITO  CONEXÃO  NO  MEDIDOR  E  DISJUNTOR. FASE QUEIMADA \nREALIZADO  MEDIÇÕES  CLIENTE  NORMALIZADO. \nOBS: ÁREA  DE RISCO, MEDIDOR  TRANCADO  NA GRADE E DIFICULDADE  PARA  ENCONTRAR  O  ENDEREÇO DO", 0, "REA"], [818, 868, 894, "0029176197", "Trabalho Realizado", "REFEITO  CONEXÃO NO MEDIDOR.  NEUTRO QUEIMADO. \nREFEITO  CONEXÃO  NA  CAIXA  DE  PASSAGEM.\nREALIZADO  MEDIÇÕES  CLIENTE  NORMALIZADO.", 0, "REA"], [896, 920, null, "0029175249", "Trabalho Realizado", "REFEITO CONEXÃO NO MEDIDOR. FASE QUEIMADA \nREFEITO  CONEXÃO  NO  DISJUNTOR. RETIRADO  MAU CONTATO.\nREALIZADO  MEDIÇÕES  CLIENTE  NORMALIZADO.", 0, "REA"]]}, {"eq": "SG301SOP-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 840, "fc": 1320, "login": 816, "lo": null, "ag": 932, "os": [[842, 867, 911, "0029176371", "Trabalho Realizado", "TROCADO UM ELO  DE 10K  RETIRADO UM ENCOSTADO NA REDE", 0, "REA"]]}, {"eq": "SG302SOP-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 840, "fc": 1320, "login": 854, "lo": 918, "ag": 932, "os": []}, {"eq": "SG307SOP-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 840, "fc": 1320, "login": 827, "lo": null, "ag": 932, "os": [[840, 869, null, "0029176585", "", "", 0, ""]]}, {"eq": "SG329SXP-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "EXTRA OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 900, "fc": 1320, "login": 880, "lo": null, "ag": 932, "os": [[894, null, null, "0029177151", "", "", 0, ""]]}, {"eq": "SG391SXP-C", "dt": "2026-07-29", "dtd": "29/07/2026", "per": "Tarde", "tipo": "EXTRA OPERAÇÃO", "base": "SÃO GONÇALO", "turno": "Tarde / 14", "ic": 840, "fc": 1320, "login": 843, "lo": null, "ag": 932, "os": [[856, null, null, "0029176701", "", "", 0, ""]]}];
-const TL_BASE_MS = new Date('2026-07-29T00:00:00').getTime();
-const TL_LIM = {"Plataforma": [null, 25], "Deslocamento": [9, 25], "Reparo": [9, 60], "Reparo Improdutivo": [9, 60], "Intervalo": [null, 10], "Retorno a Base": [null, 40]};
-const TL_GAP_MAX = 300;
+let TL_DATA = [];
+let TL_BASE_MS = Date.now();
+let TL_LIM = {"Plataforma":[null,25],"Deslocamento":[9,25],"Reparo":[9,60],"Reparo Improdutivo":[9,60],"Intervalo":[null,10],"Retorno a Base":[null,40]};
+let TL_GAP_MAX = 300;
+let TL_META = null;
+let TL_INITIALIZED = false;
 
 function tlM2D(m){return m==null?null:new Date(TL_BASE_MS+m*60000);}
 function tlFmt(m){const d=tlM2D(m);return d?d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function tlAtualizarRodape(meta){
+  const foot=document.getElementById('tlFoot');
+  if(!foot)return;
+  if(!meta){foot.textContent='Dados operacionais indisponíveis.';return;}
+  const dt=meta.generatedAt?new Date(meta.generatedAt):null;
+  const gerado=dt&&!Number.isNaN(dt.getTime())?dt.toLocaleString('pt-BR'):'—';
+  const src=meta.sources||{};
+  const st=meta.stats||{};
+  foot.textContent='Atualizado em '+gerado+
+    ' · Painel: '+(src.painel||'—')+
+    ' · Deslocamentos: '+(src.deslocamentos||'—')+
+    ' · Resultado: '+(src.resultado||'—')+
+    ' · OS com resultado: '+(st.osComResultado??'—')+
+    ' · Improdutivos: '+(st.reparosImprodutivos??'—');
+}
+
+async function tlCarregarDados(){
+  const url='dados_ao_vivo.json?v='+Date.now();
+  const resp=await fetch(url,{cache:'no-store'});
+  if(!resp.ok)throw new Error('HTTP '+resp.status+' ao carregar dados_ao_vivo.json');
+  const payload=await resp.json();
+  if(!payload||!Array.isArray(payload.records))throw new Error('JSON inválido: campo records não encontrado.');
+
+  TL_META=payload;
+  TL_DATA=payload.records;
+  if(payload.baseDate){
+    const d=new Date(payload.baseDate+'T00:00:00');
+    if(!Number.isNaN(d.getTime()))TL_BASE_MS=d.getTime();
+  }
+  if(payload.limits&&typeof payload.limits==='object')TL_LIM=payload.limits;
+  if(Number.isFinite(Number(payload.gapMax)))TL_GAP_MAX=Number(payload.gapMax);
+  tlAtualizarRodape(payload);
+  return payload;
+}
 
 const TL_COLOR={'Plataforma':'#000000','Deslocamento':'#4E79A7','Reparo':'#59A14F',
   'Reparo Improdutivo':'#E15759','Intervalo':'#8F8F8F','Retorno a Base':'#111111'};
@@ -264,7 +301,7 @@ function tlApply(){
   tlCards(recs);tlDraw(recs);
   const dts=[...new Set(TL_DATA.map(r=>r.dtd))];
   const ag=TL_DATA.length?tlFmt(TL_DATA[0].ag):'';
-  document.getElementById('tlSub').textContent='Produtividade · Painel + Deslocamentos · '+dts.join(', ')+' · posição às '+ag+' · '+recs.length+' equipes';
+  document.getElementById('tlSub').textContent='Produtividade · Painel + Deslocamentos + Resultado · '+dts.join(', ')+' · posição às '+ag+' · '+recs.length+' equipes';
 }
 function tlOnFiltroTopo(){tlRebuildEq();tlApply();}
 
@@ -363,7 +400,9 @@ function tlDraw(recs){
           +'<div class="ttr"><span class="ttk">Fim</span><span class="ttv">'+(b.tr?'—':tlFmt(b.f))+'</span></div>'
           +'<div class="ttr"><span class="ttk">Tempo</span><span class="ttv">'+Math.round(b.dur)+' min</span></div>'
           +(b.res?'<div class="ttr"><span class="ttk">Resultado</span><span class="ttv" style="max-width:190px;white-space:normal">'+esc(b.res)+'</span></div>':'')
-          +(b.obs?'<div class="ttobs">'+esc(b.obs)+'</div>':'')
+          +(b.cod?'<div class="ttr"><span class="ttk">Código resultado</span><span class="ttv">'+esc(b.cod)+'</span></div>':'')
+          +(b.tp==='Reparo Improdutivo'?'<div class="ttwarn">● Reparo improdutivo — resultado diferente de REA</div>':'')
+          +(b.obs?'<div class="ttobs"><strong>Observação</strong><br>'+esc(b.obs)+'</div>':'')
           +(b.bd?'<div class="ttwarn">⚠ Fora do limite</div>':'');
         TT.style.display='block';tlMoveTT(e);
       });
@@ -388,7 +427,7 @@ function tlMoveTT(e){
   TT.style.left=x+'px';TT.style.top=y+'px';
 }
 
-/* ── init ────────────────────────────────────────────────── */
+/* ── init / atualização dinâmica ─────────────────────────── */
 function tlInit(){
   const pers=[...new Set(TL_DATA.map(r=>r.per||''))].filter(Boolean).sort();
   const tipos=[...new Set(TL_DATA.map(tlTipo))].sort();
@@ -397,19 +436,54 @@ function tlInit(){
   msSet('tlTipoms',tipos,tipos,tlOnFiltroTopo);
   msSet('tlBasems',prefs,prefs,tlOnFiltroTopo);
   msSet('tlAtivms',TL_ATIVS,TL_ATIVS,tlApply);
-  document.getElementById('tlTR').addEventListener('change',tlApply);
-  document.getElementById('tlSoAlerta').addEventListener('change',tlApply);
-  document.getElementById('tlReset').addEventListener('click',()=>{
-    const r=document.getElementById('tlEqms');if(r)r.dataset.cleared='0';
-    msSet('tlPerms',pers,pers,tlOnFiltroTopo);msSet('tlTipoms',tipos,tipos,tlOnFiltroTopo);
-    msSet('tlBasems',prefs,prefs,tlOnFiltroTopo);msSet('tlAtivms',TL_ATIVS,TL_ATIVS,tlApply);
-    document.getElementById('tlTR').checked=true;document.getElementById('tlSoAlerta').checked=false;
-    tlRebuildEq();tlApply();
-  });
+
+  if(!TL_INITIALIZED){
+    document.getElementById('tlTR').addEventListener('change',tlApply);
+    document.getElementById('tlSoAlerta').addEventListener('change',tlApply);
+    document.getElementById('tlReset').addEventListener('click',()=>{
+      const p=[...new Set(TL_DATA.map(r=>r.per||''))].filter(Boolean).sort();
+      const t=[...new Set(TL_DATA.map(tlTipo))].sort();
+      const b=[...new Set(TL_DATA.map(tlPref))].filter(Boolean).sort();
+      const r=document.getElementById('tlEqms');if(r)r.dataset.cleared='0';
+      msSet('tlPerms',p,p,tlOnFiltroTopo);msSet('tlTipoms',t,t,tlOnFiltroTopo);
+      msSet('tlBasems',b,b,tlOnFiltroTopo);msSet('tlAtivms',TL_ATIVS,TL_ATIVS,tlApply);
+      document.getElementById('tlTR').checked=true;document.getElementById('tlSoAlerta').checked=false;
+      tlRebuildEq();tlApply();
+    });
+    TL_INITIALIZED=true;
+  }
+
   tlLegenda();tlRebuildEq();tlApply();
 }
-window.addEventListener('resize',()=>tlDraw(tlFiltrados()));
-tlInit();
+
+async function tlBootstrap(){
+  try{
+    await tlCarregarDados();
+    tlInit();
+  }catch(err){
+    console.error('Falha ao carregar Ao Vivo:',err);
+    document.getElementById('tlCanvas').innerHTML='<div class="tl-nodata">Não foi possível carregar dados_ao_vivo.json.<br><br>'+esc(err.message)+'</div>';
+    document.getElementById('tlSub').textContent='Falha na atualização dos dados';
+    tlAtualizarRodape(null);
+  }
+}
+
+async function tlAtualizarAutomaticamente(){
+  try{
+    const assinaturaAntes=TL_META?.generatedAt||'';
+    await tlCarregarDados();
+    const assinaturaDepois=TL_META?.generatedAt||'';
+    if(assinaturaDepois!==assinaturaAntes){
+      tlInit();
+    }
+  }catch(err){
+    console.warn('Atualização automática do Ao Vivo falhou:',err);
+  }
+}
+
+window.addEventListener('resize',()=>{if(TL_DATA.length)tlDraw(tlFiltrados());});
+tlBootstrap();
+setInterval(tlAtualizarAutomaticamente,60*1000);
 </script>
 </body>
 </html>
