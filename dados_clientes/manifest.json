@@ -1,13 +1,13 @@
 {
-  "gerado_em": "2026-08-13T16:26:35",
+  "gerado_em": "2026-08-13T16:35:59",
   "versao": 3,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
       "linhas": 70,
-      "tamanho_bytes": 12620,
+      "tamanho_bytes": 12778,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-13T16:17:15"
+      "fonte_modificada_em": "2026-08-13T16:30:23"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
