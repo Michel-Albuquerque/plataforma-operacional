@@ -1,13 +1,13 @@
 {
-  "gerado_em": "2026-08-13T13:26:45",
+  "gerado_em": "2026-08-13T13:36:24",
   "versao": 3,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
       "linhas": 59,
-      "tamanho_bytes": 9545,
+      "tamanho_bytes": 9634,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-13T13:16:44"
+      "fonte_modificada_em": "2026-08-13T13:31:08"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
@@ -19,7 +19,7 @@
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
       "linhas": 17624,
-      "tamanho_bytes": 1919657,
+      "tamanho_bytes": 1919652,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Principal_Plataforma.xlsx",
       "fonte_modificada_em": "2026-08-13T13:12:32",
       "linhas_origem": 223141,
@@ -29,7 +29,7 @@
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4392,
-      "tamanho_bytes": 494473,
+      "tamanho_bytes": 494472,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
       "fonte_modificada_em": "2026-08-13T13:12:34",
       "vinculadas_principal": 4392,
