@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-08-14T16:36:29",
+  "gerado_em": "2026-08-14T16:47:08",
   "versao": 3,
   "arquivos": {
     "callback": {
@@ -19,7 +19,7 @@
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
       "linhas": 17669,
-      "tamanho_bytes": 1925359,
+      "tamanho_bytes": 1925361,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Principal_Plataforma.xlsx",
       "fonte_modificada_em": "2026-08-14T16:20:37",
       "linhas_origem": 223504,
