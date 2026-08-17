@@ -533,7 +533,7 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
       <div class="section-head">
         <div>
           <h2>Tempo Real</h2>
-          <p id="rtExecutiveSummary">Na Base de São Gonçalo estamos no momento com <strong>0 incidências MT</strong>. Temos <strong>0 clientes afetados</strong>, onde concentramos <strong>0% dos impactos nas 5 maiores ocorrências</strong>. Atuamos no momento com <strong>X Equipes</strong>. As <strong>0 incidências MT representam 0% da afetação total</strong>.</p>
+          <p id="rtExecutiveSummary">Na Base de São Gonçalo estamos no momento com <strong>0 incidências MT</strong>. Temos <strong>0 clientes afetados</strong>, onde concentramos <strong>0% dos impactos nas 5 maiores ocorrências</strong>. Atuamos no momento com <strong>— Equipes</strong>. As <strong>0 incidências MT representam 0% da afetação total</strong>.</p>
         </div>
         <div class="section-actions">
           <button class="btn small" id="btnRealtimeRefresh">↻ Recalcular painel</button>
@@ -6010,7 +6010,8 @@ function renderRealtime(){
   const top5Impact=sum(impactAll.slice(0,5).map(r=>Number(r.clientsCurrent)||0));
   const top5ImpactPct=totalImpact>0?(top5Impact/totalImpact)*100:0;
   if($('rtExecutiveSummary')){
-    $('rtExecutiveSummary').innerHTML=`Na Base de São Gonçalo estamos no momento com <strong>${fmtInt(mtCount)} incidências MT</strong>. Temos <strong>${fmtInt(totalImpact)} clientes afetados</strong>, onde concentramos <strong>${fmt1(top5ImpactPct)}% dos impactos nas 5 maiores ocorrências</strong>. Atuamos no momento com <strong>X Equipes</strong>. As <strong>${fmtInt(mtCount)} incidências MT representam ${fmt1(mtImpactPct)}% da afetação total</strong>.`;
+    const equipesTexto=Number.isFinite(equipesAbertasAtual)?fmtInt(equipesAbertasAtual):'—';
+    $('rtExecutiveSummary').innerHTML=`Na Base de São Gonçalo estamos no momento com <strong>${fmtInt(mtCount)} incidências MT</strong>. Temos <strong>${fmtInt(totalImpact)} clientes afetados</strong>, onde concentramos <strong>${fmt1(top5ImpactPct)}% dos impactos nas 5 maiores ocorrências</strong>. Atuamos no momento com <strong>${equipesTexto} Equipes</strong>. As <strong>${fmtInt(mtCount)} incidências MT representam ${fmt1(mtImpactPct)}% da afetação total</strong>.`;
   }
 
   function renderImpactRanking(){
@@ -7268,6 +7269,8 @@ document.addEventListener('click',async e=>{
 /* AUTO_DATA_EMERGENCIA_V1 */
 const AUTO_DATA_BASE = 'dados_emergencia/';
 let autoManifest = null;
+let equipesAbertasAtual = null;
+let equipesAbertasAtualizadoEm = null;
 
 const AUTO_KEYS = {
   n:'number', nt:'ntRaw', st:'state', di:'startDate', df:'endDate',
@@ -7335,6 +7338,39 @@ async function autoFetchManifest(){
   return response.json();
 }
 
+async function autoFetchEquipesAbertas(){
+  const response=await fetch(
+    AUTO_DATA_BASE+'equipes_abertas.json?v='+Date.now(),
+    {cache:'no-store'}
+  );
+  if(!response.ok)throw new Error(`Falha ao carregar equipes_abertas.json: HTTP ${response.status}`);
+  return response.json();
+}
+
+async function atualizarEquipesAbertas(renderizar=false){
+  try{
+    const payload=await autoFetchEquipesAbertas();
+    const total=Number(payload?.total_equipes_abertas);
+    if(!Number.isFinite(total)||total<0){
+      throw new Error('total_equipes_abertas inválido.');
+    }
+
+    const atualizado=String(payload?.atualizado_em||'');
+    const mudou=equipesAbertasAtual!==total||equipesAbertasAtualizadoEm!==atualizado;
+
+    equipesAbertasAtual=total;
+    equipesAbertasAtualizadoEm=atualizado;
+
+    if(mudou&&renderizar&&state.activeTab==='realtime'){
+      renderRealtime();
+    }
+    return mudou;
+  }catch(error){
+    console.warn('[Equipes abertas] atualização falhou:',error);
+    return false;
+  }
+}
+
 function autoMeta(dataset,manifestInfo,generatedAt){
   return {
     fileName:manifestInfo?.arquivo||`${dataset}.json.gz`,
@@ -7371,11 +7407,13 @@ async function loadPublishedData(){
   };
   autoManifest=manifest;
   rebuildCallbackMap();
+  await atualizarEquipesAbertas(false);
   await atualizarTempoRealEObservacoesSupabase(true);
 }
 
 async function refreshPublishedRealtime(){
   await atualizarTempoRealEObservacoesSupabase(false);
+  await atualizarEquipesAbertas(true);
 }
 
 
