@@ -7321,9 +7321,32 @@ function autoExpandRow(raw,dataset,index){
   return row;
 }
 
+const AUTO_RAW_GITHUB_BASE =
+  'https://raw.githubusercontent.com/Michel-Albuquerque/plataforma-operacional/main/dados_emergencia/';
+
+async function autoFetchComFallback(fileName){
+  const urls=[
+    AUTO_DATA_BASE+fileName+'?v='+Date.now(),
+    AUTO_RAW_GITHUB_BASE+fileName+'?v='+Date.now()
+  ];
+  let ultimoErro=null;
+
+  for(const url of urls){
+    try{
+      const response=await fetch(url,{cache:'no-store'});
+      if(!response.ok)throw new Error(`HTTP ${response.status}`);
+      return response;
+    }catch(error){
+      ultimoErro=error;
+      console.warn(`[Bases publicadas] falha em ${fileName} via ${url}`,error);
+    }
+  }
+
+  throw new Error(`Falha ao carregar ${fileName} nas duas origens: ${ultimoErro?.message||ultimoErro}`);
+}
+
 async function autoFetchJsonGzip(fileName){
-  const response=await fetch(AUTO_DATA_BASE+fileName+'?v='+Date.now(),{cache:'no-store'});
-  if(!response.ok)throw new Error(`Falha ao carregar ${fileName}: HTTP ${response.status}`);
+  const response=await autoFetchComFallback(fileName);
   if(typeof DecompressionStream!=='function'){
     throw new Error('Navegador sem suporte à descompactação GZIP. Use Chrome ou Edge atualizado.');
   }
@@ -7333,8 +7356,7 @@ async function autoFetchJsonGzip(fileName){
 }
 
 async function autoFetchManifest(){
-  const response=await fetch(AUTO_DATA_BASE+'manifest.json?v='+Date.now(),{cache:'no-store'});
-  if(!response.ok)throw new Error(`Falha ao carregar manifest.json: HTTP ${response.status}`);
+  const response=await autoFetchComFallback('manifest.json');
   return response.json();
 }
 
@@ -7386,34 +7408,134 @@ function autoMeta(dataset,manifestInfo,generatedAt){
 async function loadPublishedData(){
   const manifest=await autoFetchManifest();
   const files=manifest.arquivos||{};
-  const [incPayload,tmaPayload,modalPayload]=await Promise.all([
+
+  // Carrega cada base de forma independente.
+  // Uma falha em uma base não derruba as demais nem força o restoreState completo.
+  const resultados=await Promise.allSettled([
     autoFetchJsonGzip(files.incidents?.arquivo||'incidents.json.gz'),
     autoFetchJsonGzip(files.tma?.arquivo||'tma.json.gz'),
     autoFetchJsonGzip(files.modal?.arquivo||'modal.json.gz')
   ]);
 
-  state.incidents=rehydrateIncidents((incPayload.rows||[]).map((r,i)=>autoExpandRow(r,'incidents',i)));
-  state.tma=rehydrateIncidents((tmaPayload.rows||[]).map((r,i)=>autoExpandRow(r,'tma',i)));
-  state.modal=rehydrateIncidents((modalPayload.rows||[]).map((r,i)=>autoExpandRow(r,'modal',i)));
+  const [incResult,tmaResult,modalResult]=resultados;
+  const erros=[];
+
+  if(incResult.status==='fulfilled'){
+    const incPayload=incResult.value;
+    state.incidents=rehydrateIncidents(
+      (incPayload.rows||[]).map((r,i)=>autoExpandRow(r,'incidents',i))
+    );
+    state.meta.incidents=autoMeta('incidents',files.incidents,manifest.gerado_em);
+    console.info('[Bases publicadas] Incidências carregadas:',state.incidents.length);
+  }else{
+    erros.push('Incidências');
+    console.error('[Bases publicadas] Incidências falharam:',incResult.reason);
+  }
+
+  if(tmaResult.status==='fulfilled'){
+    const tmaPayload=tmaResult.value;
+    state.tma=rehydrateIncidents(
+      (tmaPayload.rows||[]).map((r,i)=>autoExpandRow(r,'tma',i))
+    );
+    state.meta.tma=autoMeta('tma',files.tma,manifest.gerado_em);
+    console.info('[Bases publicadas] TMA carregado:',state.tma.length);
+  }else{
+    erros.push('TMA');
+    console.error('[Bases publicadas] TMA falhou:',tmaResult.reason);
+  }
+
+  if(modalResult.status==='fulfilled'){
+    const modalPayload=modalResult.value;
+    state.modal=rehydrateIncidents(
+      (modalPayload.rows||[]).map((r,i)=>autoExpandRow(r,'modal',i))
+    );
+    state.meta.modal=autoMeta('modal',files.modal,manifest.gerado_em);
+    console.info('[Bases publicadas] Tempo Real carregado:',state.modal.length);
+  }else{
+    erros.push('Tempo Real');
+    console.error('[Bases publicadas] Tempo Real falhou:',modalResult.reason);
+  }
+
   state.callbacks=[];
   state.callbackMap=new Map();
   state.useIncAsTma=false;
-  state.meta={
-    incidents:autoMeta('incidents',files.incidents,manifest.gerado_em),
-    tma:autoMeta('tma',files.tma,manifest.gerado_em),
-    modal:autoMeta('modal',files.modal,manifest.gerado_em),
-    callbacks:null,
-    mappings:{}
-  };
+  state.meta.mappings=state.meta.mappings||{};
   autoManifest=manifest;
   rebuildCallbackMap();
+
   await atualizarEquipesAbertas(false);
   await atualizarTempoRealEObservacoesSupabase(true);
+
+  if(erros.length){
+    console.warn('[Bases publicadas] Bases com falha:',erros.join(', '));
+  }
+
+  // Só considera falha total se Incidências E TMA não carregaram.
+  if(!state.incidents.length && !state.tma.length){
+    throw new Error('Incidências e TMA não puderam ser carregadas da publicação.');
+  }
 }
 
 async function refreshPublishedRealtime(){
-  await atualizarTempoRealEObservacoesSupabase(false);
-  await atualizarEquipesAbertas(true);
+  try{
+    const manifest=await autoFetchManifest();
+    const files=manifest.arquivos||{};
+    let mudou=false;
+
+    const atualInc=autoManifest?.arquivos?.incidents?.modificado_em||'';
+    const novoInc=files.incidents?.modificado_em||'';
+    if(novoInc && novoInc!==atualInc){
+      try{
+        const payload=await autoFetchJsonGzip(files.incidents?.arquivo||'incidents.json.gz');
+        state.incidents=rehydrateIncidents(
+          (payload.rows||[]).map((r,i)=>autoExpandRow(r,'incidents',i))
+        );
+        state.meta.incidents=autoMeta('incidents',files.incidents,manifest.gerado_em);
+        mudou=true;
+        console.info('[Bases publicadas] Incidências atualizadas:',state.incidents.length);
+      }catch(error){
+        console.error('[Bases publicadas] Falha ao atualizar Incidências:',error);
+      }
+    }
+
+    const atualTma=autoManifest?.arquivos?.tma?.modificado_em||'';
+    const novoTma=files.tma?.modificado_em||'';
+    if(novoTma && novoTma!==atualTma){
+      try{
+        const payload=await autoFetchJsonGzip(files.tma?.arquivo||'tma.json.gz');
+        state.tma=rehydrateIncidents(
+          (payload.rows||[]).map((r,i)=>autoExpandRow(r,'tma',i))
+        );
+        state.meta.tma=autoMeta('tma',files.tma,manifest.gerado_em);
+        mudou=true;
+        console.info('[Bases publicadas] TMA atualizado:',state.tma.length);
+      }catch(error){
+        console.error('[Bases publicadas] Falha ao atualizar TMA:',error);
+      }
+    }
+
+    // Atualiza o manifesto somente depois de tentar Incidência/TMA.
+    autoManifest=manifest;
+
+    await atualizarTempoRealEObservacoesSupabase(false);
+    await atualizarEquipesAbertas(true);
+
+    if(mudou){
+      refreshFilterOptions();
+      syncFilterControls();
+      renderActiveTab();
+      toast(
+        `Bases históricas atualizadas: ${fmtInt(state.incidents.length)} incidências e `+
+        `${fmtInt(state.tma.length)} registros TMA.`,
+        'success',
+        4500
+      );
+    }
+  }catch(error){
+    console.warn('[Bases publicadas] verificação periódica falhou:',error);
+    await atualizarTempoRealEObservacoesSupabase(false);
+    await atualizarEquipesAbertas(true);
+  }
 }
 
 
@@ -7543,7 +7665,11 @@ async function init(){
   setLoading(true,'Carregando bases publicadas...');
   try{
     await loadPublishedData();
-    await carregarCallbackOperViewPublicado(true);
+    try{
+      await carregarCallbackOperViewPublicado(true);
+    }catch(callbackError){
+      console.warn('Base pública de Callback OperView indisponível.',callbackError);
+    }
     setDefaultDates(true);
     refreshFilterOptions();
     syncFilterControls();
