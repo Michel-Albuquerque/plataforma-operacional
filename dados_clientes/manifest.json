@@ -1,13 +1,13 @@
 {
-  "gerado_em": "2026-08-18T15:28:24",
+  "gerado_em": "2026-08-18T15:40:17",
   "versao": 3,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 59,
-      "tamanho_bytes": 9696,
+      "linhas": 55,
+      "tamanho_bytes": 8970,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-18T15:28:22"
+      "fonte_modificada_em": "2026-08-18T15:40:15"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
@@ -15,27 +15,9 @@
       "tamanho_bytes": 6185002,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
       "fonte_modificada_em": "2026-08-18T14:39:31"
-    },
-    "reincidencia_principal": {
-      "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 17811,
-      "tamanho_bytes": 1940242,
-      "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Principal_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-18T15:15:45",
-      "linhas_origem": 225059,
-      "clientes_oficiais": 3593,
-      "modo": "historico_clientes_reincidentes"
-    },
-    "reincidencia_oficial": {
-      "arquivo": "reincidencia_oficial.json.gz",
-      "linhas": 4451,
-      "tamanho_bytes": 500538,
-      "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-18T15:15:47",
-      "vinculadas_principal": 4451,
-      "sem_vinculo_principal": 0,
-      "modo": "oficial_enriquecida"
     }
   },
-  "erros": {}
+  "erros": {
+    "reincidencia": "EOFError: "
+  }
 }
