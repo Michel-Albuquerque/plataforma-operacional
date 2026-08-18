@@ -1,38 +1,38 @@
 {
-  "gerado_em": "2026-08-18T08:42:00",
+  "gerado_em": "2026-08-18T08:52:25",
   "versao": 3,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 52,
-      "tamanho_bytes": 7567,
+      "linhas": 56,
+      "tamanho_bytes": 7778,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-18T08:40:53"
+      "fonte_modificada_em": "2026-08-18T08:51:30"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
       "linhas": 45231,
-      "tamanho_bytes": 6161341,
+      "tamanho_bytes": 6161340,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
       "fonte_modificada_em": "2026-08-17T17:34:40"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 17775,
-      "tamanho_bytes": 1935967,
+      "linhas": 17798,
+      "tamanho_bytes": 1938831,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Principal_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-17T17:20:32",
-      "linhas_origem": 224466,
-      "clientes_oficiais": 3585,
+      "fonte_modificada_em": "2026-08-18T08:52:21",
+      "linhas_origem": 225029,
+      "clientes_oficiais": 3589,
       "modo": "historico_clientes_reincidentes"
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
-      "linhas": 4441,
-      "tamanho_bytes": 499367,
+      "linhas": 4447,
+      "tamanho_bytes": 499965,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-17T17:20:38",
-      "vinculadas_principal": 4441,
+      "fonte_modificada_em": "2026-08-18T08:52:22",
+      "vinculadas_principal": 4447,
       "sem_vinculo_principal": 0,
       "modo": "oficial_enriquecida"
     }
