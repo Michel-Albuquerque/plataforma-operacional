@@ -5294,21 +5294,60 @@ function badge(text,tone='navy'){return `<span class="tag ${tone}">${esc(text)}<
 function dataDateBounds(){
   let minTime=Infinity;
   let maxTime=-Infinity;
+  let futureCount=0;
+
+  // V3: filtros históricos nunca devem iniciar em uma data futura.
+  // Qualquer Data Início/Data Fim posterior ao fim do dia atual é
+  // desconsiderada apenas para definir os limites automáticos do filtro.
+  const hojeFim=dayEnd(new Date()).getTime();
 
   for(const r of state.incidents){
     for(const d of [r.startDate,r.endDate]){
       if(!(d instanceof Date)||isNaN(d))continue;
       const t=d.getTime();
+
+      if(t>hojeFim){
+        futureCount++;
+        continue;
+      }
+
       if(t<minTime)minTime=t;
       if(t>maxTime)maxTime=t;
     }
   }
 
+  if(futureCount){
+    console.warn(
+      '[Datas] Registros com data futura ignorados no limite automático do filtro:',
+      futureCount
+    );
+  }
+
   if(!Number.isFinite(minTime)||!Number.isFinite(maxTime))return null;
   return {min:new Date(minTime),max:new Date(maxTime)};
 }
+
 function setDefaultDates(force=false){
-  const bounds=dataDateBounds();if(!bounds)return;if(force||!state.filters.dateEnd){state.filters.dateEnd=isoDate(bounds.max);let start=new Date(bounds.max);start.setDate(start.getDate()-30);if(start<bounds.min)start=new Date(bounds.min);state.filters.dateStart=isoDate(start);}syncFilterControls();
+  const bounds=dataDateBounds();
+  if(!bounds)return;
+
+  if(force||!state.filters.dateEnd){
+    // A data final padrão é a última data válida disponível,
+    // nunca posterior ao dia atual.
+    const hojeFim=dayEnd(new Date());
+    const limiteFinal=bounds.max>hojeFim?hojeFim:bounds.max;
+
+    state.filters.dateEnd=isoDate(limiteFinal);
+
+    // Mantém a janela padrão de 30 dias.
+    let start=new Date(limiteFinal);
+    start.setDate(start.getDate()-30);
+
+    if(start<bounds.min)start=new Date(bounds.min);
+    state.filters.dateStart=isoDate(start);
+  }
+
+  syncFilterControls();
 }
 function syncFilterControls(){
   const map={fDateStart:'dateStart',fDateEnd:'dateEnd',fTension:'tension',fService:'service',fShift:'shift',fShiftBasis:'shiftBasis',fProcess:'process',fCause:'cause',fTeam:'team',fFeeder:'feeder',fSet:'set'};
