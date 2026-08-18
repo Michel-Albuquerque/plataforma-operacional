@@ -7409,15 +7409,14 @@ async function loadPublishedData(){
   const manifest=await autoFetchManifest();
   const files=manifest.arquivos||{};
 
-  // Carrega cada base de forma independente.
-  // Uma falha em uma base não derruba as demais nem força o restoreState completo.
+  // V2: Incidência e TMA são históricos e vêm da publicação horária.
+  // Tempo Real NÃO depende mais de modal.json.gz: é carregado diretamente do Supabase.
   const resultados=await Promise.allSettled([
     autoFetchJsonGzip(files.incidents?.arquivo||'incidents.json.gz'),
-    autoFetchJsonGzip(files.tma?.arquivo||'tma.json.gz'),
-    autoFetchJsonGzip(files.modal?.arquivo||'modal.json.gz')
+    autoFetchJsonGzip(files.tma?.arquivo||'tma.json.gz')
   ]);
 
-  const [incResult,tmaResult,modalResult]=resultados;
+  const [incResult,tmaResult]=resultados;
   const erros=[];
 
   if(incResult.status==='fulfilled'){
@@ -7444,17 +7443,9 @@ async function loadPublishedData(){
     console.error('[Bases publicadas] TMA falhou:',tmaResult.reason);
   }
 
-  if(modalResult.status==='fulfilled'){
-    const modalPayload=modalResult.value;
-    state.modal=rehydrateIncidents(
-      (modalPayload.rows||[]).map((r,i)=>autoExpandRow(r,'modal',i))
-    );
-    state.meta.modal=autoMeta('modal',files.modal,manifest.gerado_em);
-    console.info('[Bases publicadas] Tempo Real carregado:',state.modal.length);
-  }else{
-    erros.push('Tempo Real');
-    console.error('[Bases publicadas] Tempo Real falhou:',modalResult.reason);
-  }
+  // Tempo Real é exclusivamente Supabase.
+  state.modal=[];
+  state.meta.modal=null;
 
   state.callbacks=[];
   state.callbackMap=new Map();
@@ -7464,13 +7455,20 @@ async function loadPublishedData(){
   rebuildCallbackMap();
 
   await atualizarEquipesAbertas(false);
-  await atualizarTempoRealEObservacoesSupabase(true);
 
-  if(erros.length){
-    console.warn('[Bases publicadas] Bases com falha:',erros.join(', '));
+  try{
+    await atualizarTempoRealEObservacoesSupabase(true);
+    console.info('[Tempo Real] Supabase carregado:',state.modal.length);
+  }catch(error){
+    console.error('[Tempo Real] Falha ao carregar Supabase:',error);
   }
 
-  // Só considera falha total se Incidências E TMA não carregaram.
+  if(erros.length){
+    console.warn('[Bases publicadas] Bases históricas com falha:',erros.join(', '));
+  }
+
+  // Uma falha isolada não derruba a outra base.
+  // Só aborta o bootstrap histórico se Incidência E TMA falharem.
   if(!state.incidents.length && !state.tma.length){
     throw new Error('Incidências e TMA não puderam ser carregadas da publicação.');
   }
