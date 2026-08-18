@@ -138,35 +138,73 @@ function tlAtualizarRodape(meta){
   const foot=document.getElementById('tlFoot');
   if(!foot)return;
   if(!meta){foot.textContent='Dados operacionais indisponíveis.';return;}
-  const dt=meta.generatedAt?new Date(meta.generatedAt):null;
-  const gerado=dt&&!Number.isNaN(dt.getTime())?dt.toLocaleString('pt-BR'):'—';
+
+  const dtSup=meta.supabaseAtualizadoEm?new Date(meta.supabaseAtualizadoEm):null;
+  const atualizado=dtSup&&!Number.isNaN(dtSup.getTime())?dtSup.toLocaleString('pt-BR'):'—';
+
+  const dtGer=meta.generatedAt?new Date(meta.generatedAt):null;
+  const gerado=dtGer&&!Number.isNaN(dtGer.getTime())?dtGer.toLocaleString('pt-BR'):'—';
+
   const src=meta.sources||{};
   const st=meta.stats||{};
-  foot.textContent='Atualizado em '+gerado+
+
+  foot.textContent='Supabase atualizado em '+atualizado+
+    ' · Gerado em '+gerado+
+    ' · Origem: '+(meta.supabaseOrigem||'—')+
     ' · Painel: '+(src.painel||'—')+
     ' · Deslocamentos: '+(src.deslocamentos||'—')+
-    ' · Resultado: '+(src.resultado||'—')+
+    ' · Resultado E-Order: '+(src.resultado||'—')+
     ' · OS com resultado: '+(st.osComResultado??'—')+
     ' · Improdutivos: '+(st.reparosImprodutivos??'—');
 }
 
-async function tlCarregarDados(){
-  const url='dados_ao_vivo.json?v='+Date.now();
-  const resp=await fetch(url,{cache:'no-store'});
-  if(!resp.ok)throw new Error('HTTP '+resp.status+' ao carregar dados_ao_vivo.json');
-  const payload=await resp.json();
-  if(!payload||!Array.isArray(payload.records))throw new Error('JSON inválido: campo records não encontrado.');
+const AO_VIVO_SUPABASE_URL='https://fjgfwfnnhebfvuvvjsui.supabase.co';
+const AO_VIVO_SUPABASE_KEY='sb_publishable_QexGHESAqtHDVlI1h3aM1Q_Cew_cax7';
+let AO_VIVO_CARGA_ID='';
 
-  TL_META=payload;
+async function tlCarregarDados(){
+  const url=AO_VIVO_SUPABASE_URL+
+    '/rest/v1/ao_vivo_operacional?select=carga_id,origem,dados,atualizado_em&id=eq.atual&limit=1';
+
+  const resp=await fetch(url,{
+    cache:'no-store',
+    headers:{
+      'apikey':AO_VIVO_SUPABASE_KEY,
+      'Authorization':'Bearer '+AO_VIVO_SUPABASE_KEY
+    }
+  });
+
+  if(!resp.ok)throw new Error('HTTP '+resp.status+' ao carregar Ao Vivo do Supabase');
+
+  const rows=await resp.json();
+  if(!Array.isArray(rows)||!rows.length)throw new Error('Supabase ainda sem carga ativa do Ao Vivo.');
+
+  const reg=rows[0];
+  const payload=reg?.dados;
+
+  if(!payload||!Array.isArray(payload.records))
+    throw new Error('Payload Supabase inválido: campo records não encontrado.');
+
+  AO_VIVO_CARGA_ID=String(reg.carga_id||reg.atualizado_em||'');
+  TL_META={
+    ...payload,
+    supabaseAtualizadoEm:reg.atualizado_em||null,
+    supabaseOrigem:reg.origem||null,
+    supabaseCargaId:AO_VIVO_CARGA_ID
+  };
+
   TL_DATA=payload.records;
+
   if(payload.baseDate){
     const d=new Date(payload.baseDate+'T00:00:00');
     if(!Number.isNaN(d.getTime()))TL_BASE_MS=d.getTime();
   }
+
   if(payload.limits&&typeof payload.limits==='object')TL_LIM=payload.limits;
   if(Number.isFinite(Number(payload.gapMax)))TL_GAP_MAX=Number(payload.gapMax);
-  tlAtualizarRodape(payload);
-  return payload;
+
+  tlAtualizarRodape(TL_META);
+  return TL_META;
 }
 
 const TL_COLOR={'Plataforma':'#000000','Deslocamento':'#4E79A7','Reparo':'#59A14F',
@@ -470,20 +508,22 @@ async function tlBootstrap(){
 
 async function tlAtualizarAutomaticamente(){
   try{
-    const assinaturaAntes=TL_META?.generatedAt||'';
+    const cargaAntes=AO_VIVO_CARGA_ID;
     await tlCarregarDados();
-    const assinaturaDepois=TL_META?.generatedAt||'';
-    if(assinaturaDepois!==assinaturaAntes){
+    const cargaDepois=AO_VIVO_CARGA_ID;
+
+    if(cargaDepois && cargaDepois!==cargaAntes){
       tlInit();
+      console.info('[Ao Vivo Supabase] nova carga aplicada:',cargaDepois);
     }
   }catch(err){
-    console.warn('Atualização automática do Ao Vivo falhou:',err);
+    console.warn('Atualização automática do Ao Vivo via Supabase falhou; mantendo última carga válida:',err);
   }
 }
 
 window.addEventListener('resize',()=>{if(TL_DATA.length)tlDraw(tlFiltrados());});
 tlBootstrap();
-setInterval(tlAtualizarAutomaticamente,60*1000);
+setInterval(tlAtualizarAutomaticamente,20*1000);
 </script>
 </body>
 </html>
