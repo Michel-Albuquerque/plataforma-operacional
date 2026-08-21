@@ -9302,9 +9302,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 /* ============================================================
    15. INIT
    ============================================================ */
-window.addEventListener('beforeunload', function(e){
-  if(S.baseCompleta.length||S.baseReincidencia.length||S.validationBase.length||S.callbackSourceBase.length||S.callbackBase.length||S.callbackAvisosBase.length){ e.preventDefault(); e.returnValue=''; }
-});
+// Não bloquear saída da página apenas porque existem bases carregadas.
+// Os apontamentos e o estado operacional do Callback já são persistidos
+// pelo fluxo local + servidor (/api/estado-callback e /api/apontamento).
 document.addEventListener('click', ()=>document.querySelectorAll('.fpanel.open').forEach(p=>p.classList.remove('open')));
 
 </script>
