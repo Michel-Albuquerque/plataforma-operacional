@@ -1,13 +1,13 @@
 {
-  "gerado_em": "2026-08-21T09:41:03",
+  "gerado_em": "2026-08-21T09:47:51",
   "versao": 6,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 4629,
-      "tamanho_bytes": 712786,
+      "linhas": 4630,
+      "tamanho_bytes": 713695,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-21T09:41:01"
+      "fonte_modificada_em": "2026-08-21T09:47:50"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
@@ -19,7 +19,7 @@
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
       "linhas": 234965,
-      "tamanho_bytes": 22659846,
+      "tamanho_bytes": 22659850,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
       "fonte_modificada_em": "2026-08-21T09:13:53",
       "linhas_origem": 234965,
