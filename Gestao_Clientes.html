@@ -2079,7 +2079,14 @@ function buildReincidenciaMensal(baseRows, stats, options){
   S.stats = stats;
   S.processedAt = options.processedAt ? (parseDateVal(options.processedAt)||new Date()) : new Date();
 
-  setLoading(true,'Finalizando…','Preparando a visão cliente', 95);
+  const mantendoCallback =
+    S.currentTab==='callbackContingencia' ||
+    tabInicialDaUrl()==='callbackContingencia';
+
+  if(!mantendoCallback){
+    setLoading(true,'Finalizando…','Preparando a visão cliente', 95);
+  }
+
   setTimeout(()=>{
     onDataReady(!!options.isRestore);
     if(options.persistRepair)salvarBasePrincipalLocal();
@@ -2103,7 +2110,26 @@ function onDataReady(isRestore){
   refreshNavAvailability();
   renderFilterBar();
   renderUploadSummary();
-  switchTab('visaoCliente');
+
+  const abaSolicitada=tabInicialDaUrl();
+  const manterAbaAtual=[
+    'callbackContingencia',
+    'validacaoPos',
+    'diagnostico',
+    'acao',
+    'visaoEquipe',
+    'dashboard'
+  ].includes(S.currentTab);
+
+  if(abaSolicitada==='callbackContingencia' &&
+     (S.callbackBase.length||Object.keys(S.callbackHistoryBase||{}).length)){
+    switchTab('callbackContingencia');
+  }else if(abaSolicitada==='validacaoPos' && S.validationBase.length){
+    switchTab('validacaoPos');
+  }else if(!manterAbaAtual){
+    switchTab('visaoCliente');
+  }
+
   if(!isRestore) salvarBasePrincipalLocal();
 }
 function refreshNavAvailability(){
@@ -2466,8 +2492,8 @@ function processCallbackReadyRows(rows,fileName,options={}){
     if(seen.has(key)){stats.duplicados++;continue}
     seen.add(key);
     source[COLCB.numero]=source[COLCB.numero]||callbackReadyValue(source,['Número','Numero','Número da Incidência'])||key;
-    const status=String(callbackReadyValue(source,['Status_Carteira','Status Carteira'])||'ENCERRADA').trim().toUpperCase();
-    const rawEligible=callbackReadyValue(source,['Elegivel_Callback','Elegível Callback']); const eligible=(rawEligible!==undefined&&rawEligible!==null&&String(rawEligible).trim()!=='')?callbackReadyBool(rawEligible):[0,1].includes(callbackNumber(source[COLCB.avisos]));
+    const status=String(callbackReadyValue(source,['Status_Carteira','Status Carteira'])||'ATIVA').trim().toUpperCase();
+    const eligible=callbackReadyBool(callbackReadyValue(source,['Elegivel_Callback','Elegível Callback']))||[0,1].includes(callbackNumber(source[COLCB.avisos]));
     const row={...source,__callbackKey:key};
     row.__data=parseDateVal(row[COLCB.data]);
     row.__durationMinutes=callbackDurationMinutes(callbackReadyValue(row,['Duracao_Minutos',COLCB.duracao]));
