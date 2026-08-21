@@ -433,13 +433,35 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
 
 
 /* SUPABASE_EMERGENCIA_OBSERVACOES */
-.rt-observation-cell{min-width:260px;width:320px}
-.rt-observation-wrap{display:flex;align-items:center;gap:6px;min-width:250px}
-.rt-observation-input{width:100%;min-width:180px;max-width:360px;min-height:34px;resize:vertical;border:1px solid #c9d5de;border-radius:7px;background:#fff;padding:6px 8px;font:600 11px/1.3 inherit;color:#263746}
+.rt-observation-cell{min-width:380px;width:420px;white-space:normal!important}
+.rt-observation-wrap{display:flex;align-items:flex-start;gap:8px;min-width:360px;white-space:normal}
+.rt-observation-display{display:flex;align-items:flex-start;gap:8px;min-width:360px;white-space:normal}
+.rt-observation-content{flex:1;min-width:0}
+.rt-observation-text{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.45;color:#263746;font-weight:600}
+.rt-observation-empty{color:#7a8892;font-style:italic;font-weight:500}
+.rt-observation-input{width:100%;min-width:300px;min-height:88px;resize:vertical;border:1px solid #c9d5de;border-radius:7px;background:#fff;padding:7px 9px;font:600 11px/1.4 inherit;color:#263746;white-space:pre-wrap}
 .rt-observation-input:focus{outline:2px solid rgba(0,120,190,.18);border-color:#0086c9}
-.rt-observation-save{border:0;border-radius:7px;background:#005b96;color:#fff;padding:7px 9px;font-size:10px;font-weight:850;cursor:pointer;white-space:nowrap}
-.rt-observation-save:hover{background:#004777}
-.rt-observation-status{display:block;margin-top:3px;font-size:9px;color:#71808b}
+.rt-observation-save,.rt-observation-edit{border:0;border-radius:7px;background:#005b96;color:#fff;padding:7px 9px;font-size:10px;font-weight:850;cursor:pointer;white-space:nowrap}
+.rt-observation-save:hover,.rt-observation-edit:hover{background:#004777}
+.rt-observation-edit{background:#eef5fa;color:#075a99;border:1px solid #a9c8dc}
+.rt-observation-edit:hover{background:#dcecf7;color:#064d82}
+.rt-observation-status{display:block;margin-top:4px;font-size:9px;color:#71808b;white-space:normal}
+.detail-summary-block{display:grid;gap:12px;margin:0 0 14px}
+.detail-summary-section{display:grid;gap:7px}
+.detail-summary-title{font-size:11px;font-weight:850;color:#526572;text-transform:uppercase;letter-spacing:.35px}
+.detail-summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px}
+.detail-summary-card{border:1px solid #d8e2e8;border-radius:10px;background:#fff;padding:10px 11px;box-shadow:0 2px 6px rgba(25,55,76,.07);min-width:0}
+.detail-summary-card.process{border-top:4px solid var(--enel-green)}
+.detail-summary-card.status{border-top:4px solid var(--enel-blue)}
+.detail-summary-card .detail-summary-label{display:block;font-size:10px;font-weight:800;color:#667582;white-space:normal;line-height:1.25}
+.detail-summary-card .detail-summary-value{display:block;margin-top:5px;font-size:22px;line-height:1;font-weight:900;color:var(--enel-navy)}
+.detail-summary-card .detail-summary-sub{display:block;margin-top:4px;font-size:9.5px;color:#788792;white-space:normal}
+.realtime-impact-row{align-items:stretch}
+.realtime-impact-row>.panel{min-height:560px;height:100%}
+.realtime-impact-row .panel-body{min-height:500px}
+#rtImpactTable{max-height:none;overflow-x:auto;overflow-y:visible}
+#rtImpactTable td{white-space:nowrap}
+#rtImpactTable td.rt-observation-cell{white-space:normal!important}
 
 </style>
 </head>
@@ -569,7 +591,7 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
       </div>
 
       <!-- Linha 2 -->
-      <div class="grid realtime-two-grid" style="margin-top:12px">
+      <div class="grid realtime-two-grid realtime-impact-row" style="margin-top:12px">
         <div class="panel">
           <div class="panel-head">
             <h3>TOP 5 ConH</h3>
@@ -5735,8 +5757,101 @@ function openDetails(title,rows,options={}){
   const safeRows=Array.isArray(rows)?rows:[];const cols=options.columns||detailColumns();
   state.detailRows=safeRows;state.detailExportRows=options.exportRows||safeRows.map(r=>r?.number?exportIncidentObject(r):r);state.detailFile=safeFileName(options.fileName||title||'detalhamento');
   $('drawerTitle').textContent=`${title} — ${fmtInt(safeRows.length)} registro(s)`;$('drawerBackdrop').classList.remove('hidden');$('detailDrawer').classList.remove('hidden');
-  const tmp=document.createElement('div');tmp.id='__tempDetail';$('drawerContent').innerHTML='';$('drawerContent').appendChild(tmp);renderTable('__tempDetail',cols,safeRows,{limit:1000});
+  const content=$('drawerContent');content.innerHTML='';
+  if(options.aboveTableHtml){
+    const summary=document.createElement('div');
+    summary.innerHTML=options.aboveTableHtml;
+    while(summary.firstChild)content.appendChild(summary.firstChild);
+  }
+  const tmp=document.createElement('div');tmp.id='__tempDetail';content.appendChild(tmp);renderTable('__tempDetail',cols,safeRows,{limit:1000});
 }
+function consolidarEquipesAtribuidas(rows){
+  const mapa=new Map();
+
+  (Array.isArray(rows)?rows:[]).forEach(r=>{
+    const equipe=String(r.team||r.teamAssigned||'').trim();
+    if(!equipe)return;
+
+    if(!mapa.has(equipe)){
+      mapa.set(equipe,{
+        team:equipe,
+        process:String(r.process||'Não informado').trim()||'Não informado',
+        vehicleType:String(r.vehicleType||'Não informado').trim()||'Não informado',
+        statuses:new Set(),
+        incidenceCount:0
+      });
+    }
+
+    const item=mapa.get(equipe);
+    const status=String(r.executionStatus||'Não informado').trim()||'Não informado';
+    item.statuses.add(status);
+    item.incidenceCount+=1;
+
+    if((!item.process||item.process==='Não informado')&&r.process){
+      item.process=String(r.process).trim()||'Não informado';
+    }
+    if((!item.vehicleType||item.vehicleType==='Não informado')&&r.vehicleType){
+      item.vehicleType=String(r.vehicleType).trim()||'Não informado';
+    }
+  });
+
+  return [...mapa.values()]
+    .map(item=>({
+      ...item,
+      executionStatus:[...item.statuses].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true,sensitivity:'base'})).join(' • ')
+    }))
+    .sort((a,b)=>a.team.localeCompare(b.team,'pt-BR',{numeric:true,sensitivity:'base'}));
+}
+
+function equipesAtribuidasResumoHtml(equipes){
+  const safeRows=Array.isArray(equipes)?equipes:[];
+
+  const processMap=new Map();
+  safeRows.forEach(r=>{
+    const processo=String(r.process||'Não informado').trim()||'Não informado';
+    processMap.set(processo,(processMap.get(processo)||0)+1);
+  });
+  const processCards=[...processMap.entries()]
+    .map(([label,value])=>({label,value}))
+    .sort((a,b)=>b.value-a.value||a.label.localeCompare(b.label,'pt-BR',{numeric:true,sensitivity:'base'}));
+
+  const statusMap=new Map();
+  safeRows.forEach(r=>{
+    const statuses=r.statuses instanceof Set?[...r.statuses]:
+      String(r.executionStatus||'Não informado').split('•').map(s=>s.trim()).filter(Boolean);
+    const unicos=[...new Set(statuses.length?statuses:['Não informado'])];
+    unicos.forEach(status=>statusMap.set(status,(statusMap.get(status)||0)+1));
+  });
+  const statusCards=[...statusMap.entries()]
+    .map(([label,value])=>({label,value}))
+    .sort((a,b)=>b.value-a.value||a.label.localeCompare(b.label,'pt-BR',{numeric:true,sensitivity:'base'}));
+
+  const processHtml=processCards.length?processCards.map(card=>`
+    <div class="detail-summary-card process">
+      <span class="detail-summary-label">${esc(card.label)}</span>
+      <span class="detail-summary-value">${fmtInt(card.value)}</span>
+      <span class="detail-summary-sub">equipe(s)</span>
+    </div>`).join(''):'<div class="detail-summary-card process"><span class="detail-summary-label">Sem processo informado</span><span class="detail-summary-value">0</span></div>';
+
+  const statusHtml=statusCards.length?statusCards.map(card=>`
+    <div class="detail-summary-card status">
+      <span class="detail-summary-label">${esc(card.label)}</span>
+      <span class="detail-summary-value">${fmtInt(card.value)}</span>
+      <span class="detail-summary-sub">equipe(s) com este status</span>
+    </div>`).join(''):'<div class="detail-summary-card status"><span class="detail-summary-label">Sem status informado</span><span class="detail-summary-value">0</span></div>';
+
+  return `<div class="detail-summary-block">
+    <div class="detail-summary-section">
+      <div class="detail-summary-title">Equipes por processo</div>
+      <div class="detail-summary-cards">${processHtml}</div>
+    </div>
+    <div class="detail-summary-section">
+      <div class="detail-summary-title">Status de execução das equipes atribuídas</div>
+      <div class="detail-summary-cards">${statusHtml}</div>
+    </div>
+  </div>`;
+}
+
 function closeDetails(){$('drawerBackdrop').classList.add('hidden');$('detailDrawer').classList.add('hidden');}
 function detailColumns(){return [
   {label:'Número',value:r=>r.number},{label:'Tensão',value:r=>r.ntRaw},{label:'Estado',value:r=>r.state},{label:'Status execução',value:r=>r.executionStatus},{label:'Entrada',value:r=>brDate(r.startDate,true)},{label:'Saída',value:r=>brDate(r.endDate,true)},{label:'Turno',value:r=>r.endShift||r.startShift},{label:'TMA',value:r=>fmtInt(r.tma),class:'num'},
@@ -6025,7 +6140,28 @@ function renderRealtime(){
     kpiHtml('Callback realizado',fmtInt(callbackDoneRows.length),`${fmtInt(rows.length-callbackDoneRows.length)} sem callback`,'green','data-rt-action="callback"')
   ].join('');
   $('rtKpis').onclick=e=>{const card=e.target.closest('[data-rt-action]');if(!card)return;const a=card.dataset.rtAction;let subset=rows,title='Incidências ativas';
-    if(a==='teams'){subset=withTeam;title='Ativas com equipe atribuída';}else if(a==='waiting'){subset=without;title='Aguardando despacho — sem equipe atribuída';}else if(a==='dispatched'){subset=rows.filter(r=>['DESPACHADO','EM EXECUCAO','EM EXECUÇÃO'].includes(norm(r.executionStatus)));title='Despachadas / em execução';}else if(a==='backlog'){subset=backlog;title='Backlog herdado D-1+';}else if(a==='bt'){subset=rows.filter(r=>r.tension==='BT');title='Ativas BT';}else if(a==='mt'){subset=rows.filter(r=>r.tension==='MT');title='Ativas MT';}else if(a==='osm'){subset=osmRows;title='Ativas OSM';}else if(a==='clients'){subset=crit50;title='Ativas com ≥ 50 clientes';}else if(a==='conh'){subset=sortDesc(rows,r=>realtimeConH(r,now));title='Ativas por ConH';}else if(a==='callback'){const cbs=callbacksForRows(callbackDoneRows);return openDetails('Callbacks realizados',cbs,{columns:callbackColumns(),exportRows:cbs.map(exportCallbackObject),fileName:'callbacks_realizados'});}openDetails(title,subset);
+    if(a==='teams'){
+      const equipes=consolidarEquipesAtribuidas(withTeam);
+      title='Equipes com atribuição';
+      return openDetails(title,equipes,{
+        aboveTableHtml:equipesAtribuidasResumoHtml(equipes),
+        columns:[
+          {label:'Equipe',value:r=>r.team||'---'},
+          {label:'Processo',value:r=>r.process||'Não informado'},
+          {label:'Viatura',value:r=>r.vehicleType||'Não informado'},
+          {label:'Status execução',value:r=>r.executionStatus||'Não informado'},
+          {label:'Qtd. atribuições',value:r=>fmtInt(r.incidenceCount||0),sortValue:r=>Number(r.incidenceCount)||0,class:'num'}
+        ],
+        exportRows:equipes.map(r=>({
+          Equipe:r.team||'---',
+          Processo:r.process||'Não informado',
+          Viatura:r.vehicleType||'Não informado',
+          'Status execução':r.executionStatus||'Não informado',
+          'Qtd. atribuições':Number(r.incidenceCount)||0
+        })),
+        fileName:'equipes_com_atribuicao'
+      });
+    }else if(a==='waiting'){subset=without;title='Aguardando despacho — sem equipe atribuída';}else if(a==='dispatched'){subset=rows.filter(r=>['DESPACHADO','EM EXECUCAO','EM EXECUÇÃO'].includes(norm(r.executionStatus)));title='Despachadas / em execução';}else if(a==='backlog'){subset=backlog;title='Backlog herdado D-1+';}else if(a==='bt'){subset=rows.filter(r=>r.tension==='BT');title='Ativas BT';}else if(a==='mt'){subset=rows.filter(r=>r.tension==='MT');title='Ativas MT';}else if(a==='osm'){subset=osmRows;title='Ativas OSM';}else if(a==='clients'){subset=crit50;title='Ativas com ≥ 50 clientes';}else if(a==='conh'){subset=sortDesc(rows,r=>realtimeConH(r,now));title='Ativas por ConH';}else if(a==='callback'){const cbs=callbacksForRows(callbackDoneRows);return openDetails('Callbacks realizados',cbs,{columns:callbackColumns(),exportRows:cbs.map(exportCallbackObject),fileName:'callbacks_realizados'});}openDetails(title,subset);
   };
   const sorted=[...rows].sort((a,b)=>realtimeAgeHours(b,now)-realtimeAgeHours(a,now));const sourceLabel=state.modal.length?`Tabela Incidência Modal • ${fmtInt(state.modal.length)} linha(s) importada(s)`:'Fallback: incidências ativas da base histórica';
   $('rtTableCount').textContent=`${fmtInt(sorted.length)} registro(s) • ${sourceLabel}`;
@@ -6069,6 +6205,7 @@ function renderRealtime(){
       {label:'NT',value:r=>r.ntRaw||'---'},
       {label:'Equipe',value:r=>r.team||r.teamAssigned||'---'},
       {label:'AL',value:r=>r.feeder||'---'},
+      {label:'OSM',sortValue:r=>isOsm(r)?1:0,html:r=>badge(isOsm(r)?'SIM':'NÃO',isOsm(r)?'blue':'neutral')},
       {label:'Duração',value:r=>`${fmt1(realtimeAgeHours(r,now))}h`,sortValue:r=>realtimeAgeHours(r,now),class:'num'},
       {label:'Afetação',value:r=>fmtInt(r.clientsCurrent),sortValue:r=>Number(r.clientsCurrent)||0,class:'num impact-value'},
       {label:'Observação',html:r=>observacaoEmergenciaCell(r.number),sortable:false,class:'rt-observation-cell'}
@@ -6683,6 +6820,7 @@ function renderRealtime(){
         if(key==='number')return r.number||'';
         if(key==='nt')return r.ntRaw||'---';
         if(key==='affected')return Number(r.clientsCurrent)||0;
+        if(key==='duration')return Number(r._durationHours)||0;
         if(key==='feeder')return r.feeder||'---';
         if(key==='osm')return isOsm(r)?1:0;
         return '';
@@ -6713,6 +6851,7 @@ function renderRealtime(){
           <th class="sortable-header">${unassignedSortButton('number','Incidência')}</th>
           <th class="sortable-header">${unassignedSortButton('nt','NT')}</th>
           <th class="sortable-header num">${unassignedSortButton('affected','Afetação',true)}</th>
+          <th class="sortable-header num">${unassignedSortButton('duration','Duração',true)}</th>
           <th class="sortable-header">${unassignedSortButton('feeder','AL')}</th>
           <th class="sortable-header">${unassignedSortButton('osm','OSM')}</th>
         </tr></thead>
@@ -6721,6 +6860,7 @@ function renderRealtime(){
           <td><button class="incidence-link" type="button">${esc(r.number||'---')}</button></td>
           <td>${esc(r.ntRaw||'---')}</td>
           <td class="num duration-summary-afetacao">${fmtInt(Number(r.clientsCurrent)||0)}</td>
+          <td class="num">${fmt1(Number(r._durationHours)||0)}h</td>
           <td>${esc(r.feeder||'---')}</td>
           <td>${isOsm(r)?'<span class="tag blue">SIM</span>':'<span class="tag">NÃO</span>'}</td>
         </tr>`).join('')}</tbody>
@@ -6729,6 +6869,7 @@ function renderRealtime(){
           <td>TOTAL</td>
           <td></td>
           <td class="num duration-summary-afetacao">${fmtInt(sum(rows.map(r=>Number(r.clientsCurrent)||0)))}</td>
+          <td class="num">—</td>
           <td>${fmtInt(rows.length)} incidências</td>
           <td>${fmtInt(rows.filter(isOsm).length)} OSM</td>
         </tr></tfoot>
@@ -6788,6 +6929,7 @@ function renderRealtime(){
             Incidencia:r.number||'---',
             'Nivel de Tensao':r.ntRaw||'---',
             'Afetacao (Cli Af Atual)':Number(r.clientsCurrent)||0,
+            'Duracao (horas)':round(Number(r._durationHours)||0,2),
             Alimentador:r.feeder||'---',
             OSM:isOsm(r)?'SIM':'NÃO'
           }))
@@ -7203,6 +7345,7 @@ const EMERG_SUPABASE_HEADERS={
 };
 let emergenciaObservacoes=new Map();
 let emergenciaObservacoesDraft=new Map();
+let emergenciaObservacoesEditando=new Set();
 let emergenciaSupabaseUltimaCarga='';
 
 async function emergenciaSupabaseRequest(path,options={}){
@@ -7243,10 +7386,19 @@ function observacaoEmergenciaCell(numero){
   const n=String(numero||'').trim(),reg=observacaoEmergenciaRegistro(n),valor=observacaoEmergenciaValor(n);
   let status='Expira 48h após a última edição';
   if(reg?.atualizado_em){const d=new Date(reg.atualizado_em);if(!Number.isNaN(d.getTime()))status='Atualizada '+d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});}
-  return `<div class="rt-observation-wrap"><div style="flex:1;min-width:0">
-    <textarea class="rt-observation-input" maxlength="1000" data-obs-input="${escAttrEmergencia(n)}" placeholder="Adicionar observação...">${escAttrEmergencia(valor)}</textarea>
-    <span class="rt-observation-status">${escAttrEmergencia(status)}</span>
-  </div><button type="button" class="rt-observation-save" data-obs-save="${escAttrEmergencia(n)}">Salvar</button></div>`;
+
+  if(emergenciaObservacoesEditando.has(n)){
+    return `<div class="rt-observation-wrap"><div class="rt-observation-content">
+      <textarea class="rt-observation-input" maxlength="1000" data-obs-input="${escAttrEmergencia(n)}" placeholder="Adicionar observação...">${escAttrEmergencia(valor)}</textarea>
+      <span class="rt-observation-status">${escAttrEmergencia(status)}</span>
+    </div><button type="button" class="rt-observation-save" data-obs-save="${escAttrEmergencia(n)}">Salvar</button></div>`;
+  }
+
+  const texto=String(valor||'').trim();
+  return `<div class="rt-observation-display"><div class="rt-observation-content">
+    <div class="rt-observation-text ${texto?'':'rt-observation-empty'}">${texto?escAttrEmergencia(texto):'Sem observação'}</div>
+    ${texto?`<span class="rt-observation-status">${escAttrEmergencia(status)}</span>`:''}
+  </div><button type="button" class="rt-observation-edit" data-obs-edit="${escAttrEmergencia(n)}">Editar</button></div>`;
 }
 
 async function salvarObservacaoEmergencia(numero,observacao){
@@ -7292,15 +7444,31 @@ document.addEventListener('input',e=>{
   emergenciaObservacoesDraft.set(String(input.dataset.obsInput||''),input.value);
 });
 document.addEventListener('click',async e=>{
+  const editBtn=e.target.closest?.('[data-obs-edit]');
+  if(editBtn){
+    const numero=String(editBtn.dataset.obsEdit||'').trim();
+    if(numero){
+      emergenciaObservacoesEditando.add(numero);
+      if(state.activeTab==='realtime')renderRealtime();
+      requestAnimationFrame(()=>{
+        const input=document.querySelector(`[data-obs-input="${CSS.escape(numero)}"]`);
+        if(input){input.focus();input.setSelectionRange(input.value.length,input.value.length);}
+      });
+    }
+    return;
+  }
+
   const btn=e.target.closest?.('[data-obs-save]');if(!btn)return;
   const numero=String(btn.dataset.obsSave||'').trim(),wrap=btn.closest('.rt-observation-wrap'),input=wrap?.querySelector('[data-obs-input]');
   if(!input)return;
   btn.disabled=true;btn.textContent='Salvando...';
   try{
+    const textoSalvo=String(input.value||'').trim();
     await salvarObservacaoEmergencia(numero,input.value);
     await carregarObservacoesEmergencia();
+    emergenciaObservacoesEditando.delete(numero);
     if(state.activeTab==='realtime')renderRealtime();
-    toast(String(input.value||'').trim()?`Observação da incidência ${numero} salva por 48h.`:`Observação da incidência ${numero} removida.`,'success',3500);
+    toast(textoSalvo?`Observação da incidência ${numero} salva por 48h.`:`Observação da incidência ${numero} removida.`,'success',3500);
   }catch(error){console.error(error);toast(`Falha ao salvar observação: ${error.message}`,'error',6000);btn.disabled=false;btn.textContent='Salvar';}
 });
 
@@ -7753,5 +7921,8 @@ document.addEventListener('DOMContentLoaded',init);
 <!-- AJUSTES_LAYOUT_MULTI_PERIODO_ATRIBUICAO_V1 -->
 <!-- TABELAS_DURACAO_LOGO_ABAIXO_CONH_AFETACOES_V1 -->
 <!-- LINHA_DURACAO_E_SEM_ATRIBUICAO_50_50_V1 -->
+<!-- AJUSTES_DURACAO_OSM_OBSERVACAO_FECHADA_V1 -->
+<!-- CARDS_EQUIPES_ATRIBUIDAS_PROCESSO_STATUS_V1 -->
+<!-- EQUIPES_ATRIBUIDAS_UNICAS_V2 -->
 </body>
 </html>
