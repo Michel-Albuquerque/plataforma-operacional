@@ -521,6 +521,7 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
       <button class="filter-toggle" id="btnToggleSidebar" type="button" aria-expanded="true" title="Recolher ou exibir filtros">☰ Filtros</button>
       <button class="tab-btn" data-tab="executive">Visão Executiva</button>
       <button class="tab-btn active" data-tab="realtime">Tempo Real</button>
+      <button class="tab-btn" data-tab="today">Dia Atual</button>
       <button class="tab-btn" data-tab="incidents">Consulta de Incidências</button>
       <button class="tab-btn" data-tab="tma">TMA e Metas</button>
       <button class="tab-btn" data-tab="productivity">Produtividade e Recursos</button>
@@ -548,6 +549,68 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
       <div class="grid equal-two" style="margin-top:12px">
         <div class="panel"><div class="panel-head blue"><h3>Pareto do excesso de TMA por causa</h3><small>Excesso total e percentual acumulado — clique para abrir os registros</small></div><div class="panel-body"><div id="chartExecDrivers" class="chart tall"></div></div></div>
         <div class="panel"><div class="panel-head"><h3>Plano de ação recomendado</h3><small>Hipóteses orientadas pelos dados</small></div><div class="panel-body"><div id="execActions" class="action-list"></div></div></div>
+      </div>
+    </section>
+
+
+    <section class="tab-panel" id="tab-today">
+      <div class="section-head">
+        <div>
+          <h2>Dia Atual</h2>
+          <p>Visão diária calculada exclusivamente sobre a base mensal de incidências publicada automaticamente.</p>
+        </div>
+        <div class="section-actions">
+          <span class="source-pill ok"><span class="dot"></span><span id="todayUpdatedAt">Aguardando base mensal</span></span>
+        </div>
+      </div>
+
+      <div class="grid kpi-grid" id="todayKpis"></div>
+
+      <div class="panel" style="margin-bottom:12px">
+        <div class="panel-head blue">
+          <div>
+            <h3>Incidências abertas acumuladas ao longo do dia</h3>
+            <small>O gráfico termina no horário atual; horas futuras não são projetadas nem repetidas</small>
+          </div>
+        </div>
+        <div class="panel-body"><div id="chartTodayOpenStock" class="chart tall"></div></div>
+      </div>
+
+      <div class="grid equal-two">
+        <div class="panel">
+          <div class="panel-head"><h3>Entrada e finalização por hora</h3><small>Somente até a hora atual</small></div>
+          <div class="panel-body"><div id="chartTodayFlow" class="chart tall"></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head green"><h3>Tipo de finalização por hora</h3><small>Atendimento remoto x equipe</small></div>
+          <div class="panel-body"><div id="chartTodayExitType" class="chart tall"></div></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:12px">
+        <div class="panel-head green">
+          <div>
+            <h3>Equipes em execução por natureza ao longo do dia</h3>
+            <small>Leitura a cada 30 minutos, encerrando no instante atual</small>
+          </div>
+        </div>
+        <div class="panel-body"><div id="chartTodayTeams" class="chart tall"></div></div>
+      </div>
+
+      <div class="panel" style="margin-top:12px">
+        <div class="panel-head"><h3>Principais causas vinculadas às equipes no dia</h3><small>Incidências que entraram hoje e possuem equipe</small></div>
+        <div class="panel-body"><div id="chartTodayCauses" class="chart tall"></div></div>
+      </div>
+
+      <div class="grid equal-two" style="margin-top:12px">
+        <div class="panel">
+          <div class="panel-head blue"><h3>BT e MT: entradas e finalizações do dia</h3><small>Movimento observado até agora</small></div>
+          <div class="panel-body"><div id="chartTodayNtDay" class="chart"></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>BT e MT: abertas acumuladas e finalizadas no dia</h3><small>Estoque no instante atual</small></div>
+          <div class="panel-body"><div id="chartTodayNtStatus" class="chart"></div></div>
+        </div>
       </div>
     </section>
 
@@ -4957,6 +5020,13 @@ function isRemote(cause){return norm(cause).includes('ATENDIMENTO REMOTO');}
 function classifyProcess(codeRaw){
   const cod=String(codeRaw??'').trim(); const u=cod.toUpperCase();
   const starts=(p)=>u.startsWith(p); const contains=(p)=>u.includes(p); const afterSG=starts('SG')?u:'';
+
+  if(contains('---')||!validTeam(u))return 'SEM EQUIPE';
+
+  // Regra estrutural: prefixo de equipe precisa terminar em A, B ou C.
+  // Exemplos como SG-OSM e SG-ORD2 ficam como FORA DO PADRÃO.
+  if(!/[ABC]$/.test(u))return 'FORA DO PADRÃO';
+
   if(starts('CP'))return 'APOIO CAMPOS';
   if(starts('MC'))return 'APOIO MACAÉ';
   if(starts('AR'))return 'APOIO ARARUAMA';
@@ -4965,7 +5035,7 @@ function classifyProcess(codeRaw){
   if(u==='MG005SLP-B'||u==='MG026LRP-B')return 'CORTE E RELIGAÇÃO';
   if(starts('MG'))return 'APOIO MAGÉ';
   if(starts('CF'))return 'APOIO CABO FRIO';
-  if(starts('SG')&&['SXE','LXE','RXE','SX','SOE','ROE','LOE'].some(x=>afterSG.includes(x)))return 'INSOURCING OFICIAL';
+  if(starts('SG')&&['SXE','LXE','RXE','SX','SOE','ROE','LOE','MOE'].some(x=>afterSG.includes(x)))return 'INSOURCING OFICIAL';
   if(starts('SG')&&['SOP','LOP','ROP'].some(x=>afterSG.includes(x)))return 'OFICIAL 3C';
   if(starts('SG')&&['LRP','SRP'].some(x=>afterSG.includes(x)))return 'CORTE E RELIGAÇÃO';
   if(contains('OSM'))return 'OSM';
@@ -4975,14 +5045,18 @@ function classifyProcess(codeRaw){
   if(starts('SG')&&contains('SMP'))return 'MANUTENÇÃO COMPEL';
   if(starts('SG')&&contains('SME'))return 'MANUTENÇÃO';
   if(starts('SG')&&['SDE','SDP'].some(x=>afterSG.includes(x)))return 'PODA';
-  if(contains('---')||!validTeam(u))return 'SEM EQUIPE';
   return 'FORA DO PADRÃO';
 }
 
 function classifyVehicle(codeRaw){
   const code=String(codeRaw??'').trim().toUpperCase();
   if(!code||code.includes('---')||code.length<6)return 'FORA DO PADRÃO';
-  return ({S:'Cesto',L:'Leve',R:'Tracionado',M:'Metropolitana'})[code[5]]||'FORA DO PADRÃO';
+
+  // A classificação da viatura só é válida quando o prefixo possui
+  // turno A, B ou C no último caractere.
+  if(!/[ABC]$/.test(code))return 'FORA DO PADRÃO';
+
+  return ({S:'Cesto',L:'Leve',R:'Tracionado',M:'Metropolitana',P:'Pesado'})[code[5]]||'FORA DO PADRÃO';
 }
 function isProgrammed(r){return norm(r?.cause).includes('PROGRAMADA');}
 function isUnproductive(r){return norm(r?.priority).includes('IMPRODUTIV');}
@@ -6011,6 +6085,235 @@ function renderExecutiveMetaCards(tmaRows){
   }).join('');
   qsa('[data-exec-metric]',container).forEach(card=>card.addEventListener('click',()=>openDetails(`${card.dataset.execMetric} — incidências do período`,tmaRows)));
 }
+
+function todaySameDate(d,ref){
+  return d instanceof Date && !isNaN(d) &&
+    d.getFullYear()===ref.getFullYear() &&
+    d.getMonth()===ref.getMonth() &&
+    d.getDate()===ref.getDate();
+}
+
+function todayStart(ref=new Date()){
+  return new Date(ref.getFullYear(),ref.getMonth(),ref.getDate(),0,0,0,0);
+}
+
+function todayPassesNonDateFilters(r){
+  const f=state.filters||{};
+  if(f.tension && f.tension!=='ALL'){
+    const tg=tensionGroup(r.ntRaw);
+    if(f.tension==='MT'){
+      if(tg!=='MT')return false;
+    }else if(tg!==f.tension)return false;
+  }
+  if(f.service && f.service!=='ALL' && r.service!==f.service)return false;
+  if(f.shift && f.shift!=='ALL'){
+    const base=f.shiftBasis==='START'?r.startShift:r.endShift;
+    if(base!==f.shift)return false;
+  }
+  if(f.process && f.process!=='ALL' && r.process!==f.process)return false;
+  if(f.cause && f.cause!=='ALL' && String(r.cause||'')!==f.cause)return false;
+  if(f.team && f.team!=='ALL' && String(r.team||'')!==f.team)return false;
+  if(f.feeder && f.feeder!=='ALL' && String(r.feeder||'')!==f.feeder)return false;
+  if(f.set && f.set!=='ALL' && String(r.set||'')!==f.set)return false;
+  return true;
+}
+
+function todayBaseRows(){
+  // A aba Dia Atual usa somente a base mensal de incidências.
+  // Não usa a Base Tempo Real e ignora o intervalo de datas do filtro lateral.
+  return (state.incidents||[]).filter(todayPassesNonDateFilters);
+}
+
+function todayOpenAt(rows,instant){
+  return rows.filter(r=>{
+    if(!(r.startDate instanceof Date)||isNaN(r.startDate)||r.startDate>instant)return false;
+    return !(r.endDate instanceof Date) || isNaN(r.endDate) || r.endDate>instant;
+  });
+}
+
+function todayHourLabels(now){
+  const labels=[];
+  for(let h=0;h<=now.getHours();h++)labels.push(`${String(h).padStart(2,'0')}:00`);
+  return labels;
+}
+
+function todayCountByHour(rows,dateField,now){
+  const out=Array(now.getHours()+1).fill(0);
+  rows.forEach(r=>{
+    const d=r[dateField];
+    if(todaySameDate(d,now) && d<=now && d.getHours()<=now.getHours())out[d.getHours()]++;
+  });
+  return out;
+}
+
+function todayNt(r){
+  const n=tensionGroup(r.ntRaw);
+  if(n==='BT')return 'BT';
+  if(n==='MT')return 'MT';
+  return null;
+}
+
+function todayFinalType(r){
+  if(isRemote(r.cause))return 'Remoto';
+  if(validTeam(r.team))return 'Equipe';
+  return 'Não contabilizada';
+}
+
+function renderToday(){
+  const now=new Date();
+  const start=todayStart(now);
+  const rows=todayBaseRows();
+
+  const entered=rows.filter(r=>todaySameDate(r.startDate,now)&&r.startDate<=now);
+  const finalized=rows.filter(r=>todaySameDate(r.endDate,now)&&r.endDate<=now);
+  const openNow=todayOpenAt(rows,now);
+  const pct=entered.length?finalized.length/entered.length*100:0;
+
+  const loaded=state.meta?.incidents?.loadedAt;
+  const updatedEl=$('todayUpdatedAt');
+  if(updatedEl){
+    updatedEl.textContent=loaded instanceof Date && !isNaN(loaded)
+      ? `Base mensal atualizada em ${loaded.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`
+      : 'Base mensal carregada';
+  }
+
+  $('todayKpis').innerHTML=[
+    kpiHtml('Serviços que entraram',fmtInt(entered.length),'Entradas registradas hoje','red'),
+    kpiHtml('Serviços finalizados',fmtInt(finalized.length),'Finalizações registradas hoje','green'),
+    kpiHtml('Finalizadas / entradas',`${pct.toFixed(1).replace('.',',')}%`,'Relação observada até agora','blue'),
+    kpiHtml('Incidências abertas',fmtInt(openNow.length),`Estoque às ${now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'orange')
+  ].join('');
+
+  // Estoque de abertas: 00h, fins das horas concluídas e um último ponto no instante atual.
+  // Nenhum ponto futuro é criado.
+  const stockX=[],stockY=[],stockRows=[];
+  for(let h=0;h<now.getHours();h++){
+    const instant=new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,59,59,999);
+    const open=todayOpenAt(rows,instant);
+    stockX.push(`${String(h).padStart(2,'0')}:00`);
+    stockY.push(open.length);
+    stockRows.push(open);
+  }
+  const openCurrent=todayOpenAt(rows,now);
+  stockX.push(now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+  stockY.push(openCurrent.length);
+  stockRows.push(openCurrent);
+
+  const stockColors=stockY.map(v=>v<50?'#84CAFF':v<=80?'#FEC84B':'#FDA29B');
+  plot('chartTodayOpenStock',[
+    {type:'bar',name:'Abertas',x:stockX,y:stockY,text:stockY.map(fmtInt),textposition:'outside',cliponaxis:false,marker:{color:stockColors},customdata:stockX.map((_,i)=>i)}
+  ],{
+    margin:{l:55,r:20,t:20,b:50},
+    xaxis:{title:'Hora',type:'category'},
+    yaxis:{title:'Quantidade de incidências abertas',rangemode:'tozero'},
+    showlegend:false
+  },ev=>{
+    const i=Number(ev.points[0].customdata);
+    openDetails(`Incidências abertas — ${stockX[i]}`,stockRows[i]||[]);
+  });
+
+  const hourLabels=todayHourLabels(now);
+  const entriesHour=todayCountByHour(entered,'startDate',now);
+  const exitsHour=todayCountByHour(finalized,'endDate',now);
+
+  plot('chartTodayFlow',[
+    {type:'bar',name:'Entradas',x:hourLabels,y:entriesHour,marker:{color:'#D92D20'},text:entriesHour.map(v=>v?fmtInt(v):''),textposition:'outside',cliponaxis:false},
+    {type:'bar',name:'Finalizadas',x:hourLabels,y:exitsHour,marker:{color:'#1570EF'},text:exitsHour.map(v=>v?fmtInt(v):''),textposition:'outside',cliponaxis:false}
+  ],{
+    barmode:'group',margin:{l:45,r:20,t:20,b:60},
+    xaxis:{title:'Hora',type:'category'},yaxis:{title:'Incidências',rangemode:'tozero'},
+    legend:{orientation:'h',y:-.2}
+  });
+
+  const remoteHour=Array(now.getHours()+1).fill(0);
+  const teamHour=Array(now.getHours()+1).fill(0);
+  finalized.forEach(r=>{
+    const h=r.endDate.getHours();
+    const t=todayFinalType(r);
+    if(t==='Remoto')remoteHour[h]++;
+    else if(t==='Equipe')teamHour[h]++;
+  });
+  plot('chartTodayExitType',[
+    {type:'bar',name:'Remoto',x:hourLabels,y:remoteHour,marker:{color:'#53B1FD'},text:remoteHour.map(v=>v?fmtInt(v):''),textposition:'outside'},
+    {type:'bar',name:'Equipe',x:hourLabels,y:teamHour,marker:{color:'#175CD3'},text:teamHour.map(v=>v?fmtInt(v):''),textposition:'outside'}
+  ],{
+    barmode:'group',margin:{l:45,r:20,t:20,b:60},
+    xaxis:{title:'Hora',type:'category'},yaxis:{title:'Finalizações',rangemode:'tozero'},
+    legend:{orientation:'h',y:-.2}
+  });
+
+  // Equipes em execução a cada 30 min. O último ponto é o instante atual.
+  const teamPoints=[];
+  let cursor=new Date(start);
+  while(cursor<=now){
+    teamPoints.push(new Date(cursor));
+    cursor=new Date(cursor.getTime()+30*60*1000);
+  }
+  if(!teamPoints.length || Math.abs(teamPoints[teamPoints.length-1]-now)>60*1000){
+    teamPoints.push(new Date(now));
+  }
+
+  const teamLabels=teamPoints.map((d,i)=>i===teamPoints.length-1
+    ? d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
+    : d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
+  );
+  const btTeams=[],mtTeams=[],teamDetails=[];
+  teamPoints.forEach(point=>{
+    const activeRows=rows.filter(r=>
+      validTeam(r.team) &&
+      r.startDate instanceof Date && !isNaN(r.startDate) && r.startDate<=point &&
+      (!(r.endDate instanceof Date)||isNaN(r.endDate)||r.endDate>=point)
+    );
+    const bt=new Set(activeRows.filter(r=>todayNt(r)==='BT').map(r=>String(r.team).trim()));
+    const mt=new Set(activeRows.filter(r=>todayNt(r)==='MT').map(r=>String(r.team).trim()));
+    btTeams.push(bt.size); mtTeams.push(mt.size);
+    teamDetails.push(activeRows);
+  });
+  plot('chartTodayTeams',[
+    {type:'bar',name:'BT',x:teamLabels,y:btTeams,marker:{color:'#53B1FD'}},
+    {type:'bar',name:'MT',x:teamLabels,y:mtTeams,marker:{color:'#175CD3'}}
+  ],{
+    barmode:'stack',margin:{l:45,r:20,t:20,b:70},
+    xaxis:{title:'Horário',type:'category',tickangle:-45},
+    yaxis:{title:'Quantidade de equipes',rangemode:'tozero'},
+    legend:{orientation:'h',y:-.22}
+  });
+
+  const causeMap=new Map();
+  entered.filter(r=>validTeam(r.team) && r.endDate instanceof Date && !isNaN(r.endDate)).forEach(r=>{
+    const key=String(r.cause||'NÃO INFORMADO').trim()||'NÃO INFORMADO';
+    causeMap.set(key,(causeMap.get(key)||0)+1);
+  });
+  const causes=[...causeMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12).reverse();
+  if(causes.length){
+    const total=sum(causes.map(x=>x[1]));
+    plot('chartTodayCauses',[
+      {type:'bar',orientation:'h',x:causes.map(x=>x[1]),y:causes.map(x=>x[0]),marker:{color:COLORS.blue2},text:causes.map(x=>`${fmtInt(x[1])}`),textposition:'outside',cliponaxis:false}
+    ],{
+      margin:{l:220,r:60,t:20,b:45},xaxis:{title:'Incidências',rangemode:'tozero'},yaxis:{automargin:true},showlegend:false
+    });
+  }else emptyPlot('chartTodayCauses','Sem causas com equipe finalizada até agora');
+
+  const nts=['BT','MT'];
+  const ntEntered=nts.map(nt=>entered.filter(r=>todayNt(r)===nt).length);
+  const ntFinalized=nts.map(nt=>finalized.filter(r=>todayNt(r)===nt).length);
+  const ntOpen=nts.map(nt=>openNow.filter(r=>todayNt(r)===nt).length);
+
+  plot('chartTodayNtDay',[
+    {type:'bar',name:'Entradas no dia',x:nts,y:ntEntered,marker:{color:'#D92D20'},text:ntEntered.map(fmtInt),textposition:'outside'},
+    {type:'bar',name:'Finalizadas no dia',x:nts,y:ntFinalized,marker:{color:'#1570EF'},text:ntFinalized.map(fmtInt),textposition:'outside'}
+  ],{
+    barmode:'group',margin:{l:45,r:20,t:20,b:50},yaxis:{title:'Incidências',rangemode:'tozero'},legend:{orientation:'h',y:-.2}
+  });
+
+  plot('chartTodayNtStatus',[
+    {type:'bar',name:'Abertas agora',x:nts,y:ntOpen,marker:{color:'#F79009'},text:ntOpen.map(fmtInt),textposition:'outside'},
+    {type:'bar',name:'Finalizadas no dia',x:nts,y:ntFinalized,marker:{color:'#1570EF'},text:ntFinalized.map(fmtInt),textposition:'outside'}
+  ],{
+    barmode:'group',margin:{l:45,r:20,t:20,b:50},yaxis:{title:'Incidências',rangemode:'tozero'},legend:{orientation:'h',y:-.2}
+  });
+}
+
 function renderExecutive(){
   const m=aggregateMetrics(),diag=buildDiagnostics(m);const balance=m.entered.length-m.exited.length;const target=m.target;const live=realtimeRows(),backlog=realtimeBacklogRows(live);
   $('execKpis').innerHTML=[
@@ -7175,7 +7478,7 @@ function renderData(){
   renderTable('mappingTable',[{label:'Base',value:r=>r.base},{label:'Campo da plataforma',value:r=>r.canonical},{label:'Coluna reconhecida',value:r=>r.source}],rows,{limit:500,empty:'Importe uma base para visualizar o mapeamento.'});
   $('businessRules').innerHTML=`<div class="grid equal-two">
     <div><div class="metric-line"><span>Estado ACTIVO</span><strong>Excluído de TMA, produção e retiradas</strong></div><div class="metric-line"><span>Tempo Real</span><strong>Usa exclusivamente a Base Tempo Real quando carregada</strong></div><div class="metric-line"><span>Com equipe</span><strong>Equipe diferente de vazio, “-” ou “---”</strong></div><div class="metric-line"><span>Sem equipe</span><strong>Remoto ou prefixo ausente/---</strong></div><div class="metric-line"><span>Turno A</span><strong>23:00–06:59</strong></div><div class="metric-line"><span>Turno B</span><strong>07:00–14:59</strong></div><div class="metric-line"><span>Turno C</span><strong>15:00–22:59</strong></div></div>
-    <div><div class="metric-line"><span>Backlog Tempo Real</span><strong>Ativas com entrada anterior ao dia atual (D-1 e anteriores)</strong></div><div class="metric-line"><span>Equipes atribuídas</span><strong>Prefixos válidos distintos nas incidências ativas</strong></div><div class="metric-line"><span>Produtividade diária</span><strong>Média de retiradas com equipe / equipes deslocadas por dia</strong></div><div class="metric-line"><span>Improdutiva</span><strong>Prioridade contém “Improdutiva”; percentual = improdutivas / total atendido pela equipe; causas Programada excluídas</strong></div><div class="metric-line"><span>Excesso TMA</span><strong>máx(TMA − meta mensal, 0)</strong></div><div class="metric-line"><span>ConH</span><strong>ConH; fallback Cli x TMP; depois clientes × TMA / 60</strong></div><div class="metric-line"><span>Reincidência</span><strong>Mesmo Nº Cliente em até 15 dias, com ocorrência anterior finalizada e equipe</strong></div><div class="metric-line"><span>Viatura</span><strong>6º caractere: S Cesto, L Leve, R Tracionado, M Metropolitana</strong></div></div>
+    <div><div class="metric-line"><span>Backlog Tempo Real</span><strong>Ativas com entrada anterior ao dia atual (D-1 e anteriores)</strong></div><div class="metric-line"><span>Equipes atribuídas</span><strong>Prefixos válidos distintos nas incidências ativas</strong></div><div class="metric-line"><span>Produtividade diária</span><strong>Média de retiradas com equipe / equipes deslocadas por dia</strong></div><div class="metric-line"><span>Improdutiva</span><strong>Prioridade contém “Improdutiva”; percentual = improdutivas / total atendido pela equipe; causas Programada excluídas</strong></div><div class="metric-line"><span>Excesso TMA</span><strong>máx(TMA − meta mensal, 0)</strong></div><div class="metric-line"><span>ConH</span><strong>ConH; fallback Cli x TMP; depois clientes × TMA / 60</strong></div><div class="metric-line"><span>Reincidência</span><strong>Mesmo Nº Cliente em até 15 dias, com ocorrência anterior finalizada e equipe</strong></div><div class="metric-line"><span>Viatura</span><strong>Prefixo deve terminar em A/B/C; 6º caractere: S Cesto, L Leve, R Tracionado, M Metropolitana, P Pesado</strong></div></div>
   </div>`;
 }
 
@@ -7191,14 +7494,14 @@ function updateStatus(){
 function renderActiveTab(){
   if(!state.incidents.length&&!state.modal.length){updateStatus();return;}
   updateStatus();refreshFilterOptions();syncFilterControls();
-  const map={executive:renderExecutive,realtime:renderRealtime,incidents:renderIncidents,tma:renderTma,productivity:renderProductivity,diagnostics:renderDiagnostics,data:renderData};
+  const map={executive:renderExecutive,realtime:renderRealtime,today:renderToday,incidents:renderIncidents,tma:renderTma,productivity:renderProductivity,diagnostics:renderDiagnostics,data:renderData};
   try{map[state.activeTab]?.();}catch(e){console.error(e);toast(`Erro ao renderizar: ${e.message}`,'error',6000);}
   setTimeout(()=>qsa(`#tab-${state.activeTab} .js-plotly-plot`).forEach(el=>Plotly.Plots.resize(el)),80);
 }
 const scheduleRender=debounce(()=>{readFilters();renderActiveTab();},180);
 function setTab(tab){
   state.activeTab=tab;qsa('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));qsa('.tab-panel').forEach(p=>p.classList.toggle('active',p.id===`tab-${tab}`));
-  const titles={executive:'Visão Executiva',realtime:'Tempo Real',incidents:'Consulta de Incidências',tma:'TMA e Metas',productivity:'Produtividade e Recursos',diagnostics:'Diagnóstico e Ações',data:'Dados e Exportação'};$('pageHeading').textContent=titles[tab]||'Plataforma Emergência';renderActiveTab();
+  const titles={executive:'Visão Executiva',realtime:'Tempo Real',today:'Dia Atual',incidents:'Consulta de Incidências',tma:'TMA e Metas',productivity:'Produtividade e Recursos',diagnostics:'Diagnóstico e Ações',data:'Dados e Exportação'};$('pageHeading').textContent=titles[tab]||'Plataforma Emergência';renderActiveTab();
 }
 function resetFilters(){
   const bounds=dataDateBounds();state.filters={dateStart:bounds?isoDate(bounds.min):'',dateEnd:bounds?isoDate(bounds.max):'',tension:'ALL',service:'ALL',shift:'ALL',shiftBasis:'END',process:'ALL',cause:'ALL',team:'ALL',feeder:'ALL',set:'ALL'};syncFilterControls();renderActiveTab();
@@ -7590,7 +7893,7 @@ async function atualizarEquipesAbertas(renderizar=false){
     equipesAbertasAtual=total;
     equipesAbertasAtualizadoEm=atualizado;
 
-    if(mudou&&renderizar&&state.activeTab==='realtime'){
+    if(mudou&&renderizar&&['realtime','today'].includes(state.activeTab)){
       renderRealtime();
     }
     return mudou;
@@ -7924,5 +8227,7 @@ document.addEventListener('DOMContentLoaded',init);
 <!-- AJUSTES_DURACAO_OSM_OBSERVACAO_FECHADA_V1 -->
 <!-- CARDS_EQUIPES_ATRIBUIDAS_PROCESSO_STATUS_V1 -->
 <!-- EQUIPES_ATRIBUIDAS_UNICAS_V2 -->
+<!-- REGRAS_PROCESSO_VIATURA_ABC_MOE_V1 -->
+<!-- DIA_ATUAL_BASE_MENSAL_CORTE_HORA_ATUAL_V1 -->
 </body>
 </html>
