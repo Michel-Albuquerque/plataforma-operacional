@@ -1,37 +1,37 @@
 {
-  "gerado_em": "2026-08-22T11:06:43",
+  "gerado_em": "2026-08-22T11:20:07",
   "versao": 6,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 5517,
-      "tamanho_bytes": 851339,
+      "linhas": 5520,
+      "tamanho_bytes": 852234,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-22T11:06:42"
+      "fonte_modificada_em": "2026-08-22T11:18:13"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
       "linhas": 46986,
-      "tamanho_bytes": 8428215,
+      "tamanho_bytes": 8428216,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
       "fonte_modificada_em": "2026-08-22T10:49:08"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 235833,
-      "tamanho_bytes": 22742537,
+      "linhas": 235872,
+      "tamanho_bytes": 22749011,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
-      "fonte_modificada_em": "2026-08-22T09:37:49",
-      "linhas_origem": 235833,
-      "linhas_publicadas": 235833,
+      "fonte_modificada_em": "2026-08-22T11:14:21",
+      "linhas_origem": 235872,
+      "linhas_publicadas": 235872,
       "clientes_oficiais": 3627,
       "modo": "universo_completo_denominador",
-      "denominador_elegivel": 99806
+      "denominador_elegivel": 99856
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4490,
-      "tamanho_bytes": 493485,
+      "tamanho_bytes": 493486,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
       "fonte_modificada_em": "2026-08-22T09:55:11",
       "vinculadas_principal": 4490,
