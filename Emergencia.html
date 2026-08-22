@@ -432,6 +432,43 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
 }
 
 
+
+/* DIA_ATUAL_FILTROS_PERIODO_V2 */
+.today-filter-panel{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(150px,1fr)) auto;
+  gap:10px;
+  align-items:end;
+  padding:11px 12px;
+  margin-bottom:12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fff;
+  box-shadow:var(--shadow);
+}
+.today-filter-field{min-width:0}
+.today-filter-field label{
+  display:block;margin:0 0 5px 2px;font-size:10.5px;font-weight:800;
+  color:#4b5b67;text-transform:uppercase;letter-spacing:.25px
+}
+.today-filter-field input{
+  width:100%;border:1px solid var(--line);border-radius:7px;padding:8px 9px;
+  background:#fff;color:var(--ink);outline:none
+}
+.today-filter-field input:focus{
+  border-color:var(--enel-blue-2);box-shadow:0 0 0 2px rgba(0,117,201,.12)
+}
+.today-filter-actions{display:flex;gap:7px;flex-wrap:wrap}
+.today-filter-summary{grid-column:1/-1;font-size:10.5px;color:var(--muted);padding-top:2px}
+@media(max-width:1050px){
+  .today-filter-panel{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .today-filter-actions{grid-column:1/-1}
+}
+@media(max-width:650px){
+  .today-filter-panel{grid-template-columns:1fr}
+  .today-filter-actions{grid-column:auto}
+}
+
 /* SUPABASE_EMERGENCIA_OBSERVACOES */
 .rt-observation-cell{min-width:380px;width:420px;white-space:normal!important}
 .rt-observation-wrap{display:flex;align-items:flex-start;gap:8px;min-width:360px;white-space:normal}
@@ -562,6 +599,30 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
         <div class="section-actions">
           <span class="source-pill ok"><span class="dot"></span><span id="todayUpdatedAt">Aguardando base mensal</span></span>
         </div>
+      </div>
+
+      <div class="today-filter-panel">
+        <div class="today-filter-field">
+          <label for="todayDateStart">Data início</label>
+          <input type="date" id="todayDateStart">
+        </div>
+        <div class="today-filter-field">
+          <label for="todayDateEnd">Data fim</label>
+          <input type="date" id="todayDateEnd">
+        </div>
+        <div class="today-filter-field">
+          <label for="todayTimeStart">Hora início</label>
+          <input type="time" id="todayTimeStart" step="60">
+        </div>
+        <div class="today-filter-field">
+          <label for="todayTimeEnd">Hora fim</label>
+          <input type="time" id="todayTimeEnd" step="60">
+        </div>
+        <div class="today-filter-actions">
+          <button class="btn small primary" id="btnTodayApply" type="button">✓ Aplicar</button>
+          <button class="btn small" id="btnTodayReset" type="button">↺ Hoje</button>
+        </div>
+        <div class="today-filter-summary" id="todayFilterSummary"></div>
       </div>
 
       <div class="grid kpi-grid" id="todayKpis"></div>
@@ -6097,6 +6158,83 @@ function todayStart(ref=new Date()){
   return new Date(ref.getFullYear(),ref.getMonth(),ref.getDate(),0,0,0,0);
 }
 
+function todayIsoDateLocal(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayEnsureFilters(){
+  const now=new Date();
+  const ds=$('todayDateStart'),de=$('todayDateEnd'),ts=$('todayTimeStart'),te=$('todayTimeEnd');
+  if(ds&&!ds.value)ds.value=todayIsoDateLocal(now);
+  if(de&&!de.value)de.value=todayIsoDateLocal(now);
+  if(ts&&!ts.value)ts.value='00:00';
+  if(te&&!te.value)te.value=now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',hour12:false});
+}
+
+function todayFilterRange(){
+  todayEnsureFilters();
+  const now=new Date();
+  const ds=$('todayDateStart')?.value||todayIsoDateLocal(now);
+  const de=$('todayDateEnd')?.value||todayIsoDateLocal(now);
+  const ts=$('todayTimeStart')?.value||'00:00';
+  const te=$('todayTimeEnd')?.value||'23:59';
+
+  const [ys,ms,dsd]=ds.split('-').map(Number);
+  const [ye,me,ded]=de.split('-').map(Number);
+  const [hs,mins]=ts.split(':').map(Number);
+  const [he,mine]=te.split(':').map(Number);
+
+  let start=new Date(ys,ms-1,dsd,hs||0,mins||0,0,0);
+  let end=new Date(ye,me-1,ded,he||0,mine||0,59,999);
+  if(isNaN(start)||isNaN(end)){ start=todayStart(now); end=now; }
+  if(end<start){ const tmp=start;start=end;end=tmp; }
+  if(end>now)end=now;
+  return {start,end,now};
+}
+
+function todayInRange(d,range){
+  return d instanceof Date && !isNaN(d) && d>=range.start && d<=range.end;
+}
+
+function todayHourlyPoints(range){
+  const points=[];
+  let cursor=new Date(range.start);
+  cursor.setMinutes(0,0,0);
+  if(cursor<range.start)cursor=new Date(cursor.getTime()+60*60*1000);
+  while(cursor<range.end){
+    points.push(new Date(cursor));
+    cursor=new Date(cursor.getTime()+60*60*1000);
+  }
+  points.push(new Date(range.end));
+  return points;
+}
+
+function todayPointLabel(d,range){
+  const sameDay=
+    range.start.getFullYear()===range.end.getFullYear() &&
+    range.start.getMonth()===range.end.getMonth() &&
+    range.start.getDate()===range.end.getDate();
+  return sameDay
+    ? d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
+    : d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
+function todayCountByPoint(rows,dateField,points,range){
+  const out=points.map(()=>0);
+  rows.forEach(r=>{
+    const d=r[dateField];
+    if(!todayInRange(d,range))return;
+    let idx=points.findIndex(p=>d<=p);
+    if(idx<0)idx=points.length-1;
+    out[idx]++;
+  });
+  return out;
+}
+
+
 function todayPassesNonDateFilters(r){
   const f=state.filters||{};
   if(f.tension && f.tension!=='ALL'){
@@ -6160,14 +6298,19 @@ function todayFinalType(r){
 }
 
 function renderToday(){
-  const now=new Date();
-  const start=todayStart(now);
+  todayEnsureFilters();
+  const range=todayFilterRange();
   const rows=todayBaseRows();
 
-  const entered=rows.filter(r=>todaySameDate(r.startDate,now)&&r.startDate<=now);
-  const finalized=rows.filter(r=>todaySameDate(r.endDate,now)&&r.endDate<=now);
-  const openNow=todayOpenAt(rows,now);
+  const entered=rows.filter(r=>todayInRange(r.startDate,range));
+  const finalized=rows.filter(r=>todayInRange(r.endDate,range));
+  const openEnd=todayOpenAt(rows,range.end);
   const pct=entered.length?finalized.length/entered.length*100:0;
+
+  const summary=$('todayFilterSummary');
+  if(summary){
+    summary.textContent=`Período aplicado: ${range.start.toLocaleString('pt-BR')} até ${range.end.toLocaleString('pt-BR')}. Horários futuros são desconsiderados automaticamente.`;
+  }
 
   const loaded=state.meta?.incidents?.loadedAt;
   const updatedEl=$('todayUpdatedAt');
@@ -6178,137 +6321,140 @@ function renderToday(){
   }
 
   $('todayKpis').innerHTML=[
-    kpiHtml('Serviços que entraram',fmtInt(entered.length),'Entradas registradas hoje','red'),
-    kpiHtml('Serviços finalizados',fmtInt(finalized.length),'Finalizações registradas hoje','green'),
-    kpiHtml('Finalizadas / entradas',`${pct.toFixed(1).replace('.',',')}%`,'Relação observada até agora','blue'),
-    kpiHtml('Incidências abertas',fmtInt(openNow.length),`Estoque às ${now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'orange')
+    kpiHtml('Serviços que entraram',fmtInt(entered.length),'Entradas no período selecionado','red'),
+    kpiHtml('Serviços finalizados',fmtInt(finalized.length),'Finalizações no período selecionado','green'),
+    kpiHtml('Finalizadas / entradas',`${pct.toFixed(1).replace('.',',')}%`,'Relação observada no recorte','blue'),
+    kpiHtml('Incidências abertas',fmtInt(openEnd.length),`Estoque em ${range.end.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`,'orange')
   ].join('');
 
-  // Estoque de abertas: 00h, fins das horas concluídas e um último ponto no instante atual.
-  // Nenhum ponto futuro é criado.
-  const stockX=[],stockY=[],stockRows=[];
-  for(let h=0;h<now.getHours();h++){
-    const instant=new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,59,59,999);
-    const open=todayOpenAt(rows,instant);
-    stockX.push(`${String(h).padStart(2,'0')}:00`);
+  const stockPoints=todayHourlyPoints(range);
+  const stockX=stockPoints.map(d=>todayPointLabel(d,range));
+  const stockY=[];
+  const stockRows=[];
+  stockPoints.forEach(point=>{
+    const open=todayOpenAt(rows,point);
     stockY.push(open.length);
     stockRows.push(open);
-  }
-  const openCurrent=todayOpenAt(rows,now);
-  stockX.push(now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
-  stockY.push(openCurrent.length);
-  stockRows.push(openCurrent);
+  });
 
-  const stockColors=stockY.map(v=>v<50?'#84CAFF':v<=80?'#FEC84B':'#FDA29B');
   plot('chartTodayOpenStock',[
-    {type:'bar',name:'Abertas',x:stockX,y:stockY,text:stockY.map(fmtInt),textposition:'outside',cliponaxis:false,marker:{color:stockColors},customdata:stockX.map((_,i)=>i)}
+    {
+      type:'scatter',
+      mode:'lines+markers',
+      name:'Abertas',
+      x:stockX,
+      y:stockY,
+      text:stockY.map(fmtInt),
+      hovertemplate:'%{x}<br><b>%{y}</b> incidências abertas<extra></extra>',
+      line:{width:3,color:'#175CD3',shape:'linear'},
+      marker:{size:8,color:'#175CD3',line:{width:2,color:'#ffffff'}},
+      fill:'tozeroy',
+      fillcolor:'rgba(23,92,211,.16)',
+      customdata:stockX.map((_,i)=>i)
+    }
   ],{
-    margin:{l:55,r:20,t:20,b:50},
-    xaxis:{title:'Hora',type:'category'},
+    margin:{l:55,r:20,t:20,b:58},
+    xaxis:{title:'Data / hora',type:'category',tickangle:stockX.length>18?-45:0},
     yaxis:{title:'Quantidade de incidências abertas',rangemode:'tozero'},
-    showlegend:false
+    showlegend:false,
+    hovermode:'closest'
   },ev=>{
     const i=Number(ev.points[0].customdata);
     openDetails(`Incidências abertas — ${stockX[i]}`,stockRows[i]||[]);
   });
 
-  const hourLabels=todayHourLabels(now);
-  const entriesHour=todayCountByHour(entered,'startDate',now);
-  const exitsHour=todayCountByHour(finalized,'endDate',now);
+  const hourPoints=todayHourlyPoints(range);
+  const hourLabels=hourPoints.map(d=>todayPointLabel(d,range));
+  const entriesHour=todayCountByPoint(entered,'startDate',hourPoints,range);
+  const exitsHour=todayCountByPoint(finalized,'endDate',hourPoints,range);
 
   plot('chartTodayFlow',[
     {type:'bar',name:'Entradas',x:hourLabels,y:entriesHour,marker:{color:'#D92D20'},text:entriesHour.map(v=>v?fmtInt(v):''),textposition:'outside',cliponaxis:false},
     {type:'bar',name:'Finalizadas',x:hourLabels,y:exitsHour,marker:{color:'#1570EF'},text:exitsHour.map(v=>v?fmtInt(v):''),textposition:'outside',cliponaxis:false}
   ],{
-    barmode:'group',margin:{l:45,r:20,t:20,b:60},
-    xaxis:{title:'Hora',type:'category'},yaxis:{title:'Incidências',rangemode:'tozero'},
-    legend:{orientation:'h',y:-.2}
+    barmode:'group',margin:{l:45,r:20,t:20,b:65},
+    xaxis:{title:'Data / hora',type:'category',tickangle:hourLabels.length>18?-45:0},
+    yaxis:{title:'Incidências',rangemode:'tozero'},
+    legend:{orientation:'h',y:-.22}
   });
 
-  const remoteHour=Array(now.getHours()+1).fill(0);
-  const teamHour=Array(now.getHours()+1).fill(0);
+  const remoteHour=hourPoints.map(()=>0);
+  const teamHour=hourPoints.map(()=>0);
   finalized.forEach(r=>{
-    const h=r.endDate.getHours();
+    let idx=hourPoints.findIndex(p=>r.endDate<=p);
+    if(idx<0)idx=hourPoints.length-1;
     const t=todayFinalType(r);
-    if(t==='Remoto')remoteHour[h]++;
-    else if(t==='Equipe')teamHour[h]++;
+    if(t==='Remoto')remoteHour[idx]++;
+    else if(t==='Equipe')teamHour[idx]++;
   });
   plot('chartTodayExitType',[
     {type:'bar',name:'Remoto',x:hourLabels,y:remoteHour,marker:{color:'#53B1FD'},text:remoteHour.map(v=>v?fmtInt(v):''),textposition:'outside'},
     {type:'bar',name:'Equipe',x:hourLabels,y:teamHour,marker:{color:'#175CD3'},text:teamHour.map(v=>v?fmtInt(v):''),textposition:'outside'}
   ],{
-    barmode:'group',margin:{l:45,r:20,t:20,b:60},
-    xaxis:{title:'Hora',type:'category'},yaxis:{title:'Finalizações',rangemode:'tozero'},
-    legend:{orientation:'h',y:-.2}
+    barmode:'group',margin:{l:45,r:20,t:20,b:65},
+    xaxis:{title:'Data / hora',type:'category',tickangle:hourLabels.length>18?-45:0},
+    yaxis:{title:'Finalizações',rangemode:'tozero'},
+    legend:{orientation:'h',y:-.22}
   });
 
-  // Equipes em execução a cada 30 min. O último ponto é o instante atual.
   const teamPoints=[];
-  let cursor=new Date(start);
-  while(cursor<=now){
+  let cursor=new Date(range.start);
+  while(cursor<range.end){
     teamPoints.push(new Date(cursor));
     cursor=new Date(cursor.getTime()+30*60*1000);
   }
-  if(!teamPoints.length || Math.abs(teamPoints[teamPoints.length-1]-now)>60*1000){
-    teamPoints.push(new Date(now));
-  }
+  teamPoints.push(new Date(range.end));
 
-  const teamLabels=teamPoints.map((d,i)=>i===teamPoints.length-1
-    ? d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
-    : d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
-  );
-  const btTeams=[],mtTeams=[],teamDetails=[];
+  const teamLabels=teamPoints.map(d=>todayPointLabel(d,range));
+  const btTeams=[],mtTeams=[];
   teamPoints.forEach(point=>{
     const activeRows=rows.filter(r=>
       validTeam(r.team) &&
       r.startDate instanceof Date && !isNaN(r.startDate) && r.startDate<=point &&
       (!(r.endDate instanceof Date)||isNaN(r.endDate)||r.endDate>=point)
     );
-    const bt=new Set(activeRows.filter(r=>todayNt(r)==='BT').map(r=>String(r.team).trim()));
-    const mt=new Set(activeRows.filter(r=>todayNt(r)==='MT').map(r=>String(r.team).trim()));
-    btTeams.push(bt.size); mtTeams.push(mt.size);
-    teamDetails.push(activeRows);
+    btTeams.push(new Set(activeRows.filter(r=>todayNt(r)==='BT').map(r=>String(r.team).trim())).size);
+    mtTeams.push(new Set(activeRows.filter(r=>todayNt(r)==='MT').map(r=>String(r.team).trim())).size);
   });
   plot('chartTodayTeams',[
     {type:'bar',name:'BT',x:teamLabels,y:btTeams,marker:{color:'#53B1FD'}},
     {type:'bar',name:'MT',x:teamLabels,y:mtTeams,marker:{color:'#175CD3'}}
   ],{
-    barmode:'stack',margin:{l:45,r:20,t:20,b:70},
-    xaxis:{title:'Horário',type:'category',tickangle:-45},
+    barmode:'stack',margin:{l:45,r:20,t:20,b:75},
+    xaxis:{title:'Data / hora',type:'category',tickangle:-45},
     yaxis:{title:'Quantidade de equipes',rangemode:'tozero'},
     legend:{orientation:'h',y:-.22}
   });
 
   const causeMap=new Map();
-  entered.filter(r=>validTeam(r.team) && r.endDate instanceof Date && !isNaN(r.endDate)).forEach(r=>{
+  entered.filter(r=>validTeam(r.team)).forEach(r=>{
     const key=String(r.cause||'NÃO INFORMADO').trim()||'NÃO INFORMADO';
     causeMap.set(key,(causeMap.get(key)||0)+1);
   });
   const causes=[...causeMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12).reverse();
   if(causes.length){
-    const total=sum(causes.map(x=>x[1]));
     plot('chartTodayCauses',[
       {type:'bar',orientation:'h',x:causes.map(x=>x[1]),y:causes.map(x=>x[0]),marker:{color:COLORS.blue2},text:causes.map(x=>`${fmtInt(x[1])}`),textposition:'outside',cliponaxis:false}
     ],{
       margin:{l:220,r:60,t:20,b:45},xaxis:{title:'Incidências',rangemode:'tozero'},yaxis:{automargin:true},showlegend:false
     });
-  }else emptyPlot('chartTodayCauses','Sem causas com equipe finalizada até agora');
+  }else emptyPlot('chartTodayCauses','Sem causas com equipe no período');
 
   const nts=['BT','MT'];
   const ntEntered=nts.map(nt=>entered.filter(r=>todayNt(r)===nt).length);
   const ntFinalized=nts.map(nt=>finalized.filter(r=>todayNt(r)===nt).length);
-  const ntOpen=nts.map(nt=>openNow.filter(r=>todayNt(r)===nt).length);
+  const ntOpen=nts.map(nt=>openEnd.filter(r=>todayNt(r)===nt).length);
 
   plot('chartTodayNtDay',[
-    {type:'bar',name:'Entradas no dia',x:nts,y:ntEntered,marker:{color:'#D92D20'},text:ntEntered.map(fmtInt),textposition:'outside'},
-    {type:'bar',name:'Finalizadas no dia',x:nts,y:ntFinalized,marker:{color:'#1570EF'},text:ntFinalized.map(fmtInt),textposition:'outside'}
+    {type:'bar',name:'Entradas no período',x:nts,y:ntEntered,marker:{color:'#D92D20'},text:ntEntered.map(fmtInt),textposition:'outside'},
+    {type:'bar',name:'Finalizadas no período',x:nts,y:ntFinalized,marker:{color:'#1570EF'},text:ntFinalized.map(fmtInt),textposition:'outside'}
   ],{
     barmode:'group',margin:{l:45,r:20,t:20,b:50},yaxis:{title:'Incidências',rangemode:'tozero'},legend:{orientation:'h',y:-.2}
   });
 
   plot('chartTodayNtStatus',[
-    {type:'bar',name:'Abertas agora',x:nts,y:ntOpen,marker:{color:'#F79009'},text:ntOpen.map(fmtInt),textposition:'outside'},
-    {type:'bar',name:'Finalizadas no dia',x:nts,y:ntFinalized,marker:{color:'#1570EF'},text:ntFinalized.map(fmtInt),textposition:'outside'}
+    {type:'bar',name:'Abertas no fim do período',x:nts,y:ntOpen,marker:{color:'#F79009'},text:ntOpen.map(fmtInt),textposition:'outside'},
+    {type:'bar',name:'Finalizadas no período',x:nts,y:ntFinalized,marker:{color:'#1570EF'},text:ntFinalized.map(fmtInt),textposition:'outside'}
   ],{
     barmode:'group',margin:{l:45,r:20,t:20,b:50},yaxis:{title:'Incidências',rangemode:'tozero'},legend:{orientation:'h',y:-.2}
   });
@@ -7626,7 +7772,23 @@ function bindEvents(){
   if($('improdProcessFilter'))$('improdProcessFilter').addEventListener('change',()=>{if(state.activeTab==='productivity')renderProductivity();});
   $('btnImport').addEventListener('click',openImport);$('btnEmptyImport').addEventListener('click',openImport);$('closeImport').addEventListener('click',closeImport);$('cancelImport').addEventListener('click',closeImport);
   $('applyImports').addEventListener('click',applyImports);$('saveTargetsOnly').addEventListener('click',saveTargetsOnly);$('btnEditTargets').addEventListener('click',openImport);
-  $('btnRealtimeRefresh').addEventListener('click',renderRealtime);$('btnPrint').addEventListener('click',()=>window.print());$('btnExportSummary').addEventListener('click',()=>exportBy('executive'));
+  $('btnRealtimeRefresh').addEventListener('click',renderRealtime);
+  const btnTodayApply=$('btnTodayApply');
+  if(btnTodayApply)btnTodayApply.addEventListener('click',()=>{renderToday();toast('Filtros de Dia Atual aplicados.','success')});
+  const btnTodayReset=$('btnTodayReset');
+  if(btnTodayReset)btnTodayReset.addEventListener('click',()=>{
+    const now=new Date();
+    if($('todayDateStart'))$('todayDateStart').value=todayIsoDateLocal(now);
+    if($('todayDateEnd'))$('todayDateEnd').value=todayIsoDateLocal(now);
+    if($('todayTimeStart'))$('todayTimeStart').value='00:00';
+    if($('todayTimeEnd'))$('todayTimeEnd').value=now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',hour12:false});
+    renderToday();
+  });
+  ['todayDateStart','todayDateEnd','todayTimeStart','todayTimeEnd'].forEach(id=>{
+    const el=$(id);
+    if(el)el.addEventListener('change',()=>{if(state.activeTab==='today')renderToday()});
+  });
+$('btnPrint').addEventListener('click',()=>window.print());$('btnExportSummary').addEventListener('click',()=>exportBy('executive'));
   qsa('[data-export]').forEach(b=>b.addEventListener('click',()=>exportBy(b.dataset.export)));
   qsa('[data-callback-filter]').forEach(b=>b.addEventListener('click',()=>{state.rtCallbackFilter=b.dataset.callbackFilter||'ALL';if(state.activeTab==='realtime')renderRealtime();}));
   if($('rtCallbackSearch'))$('rtCallbackSearch').addEventListener('input',debounce(e=>{state.rtCallbackSearch=e.target.value||'';if(state.activeTab==='realtime')renderRealtime();},180));
@@ -8228,6 +8390,6 @@ document.addEventListener('DOMContentLoaded',init);
 <!-- CARDS_EQUIPES_ATRIBUIDAS_PROCESSO_STATUS_V1 -->
 <!-- EQUIPES_ATRIBUIDAS_UNICAS_V2 -->
 <!-- REGRAS_PROCESSO_VIATURA_ABC_MOE_V1 -->
-<!-- DIA_ATUAL_BASE_MENSAL_CORTE_HORA_ATUAL_V1 -->
+<!-- DIA_ATUAL_FILTROS_DATA_HORA_GRAFICO_AREA_V2 -->
 </body>
 </html>
