@@ -631,7 +631,7 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
         <div class="panel-head blue">
           <div>
             <h3>Incidências abertas ao longo do período</h3>
-            <small>Estoque por incidência única em cada horário: abertas até o ponto menos as já encerradas • corte de segurança de 6 dias</small>
+            <small>Regra original do Panorama: Data Início ≤ horário e Data Fim ausente ou posterior ao horário</small>
           </div>
         </div>
         <div class="panel-body"><div id="chartTodayOpenStock" class="chart tall"></div></div>
@@ -6291,53 +6291,18 @@ function todayOpenAt(rows,instant){
   });
 }
 
-function todayStockCutoff(range){
-  // Proteção contra resíduos antigos da base mensal:
-  // considera somente incidências abertas nos 6 dias anteriores ao fim do recorte.
-  const d=new Date(range.end);
-  d.setDate(d.getDate()-6);
-  d.setHours(0,0,0,0);
-  return d;
-}
-
 function todayOpenStockAt(rows,instant,range){
-  const cutoff=todayStockCutoff(range);
-
-  // Estoque real em cada instante.
-  const candidatos=(rows||[]).filter(r=>{
+  // LÓGICA ORIGINAL DO PANORAMA GEONLINE V5:
+  // uma incidência está aberta em determinado instante quando:
+  // Data Início <= instante E (Data Fim ausente OU Data Fim > instante).
+  //
+  // Não existe corte arbitrário de dias e não existe deduplicação adicional.
+  // Uma ocorrência aberta depois do instante não entra naquele ponto.
+  return (rows||[]).filter(r=>{
     if(!(r.startDate instanceof Date)||isNaN(r.startDate))return false;
-    if(r.startDate<cutoff || r.startDate>instant)return false;
-
-    // Sem Data Fim = continua aberta.
-    if(!(r.endDate instanceof Date)||isNaN(r.endDate))return true;
-
-    // Com Data Fim = só permanece no estoque até o momento do encerramento.
-    return r.endDate>instant;
+    if(r.startDate>instant)return false;
+    return !(r.endDate instanceof Date) || isNaN(r.endDate) || r.endDate>instant;
   });
-
-  // A base mensal pode trazer a mesma incidência em mais de uma linha.
-  // O estoque deve contar NÚMEROS DE INCIDÊNCIA ÚNICOS, nunca linhas.
-  const unicas=new Map();
-  candidatos.forEach(r=>{
-    const numero=normalizeIncidentNumber(r.number);
-    if(!numero)return;
-
-    const anterior=unicas.get(numero);
-    if(!anterior){
-      unicas.set(numero,r);
-      return;
-    }
-
-    // Se houver duplicidade, mantém o registro mais recente/relevante.
-    const inicioAnterior=anterior.startDate instanceof Date && !isNaN(anterior.startDate)
-      ? anterior.startDate.getTime() : 0;
-    const inicioAtual=r.startDate instanceof Date && !isNaN(r.startDate)
-      ? r.startDate.getTime() : 0;
-
-    if(inicioAtual>=inicioAnterior)unicas.set(numero,r);
-  });
-
-  return [...unicas.values()];
 }
 
 function todayOpenEndRows(rows,range){
@@ -6377,8 +6342,8 @@ function renderToday(){
   const range=todayFilterRange();
   const rows=todayBaseRows();
 
-  const entered=todayUniqueIncidents(rows.filter(r=>todayInRange(r.startDate,range)));
-  const finalized=todayUniqueIncidents(rows.filter(r=>todayInRange(r.endDate,range)));
+  const entered=rows.filter(r=>todayInRange(r.startDate,range));
+  const finalized=rows.filter(r=>todayInRange(r.endDate,range));
   const openEnd=todayOpenEndRows(rows,range);
   const pct=entered.length?finalized.length/entered.length*100:0;
 
@@ -6407,21 +6372,21 @@ function renderToday(){
   const stockY=[];
   const stockRows=[];
 
-  // Estoque real por horário:
-  // abertas até o ponto - encerradas até o ponto.
-  // Incidências abertas depois daquele horário nunca entram retroativamente.
+  // MESMA REGRA DO NOTEBOOK V5:
+  // estoque ao final de cada ponto = abriu até aquele instante
+  // e ainda não tinha Data Fim naquele instante.
   stockPoints.forEach(point=>{
-    const openAtPoint=todayOpenStockAt(rows,point,range);
-    stockY.push(openAtPoint.length);
-    stockRows.push(openAtPoint);
+    const abertas=todayOpenStockAt(rows,point,range);
+    stockY.push(abertas.length);
+    stockRows.push(abertas);
   });
 
   const minStock=stockY.length?Math.min(...stockY):0;
   const maxStock=stockY.length?Math.max(...stockY):0;
   const variation=Math.max(1,maxStock-minStock);
-  const yPadding=Math.max(4,Math.ceil(variation*0.22));
+  const yPadding=Math.max(3,Math.ceil(variation*0.15));
   const yLower=Math.max(0,minStock-yPadding);
-  const yUpper=Math.max(yLower+8,maxStock+yPadding+4);
+  const yUpper=Math.max(yLower+5,maxStock+yPadding);
 
   plot('chartTodayOpenStock',[
     {
@@ -6442,7 +6407,7 @@ function renderToday(){
       cliponaxis:false
     }
   ],{
-    margin:{l:55,r:25,t:38,b:58},
+    margin:{l:55,r:25,t:40,b:58},
     xaxis:{title:'Data / hora',type:'category',tickangle:stockX.length>18?-45:0},
     yaxis:{
       title:'Quantidade de incidências abertas',
@@ -8515,6 +8480,6 @@ document.addEventListener('DOMContentLoaded',init);
 <!-- CARDS_EQUIPES_ATRIBUIDAS_PROCESSO_STATUS_V1 -->
 <!-- EQUIPES_ATRIBUIDAS_UNICAS_V2 -->
 <!-- REGRAS_PROCESSO_VIATURA_ABC_MOE_V1 -->
-<!-- DIA_ATUAL_V5_ESTOQUE_UNICO_POR_NUMERO_INCIDENCIA -->
+<!-- DIA_ATUAL_V6_LOGICA_EXATA_PANORAMA_GEONLINE_ORIGINAL -->
 </body>
 </html>
