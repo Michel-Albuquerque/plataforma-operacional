@@ -6291,18 +6291,34 @@ function todayOpenAt(rows,instant){
   });
 }
 
+// Estados que indicam que a incidência já foi finalizada no Geonline,
+// mesmo quando a Data Fim não foi preenchida (buraco de dado na origem).
+const TODAY_FINISHED_STATES=new Set(['CUMPLIMENTADO','CERRADO','VALIDADO']);
+// Limite de dias: sem Data Fim, uma incidência só é considerada genuinamente
+// aberta se teve Início dentro dessa janela. Depois disso é lixo histórico
+// (registro nunca fechado no Geonline) e não deve inflar o estoque atual.
+const TODAY_STALE_OPEN_DAYS=10;
+
+function todayIsGenuinelyOpenAt(r,instant){
+  if(!(r.startDate instanceof Date)||isNaN(r.startDate))return false;
+  if(r.startDate>instant)return false;
+  const hasEnd=(r.endDate instanceof Date)&&!isNaN(r.endDate);
+  if(hasEnd)return r.endDate>instant;
+  // Sem Data Fim: descarta se o Estado já indica finalizado.
+  if(r.state && TODAY_FINISHED_STATES.has(String(r.state).toUpperCase()))return false;
+  // Sem Data Fim: descarta se abriu há mais de TODAY_STALE_OPEN_DAYS dias
+  // antes do instante avaliado (registro abandonado, não incidência atual).
+  const ageDays=(instant-r.startDate)/86400000;
+  if(ageDays>TODAY_STALE_OPEN_DAYS)return false;
+  return true;
+}
+
 function todayOpenStockAt(rows,instant,range){
-  // LÓGICA ORIGINAL DO PANORAMA GEONLINE V5:
-  // uma incidência está aberta em determinado instante quando:
-  // Data Início <= instante E (Data Fim ausente OU Data Fim > instante).
-  //
-  // Não existe corte arbitrário de dias e não existe deduplicação adicional.
-  // Uma ocorrência aberta depois do instante não entra naquele ponto.
-  return (rows||[]).filter(r=>{
-    if(!(r.startDate instanceof Date)||isNaN(r.startDate))return false;
-    if(r.startDate>instant)return false;
-    return !(r.endDate instanceof Date) || isNaN(r.endDate) || r.endDate>instant;
-  });
+  // Regra: Data Início <= instante E (Data Fim > instante OU
+  // (Data Fim ausente E Estado não finalizado E aberta há <= 10 dias)).
+  // Isso evita contar como "abertas agora" registros do Geonline que nunca
+  // receberam Data Fim (lixo histórico) ou que já têm Estado de finalizado.
+  return (rows||[]).filter(r=>todayIsGenuinelyOpenAt(r,instant));
 }
 
 function todayOpenEndRows(rows,range){
