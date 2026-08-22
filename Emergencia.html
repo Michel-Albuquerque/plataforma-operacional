@@ -630,8 +630,8 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
       <div class="panel" style="margin-bottom:12px">
         <div class="panel-head blue">
           <div>
-            <h3>Incidências ainda ativas acumuladas ao longo do período</h3>
-            <small>Somente Data Fim = “---”; encerradas são descartadas • sem projeção de horas futuras</small>
+            <h3>Incidências abertas ao longo do período</h3>
+            <small>Estoque em cada horário: abertas até o ponto menos as já encerradas • corte de segurança de 6 dias</small>
           </div>
         </div>
         <div class="panel-body"><div id="chartTodayOpenStock" class="chart tall"></div></div>
@@ -6270,25 +6270,36 @@ function todayOpenAt(rows,instant){
   });
 }
 
-function todayIsExplicitlyActiveNow(r){
-  // Regra operacional pedida: ativa agora = Data Fim exatamente "---".
-  // Em cargas antigas sem endDateRaw, usa ausência de data parseada como fallback.
-  const raw=String(r?.endDateRaw??'').trim();
-  if(raw)return raw==='---';
-  return !(r?.endDate instanceof Date) || isNaN(r.endDate);
+function todayStockCutoff(range){
+  // Proteção contra resíduos antigos da base mensal:
+  // considera somente incidências abertas nos 6 dias anteriores ao fim do recorte.
+  const d=new Date(range.end);
+  d.setDate(d.getDate()-6);
+  d.setHours(0,0,0,0);
+  return d;
 }
 
-function todayCurrentlyActiveRows(rows){
-  return (rows||[]).filter(todayIsExplicitlyActiveNow);
+function todayOpenStockAt(rows,instant,range){
+  const cutoff=todayStockCutoff(range);
+
+  // Estoque real em cada instante:
+  // 1) já precisava ter sido aberta até aquele horário;
+  // 2) não pode ter sido encerrada antes/naquele horário;
+  // 3) descarta resíduos muito antigos (>6 dias).
+  return (rows||[]).filter(r=>{
+    if(!(r.startDate instanceof Date)||isNaN(r.startDate))return false;
+    if(r.startDate<cutoff || r.startDate>instant)return false;
+
+    // Sem Data Fim = continua aberta.
+    if(!(r.endDate instanceof Date)||isNaN(r.endDate))return true;
+
+    // Com Data Fim = só permanece no estoque até o momento do encerramento.
+    return r.endDate>instant;
+  });
 }
 
 function todayOpenEndRows(rows,range){
-  // Se o filtro termina no momento atual, usa a regra estrita Data Fim="---".
-  // Para consultas históricas encerradas antes de agora, mantém o estoque histórico real.
-  const isNow=Math.abs(range.now.getTime()-range.end.getTime())<=2*60*1000;
-  return isNow
-    ? todayCurrentlyActiveRows(rows).filter(r=>r.startDate instanceof Date && !isNaN(r.startDate) && r.startDate<=range.end)
-    : todayOpenAt(rows,range.end);
+  return todayOpenStockAt(rows,range.end,range);
 }
 
 function todayHourLabels(now){
@@ -6354,48 +6365,45 @@ function renderToday(){
   const stockY=[];
   const stockRows=[];
 
-  // IMPORTANTE:
-  // Este gráfico mostra a evolução das incidências que CONTINUAM ATIVAS AGORA.
-  // Portanto, uma incidência já encerrada não volta a aparecer em horas anteriores.
-  const currentlyActive=todayCurrentlyActiveRows(rows);
-
+  // Estoque real por horário:
+  // abertas até o ponto - encerradas até o ponto.
+  // Incidências abertas depois daquele horário nunca entram retroativamente.
   stockPoints.forEach(point=>{
-    const activeUntilPoint=currentlyActive.filter(r=>
-      r.startDate instanceof Date &&
-      !isNaN(r.startDate) &&
-      r.startDate<=point
-    );
-    stockY.push(activeUntilPoint.length);
-    stockRows.push(activeUntilPoint);
+    const openAtPoint=todayOpenStockAt(rows,point,range);
+    stockY.push(openAtPoint.length);
+    stockRows.push(openAtPoint);
   });
 
   const minStock=stockY.length?Math.min(...stockY):0;
   const maxStock=stockY.length?Math.max(...stockY):0;
   const variation=Math.max(1,maxStock-minStock);
-  const yPadding=Math.max(3,Math.ceil(variation*0.20));
+  const yPadding=Math.max(4,Math.ceil(variation*0.22));
   const yLower=Math.max(0,minStock-yPadding);
-  const yUpper=Math.max(yLower+5,maxStock+yPadding);
+  const yUpper=Math.max(yLower+8,maxStock+yPadding+4);
 
   plot('chartTodayOpenStock',[
     {
       type:'scatter',
-      mode:'lines+markers',
-      name:'Ativas',
+      mode:'lines+markers+text',
+      name:'Abertas',
       x:stockX,
       y:stockY,
       text:stockY.map(fmtInt),
-      hovertemplate:'%{x}<br><b>%{y}</b> incidências ainda ativas<extra></extra>',
+      textposition:'top center',
+      textfont:{size:10,color:'#173d5b'},
+      hovertemplate:'%{x}<br><b>%{y}</b> incidências abertas<extra></extra>',
       line:{width:3,color:'#175CD3',shape:'linear'},
       marker:{size:8,color:'#175CD3',line:{width:2,color:'#ffffff'}},
       fill:'tozeroy',
       fillcolor:'rgba(23,92,211,.16)',
-      customdata:stockX.map((_,i)=>i)
+      customdata:stockX.map((_,i)=>i),
+      cliponaxis:false
     }
   ],{
-    margin:{l:55,r:20,t:20,b:58},
+    margin:{l:55,r:25,t:38,b:58},
     xaxis:{title:'Data / hora',type:'category',tickangle:stockX.length>18?-45:0},
     yaxis:{
-      title:'Quantidade de incidências ainda ativas',
+      title:'Quantidade de incidências abertas',
       range:[yLower,yUpper],
       fixedrange:false
     },
@@ -6403,7 +6411,7 @@ function renderToday(){
     hovermode:'closest'
   },ev=>{
     const i=Number(ev.points[0].customdata);
-    openDetails(`Incidências ainda ativas — ${stockX[i]}`,stockRows[i]||[]);
+    openDetails(`Incidências abertas — ${stockX[i]}`,stockRows[i]||[]);
   });
 
   const hourPoints=todayHourlyPoints(range);
@@ -8465,6 +8473,6 @@ document.addEventListener('DOMContentLoaded',init);
 <!-- CARDS_EQUIPES_ATRIBUIDAS_PROCESSO_STATUS_V1 -->
 <!-- EQUIPES_ATRIBUIDAS_UNICAS_V2 -->
 <!-- REGRAS_PROCESSO_VIATURA_ABC_MOE_V1 -->
-<!-- DIA_ATUAL_V3_ATIVAS_DATA_FIM_TRACO_EIXO_VARIACAO_ROTULOS_EQUIPES -->
+<!-- DIA_ATUAL_V4_ESTOQUE_REAL_POR_HORA_CORTE_6_DIAS_ROTULOS -->
 </body>
 </html>
