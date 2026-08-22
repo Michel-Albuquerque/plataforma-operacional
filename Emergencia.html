@@ -630,8 +630,8 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
       <div class="panel" style="margin-bottom:12px">
         <div class="panel-head blue">
           <div>
-            <h3>Incidências abertas acumuladas ao longo do dia</h3>
-            <small>O gráfico termina no horário atual; horas futuras não são projetadas nem repetidas</small>
+            <h3>Incidências ainda ativas acumuladas ao longo do período</h3>
+            <small>Somente Data Fim = “---”; encerradas são descartadas • sem projeção de horas futuras</small>
           </div>
         </div>
         <div class="panel-body"><div id="chartTodayOpenStock" class="chart tall"></div></div>
@@ -5226,9 +5226,10 @@ function buildMapping(headers,type='incidents'){
 }
 function getRaw(obj,header){return header?obj[header]:null;}
 function normalizeIncident(raw,mapping,index=0,dataset='incidents'){
+  const rawEndDate=getRaw(raw,mapping.endDate);
   const r={
     _index:index, number:normalizeIncidentNumber(getRaw(raw,mapping.number)), ntRaw:String(getRaw(raw,mapping.nt)??'').trim(), state:String(getRaw(raw,mapping.state)??'').trim(),
-    startDate:parseDate(getRaw(raw,mapping.startDate)), endDate:parseDate(getRaw(raw,mapping.endDate)), prevDate:parseDate(getRaw(raw,mapping.prevDate)), durationMinutes:durationToMinutes(getRaw(raw,mapping.duration)),
+    startDate:parseDate(getRaw(raw,mapping.startDate)), endDateRaw:String(rawEndDate??'').trim(), endDate:parseDate(rawEndDate), prevDate:parseDate(getRaw(raw,mapping.prevDate)), durationMinutes:durationToMinutes(getRaw(raw,mapping.duration)),
     pole:String(getRaw(raw,mapping.pole)??'').trim(), branch:String(getRaw(raw,mapping.branch)??'').trim(), cause:String(getRaw(raw,mapping.cause)??'').trim(),
     clientsCurrent:toNumber(getRaw(raw,mapping.clientsCurrent)), clients24:toNumber(getRaw(raw,mapping.clients24)), norm3:toNumber(getRaw(raw,mapping.norm3)), clients3:toNumber(getRaw(raw,mapping.clients3)), clientsMax:toNumber(getRaw(raw,mapping.clientsMax)), chiTmp:toNumber(getRaw(raw,mapping.chiTmp)), conh:toNumber(getRaw(raw,mapping.conh)), riskComp:toNumber(getRaw(raw,mapping.riskComp)),
     set:String(getRaw(raw,mapping.set)??'').trim(), cd:String(getRaw(raw,mapping.cd)??'').trim(), feeder:String(getRaw(raw,mapping.feeder)??'').trim(), electricPoint:String(getRaw(raw,mapping.electricPoint)??'').trim(),
@@ -6269,6 +6270,27 @@ function todayOpenAt(rows,instant){
   });
 }
 
+function todayIsExplicitlyActiveNow(r){
+  // Regra operacional pedida: ativa agora = Data Fim exatamente "---".
+  // Em cargas antigas sem endDateRaw, usa ausência de data parseada como fallback.
+  const raw=String(r?.endDateRaw??'').trim();
+  if(raw)return raw==='---';
+  return !(r?.endDate instanceof Date) || isNaN(r.endDate);
+}
+
+function todayCurrentlyActiveRows(rows){
+  return (rows||[]).filter(todayIsExplicitlyActiveNow);
+}
+
+function todayOpenEndRows(rows,range){
+  // Se o filtro termina no momento atual, usa a regra estrita Data Fim="---".
+  // Para consultas históricas encerradas antes de agora, mantém o estoque histórico real.
+  const isNow=Math.abs(range.now.getTime()-range.end.getTime())<=2*60*1000;
+  return isNow
+    ? todayCurrentlyActiveRows(rows).filter(r=>r.startDate instanceof Date && !isNaN(r.startDate) && r.startDate<=range.end)
+    : todayOpenAt(rows,range.end);
+}
+
 function todayHourLabels(now){
   const labels=[];
   for(let h=0;h<=now.getHours();h++)labels.push(`${String(h).padStart(2,'0')}:00`);
@@ -6304,7 +6326,7 @@ function renderToday(){
 
   const entered=rows.filter(r=>todayInRange(r.startDate,range));
   const finalized=rows.filter(r=>todayInRange(r.endDate,range));
-  const openEnd=todayOpenAt(rows,range.end);
+  const openEnd=todayOpenEndRows(rows,range);
   const pct=entered.length?finalized.length/entered.length*100:0;
 
   const summary=$('todayFilterSummary');
@@ -6331,21 +6353,38 @@ function renderToday(){
   const stockX=stockPoints.map(d=>todayPointLabel(d,range));
   const stockY=[];
   const stockRows=[];
+
+  // IMPORTANTE:
+  // Este gráfico mostra a evolução das incidências que CONTINUAM ATIVAS AGORA.
+  // Portanto, uma incidência já encerrada não volta a aparecer em horas anteriores.
+  const currentlyActive=todayCurrentlyActiveRows(rows);
+
   stockPoints.forEach(point=>{
-    const open=todayOpenAt(rows,point);
-    stockY.push(open.length);
-    stockRows.push(open);
+    const activeUntilPoint=currentlyActive.filter(r=>
+      r.startDate instanceof Date &&
+      !isNaN(r.startDate) &&
+      r.startDate<=point
+    );
+    stockY.push(activeUntilPoint.length);
+    stockRows.push(activeUntilPoint);
   });
+
+  const minStock=stockY.length?Math.min(...stockY):0;
+  const maxStock=stockY.length?Math.max(...stockY):0;
+  const variation=Math.max(1,maxStock-minStock);
+  const yPadding=Math.max(3,Math.ceil(variation*0.20));
+  const yLower=Math.max(0,minStock-yPadding);
+  const yUpper=Math.max(yLower+5,maxStock+yPadding);
 
   plot('chartTodayOpenStock',[
     {
       type:'scatter',
       mode:'lines+markers',
-      name:'Abertas',
+      name:'Ativas',
       x:stockX,
       y:stockY,
       text:stockY.map(fmtInt),
-      hovertemplate:'%{x}<br><b>%{y}</b> incidências abertas<extra></extra>',
+      hovertemplate:'%{x}<br><b>%{y}</b> incidências ainda ativas<extra></extra>',
       line:{width:3,color:'#175CD3',shape:'linear'},
       marker:{size:8,color:'#175CD3',line:{width:2,color:'#ffffff'}},
       fill:'tozeroy',
@@ -6355,12 +6394,16 @@ function renderToday(){
   ],{
     margin:{l:55,r:20,t:20,b:58},
     xaxis:{title:'Data / hora',type:'category',tickangle:stockX.length>18?-45:0},
-    yaxis:{title:'Quantidade de incidências abertas',rangemode:'tozero'},
+    yaxis:{
+      title:'Quantidade de incidências ainda ativas',
+      range:[yLower,yUpper],
+      fixedrange:false
+    },
     showlegend:false,
     hovermode:'closest'
   },ev=>{
     const i=Number(ev.points[0].customdata);
-    openDetails(`Incidências abertas — ${stockX[i]}`,stockRows[i]||[]);
+    openDetails(`Incidências ainda ativas — ${stockX[i]}`,stockRows[i]||[]);
   });
 
   const hourPoints=todayHourlyPoints(range);
@@ -6416,14 +6459,45 @@ function renderToday(){
     btTeams.push(new Set(activeRows.filter(r=>todayNt(r)==='BT').map(r=>String(r.team).trim())).size);
     mtTeams.push(new Set(activeRows.filter(r=>todayNt(r)==='MT').map(r=>String(r.team).trim())).size);
   });
+  const totalTeams=btTeams.map((v,i)=>v+(mtTeams[i]||0));
+  const maxTeams=totalTeams.length?Math.max(...totalTeams):0;
+
   plot('chartTodayTeams',[
-    {type:'bar',name:'BT',x:teamLabels,y:btTeams,marker:{color:'#53B1FD'}},
-    {type:'bar',name:'MT',x:teamLabels,y:mtTeams,marker:{color:'#175CD3'}}
+    {
+      type:'bar',name:'BT',x:teamLabels,y:btTeams,
+      marker:{color:'#53B1FD'},
+      text:btTeams.map(v=>v?fmtInt(v):''),
+      textposition:'inside',
+      textfont:{color:'#ffffff',size:11},
+      insidetextanchor:'middle'
+    },
+    {
+      type:'bar',name:'MT',x:teamLabels,y:mtTeams,
+      marker:{color:'#175CD3'},
+      text:mtTeams.map(v=>v?fmtInt(v):''),
+      textposition:'inside',
+      textfont:{color:'#ffffff',size:11},
+      insidetextanchor:'middle'
+    },
+    {
+      type:'scatter',
+      mode:'text',
+      name:'Total',
+      x:teamLabels,
+      y:totalTeams,
+      text:totalTeams.map(v=>v?`<b>${fmtInt(v)}</b>`:''),
+      textposition:'top center',
+      textfont:{color:'#173d5b',size:12},
+      hoverinfo:'skip',
+      showlegend:false,
+      cliponaxis:false
+    }
   ],{
-    barmode:'stack',margin:{l:45,r:20,t:20,b:75},
+    barmode:'stack',margin:{l:45,r:20,t:30,b:75},
     xaxis:{title:'Data / hora',type:'category',tickangle:-45},
-    yaxis:{title:'Quantidade de equipes',rangemode:'tozero'},
-    legend:{orientation:'h',y:-.22}
+    yaxis:{title:'Quantidade de equipes',rangemode:'tozero',range:[0,Math.max(5,maxTeams+3)]},
+    legend:{orientation:'h',y:-.22},
+    uniformtext:{mode:'hide',minsize:9}
   });
 
   const causeMap=new Map();
@@ -7967,6 +8041,7 @@ function autoExpandRow(raw,dataset,index){
   row.ntRaw=String(row.ntRaw??'').trim();
   row.state=String(row.state??'').trim();
   row.startDate=parseDate(row.startDate);
+  row.endDateRaw=String(row.endDate??'').trim();
   row.endDate=parseDate(row.endDate);
   row.prevDate=parseDate(row.prevDate);
 
@@ -8390,6 +8465,6 @@ document.addEventListener('DOMContentLoaded',init);
 <!-- CARDS_EQUIPES_ATRIBUIDAS_PROCESSO_STATUS_V1 -->
 <!-- EQUIPES_ATRIBUIDAS_UNICAS_V2 -->
 <!-- REGRAS_PROCESSO_VIATURA_ABC_MOE_V1 -->
-<!-- DIA_ATUAL_FILTROS_DATA_HORA_GRAFICO_AREA_V2 -->
+<!-- DIA_ATUAL_V3_ATIVAS_DATA_FIM_TRACO_EIXO_VARIACAO_ROTULOS_EQUIPES -->
 </body>
 </html>
