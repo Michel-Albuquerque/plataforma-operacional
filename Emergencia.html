@@ -6278,10 +6278,26 @@ function todayPassesNonDateFilters(r){
   return true;
 }
 
+// TESTE: descarta da base da aba Dia Atual qualquer incidência cujo
+// Início seja anterior a este número de dias. Elimina de raiz o lixo
+// histórico (registros nunca fechados no Geonline, de meses atrás)
+// que estava inflando o estoque de "abertas agora".
+const TODAY_BASE_MAX_AGE_DAYS=30;
+
+// Estados que indicam que a incidência já foi finalizada no Geonline,
+// mesmo quando a Data Fim não foi preenchida (buraco de dado na origem).
+const TODAY_FINISHED_STATES=new Set(['CUMPLIMENTADO','CERRADO','VALIDADO']);
+
 function todayBaseRows(){
   // A aba Dia Atual usa somente a base mensal de incidências.
   // Não usa a Base Tempo Real e ignora o intervalo de datas do filtro lateral.
-  return (state.incidents||[]).filter(todayPassesNonDateFilters);
+  const now=new Date();
+  const cutoff=new Date(now.getTime()-TODAY_BASE_MAX_AGE_DAYS*86400000);
+  return (state.incidents||[]).filter(r=>{
+    if(!todayPassesNonDateFilters(r))return false;
+    if(!(r.startDate instanceof Date)||isNaN(r.startDate))return false;
+    return r.startDate>=cutoff;
+  });
 }
 
 function todayOpenAt(rows,instant){
@@ -6291,34 +6307,21 @@ function todayOpenAt(rows,instant){
   });
 }
 
-// Estados que indicam que a incidência já foi finalizada no Geonline,
-// mesmo quando a Data Fim não foi preenchida (buraco de dado na origem).
-const TODAY_FINISHED_STATES=new Set(['CUMPLIMENTADO','CERRADO','VALIDADO']);
-// Limite de dias: sem Data Fim, uma incidência só é considerada genuinamente
-// aberta se teve Início dentro dessa janela. Depois disso é lixo histórico
-// (registro nunca fechado no Geonline) e não deve inflar o estoque atual.
-const TODAY_STALE_OPEN_DAYS=10;
-
-function todayIsGenuinelyOpenAt(r,instant){
-  if(!(r.startDate instanceof Date)||isNaN(r.startDate))return false;
-  if(r.startDate>instant)return false;
-  const hasEnd=(r.endDate instanceof Date)&&!isNaN(r.endDate);
-  if(hasEnd)return r.endDate>instant;
-  // Sem Data Fim: descarta se o Estado já indica finalizado.
-  if(r.state && TODAY_FINISHED_STATES.has(String(r.state).toUpperCase()))return false;
-  // Sem Data Fim: descarta se abriu há mais de TODAY_STALE_OPEN_DAYS dias
-  // antes do instante avaliado (registro abandonado, não incidência atual).
-  const ageDays=(instant-r.startDate)/86400000;
-  if(ageDays>TODAY_STALE_OPEN_DAYS)return false;
-  return true;
-}
-
 function todayOpenStockAt(rows,instant,range){
-  // Regra: Data Início <= instante E (Data Fim > instante OU
-  // (Data Fim ausente E Estado não finalizado E aberta há <= 10 dias)).
-  // Isso evita contar como "abertas agora" registros do Geonline que nunca
-  // receberam Data Fim (lixo histórico) ou que já têm Estado de finalizado.
-  return (rows||[]).filter(r=>todayIsGenuinelyOpenAt(r,instant));
+  // Regra: Data Início <= instante E
+  // (Data Fim > instante OU
+  //  (Data Fim ausente E Estado não indica finalização)).
+  // O corte de 30 dias já foi aplicado antes, em todayBaseRows.
+  // O filtro de Estado cobre incidências que o Geonline já fechou
+  // (CUMPLIMENTADO/CERRADO/VALIDADO) mas esqueceu de preencher Data Fim.
+  return (rows||[]).filter(r=>{
+    if(!(r.startDate instanceof Date)||isNaN(r.startDate))return false;
+    if(r.startDate>instant)return false;
+    const hasEnd=(r.endDate instanceof Date)&&!isNaN(r.endDate);
+    if(hasEnd)return r.endDate>instant;
+    if(r.state && TODAY_FINISHED_STATES.has(String(r.state).toUpperCase()))return false;
+    return true;
+  });
 }
 
 function todayOpenEndRows(rows,range){
