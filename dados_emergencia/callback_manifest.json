@@ -1,8 +1,8 @@
 {
   "dataset": "callback_operview",
-  "gerado_em": "2026-08-24T12:22:47",
+  "gerado_em": "2026-08-24T12:34:28",
   "arquivo_publico": "callback.json.gz",
-  "linhas": 689,
+  "linhas": 693,
   "colunas": [
     "Número",
     "Data Ligação",
@@ -18,9 +18,9 @@
     "Observação",
     "NúmeroAviso"
   ],
-  "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Callback\\Exportar Ligações Callback - 22-08-2026 até 24-08-2026_2026-08-24_12-22-44.xlsx",
-  "fonte_nome": "Exportar Ligações Callback - 22-08-2026 até 24-08-2026_2026-08-24_12-22-44.xlsx",
-  "fonte_modificada_em": "2026-08-24T12:22:45",
-  "fonte_sha256": "7eb16b5751bdb38d55908df430ec2d7fe9bb5e06acb25d4fc7304610e76df5c1",
-  "tamanho_publico_bytes": 37070
+  "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Callback\\Exportar Ligações Callback - 22-08-2026 até 24-08-2026_2026-08-24_12-34-26.xlsx",
+  "fonte_nome": "Exportar Ligações Callback - 22-08-2026 até 24-08-2026_2026-08-24_12-34-26.xlsx",
+  "fonte_modificada_em": "2026-08-24T12:34:26",
+  "fonte_sha256": "c736b4cc9320f8130ccdb19934edd3166eb0a4d19a496e48813168046cacf538",
+  "tamanho_publico_bytes": 37291
 }
