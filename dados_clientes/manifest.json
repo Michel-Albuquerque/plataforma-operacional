@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-08-24T13:06:20",
+  "gerado_em": "2026-08-24T13:12:05",
   "versao": 6,
   "arquivos": {
     "callback": {
@@ -11,15 +11,15 @@
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
-      "linhas": 47220,
-      "tamanho_bytes": 8490240,
+      "linhas": 47230,
+      "tamanho_bytes": 8493598,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
       "fonte_modificada_em": "2026-08-24T13:09:17"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
       "linhas": 236411,
-      "tamanho_bytes": 22811056,
+      "tamanho_bytes": 22811054,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
       "fonte_modificada_em": "2026-08-24T13:03:17",
       "linhas_origem": 236411,
