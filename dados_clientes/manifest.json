@@ -1,40 +1,40 @@
 {
-  "gerado_em": "2026-08-24T12:52:09",
+  "gerado_em": "2026-08-24T13:06:20",
   "versao": 6,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 5704,
-      "tamanho_bytes": 880701,
+      "linhas": 5709,
+      "tamanho_bytes": 882115,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-24T12:52:06"
+      "fonte_modificada_em": "2026-08-24T13:06:19"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
       "linhas": 47220,
-      "tamanho_bytes": 8490248,
+      "tamanho_bytes": 8490240,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
-      "fonte_modificada_em": "2026-08-24T12:09:45"
+      "fonte_modificada_em": "2026-08-24T13:09:17"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 236386,
-      "tamanho_bytes": 22808332,
+      "linhas": 236411,
+      "tamanho_bytes": 22811056,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
-      "fonte_modificada_em": "2026-08-24T12:01:59",
-      "linhas_origem": 236386,
-      "linhas_publicadas": 236386,
-      "clientes_oficiais": 3646,
+      "fonte_modificada_em": "2026-08-24T13:03:17",
+      "linhas_origem": 236411,
+      "linhas_publicadas": 236411,
+      "clientes_oficiais": 3647,
       "modo": "universo_completo_denominador",
-      "denominador_elegivel": 100258
+      "denominador_elegivel": 100270
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
-      "linhas": 4519,
-      "tamanho_bytes": 497323,
+      "linhas": 4520,
+      "tamanho_bytes": 497421,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-24T11:59:43",
-      "vinculadas_principal": 4519,
+      "fonte_modificada_em": "2026-08-24T13:00:58",
+      "vinculadas_principal": 4520,
       "sem_vinculo_principal": 0,
       "modo": "oficial_enriquecida"
     }
