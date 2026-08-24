@@ -1,37 +1,37 @@
 {
-  "gerado_em": "2026-08-24T14:52:56",
+  "gerado_em": "2026-08-24T15:04:44",
   "versao": 6,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 5745,
-      "tamanho_bytes": 888043,
+      "linhas": 5748,
+      "tamanho_bytes": 889513,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-24T14:52:54"
+      "fonte_modificada_em": "2026-08-24T15:04:37"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
-      "linhas": 47240,
-      "tamanho_bytes": 8495995,
+      "linhas": 47241,
+      "tamanho_bytes": 8496125,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
-      "fonte_modificada_em": "2026-08-24T14:07:59"
+      "fonte_modificada_em": "2026-08-24T15:04:40"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 236437,
-      "tamanho_bytes": 22813624,
+      "linhas": 236460,
+      "tamanho_bytes": 22816391,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
-      "fonte_modificada_em": "2026-08-24T14:01:03",
-      "linhas_origem": 236437,
-      "linhas_publicadas": 236437,
+      "fonte_modificada_em": "2026-08-24T15:00:28",
+      "linhas_origem": 236460,
+      "linhas_publicadas": 236460,
       "clientes_oficiais": 3647,
       "modo": "universo_completo_denominador",
-      "denominador_elegivel": 100273
+      "denominador_elegivel": 100284
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4520,
-      "tamanho_bytes": 497425,
+      "tamanho_bytes": 497423,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
       "fonte_modificada_em": "2026-08-24T14:56:11",
       "vinculadas_principal": 4520,
