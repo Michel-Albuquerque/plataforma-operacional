@@ -6243,7 +6243,7 @@ function todayHourlyPoints(range){
 function todayHourText(d,exactMinute=false){
   const h=d.getHours();
   const m=d.getMinutes();
-  return exactMinute&&m!==0
+  return m!==0
     ? `${h}:${String(m).padStart(2,'0')}`
     : `${h}h`;
 }
@@ -6251,16 +6251,33 @@ function todayHourText(d,exactMinute=false){
 function todayAxisLabels(points,range,exactLastIndex=-1){
   const multiDay=!todaySameDate(range.start,range.end);
   let lastDateKey='';
+  let dayIndex=-1;
+
   return points.map((d,i)=>{
     const hour=todayHourText(d,i===exactLastIndex);
     if(!multiDay)return hour;
 
     const key=todayIsoDateLocal(d);
-    const dateLine=key!==lastDateKey
+    const mudouDia=key!==lastDateKey;
+
+    if(mudouDia){
+      dayIndex++;
+      lastDateKey=key;
+    }
+
+    const dateLine=mudouDia
       ? d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})
       : '';
-    lastDateKey=key;
-    return dateLine?`${hour}<br>${dateLine}`:`${hour}<br> `;
+
+    // Plotly em eixo category junta categorias com o mesmo texto.
+    // Em recortes com vários dias, "1h", "2h", etc. se repetiam e um dia
+    // era desenhado sobre o outro. O token invisível mantém cada ponto
+    // cronologicamente único sem poluir o rótulo mostrado ao usuário.
+    const uniqueToken='\u200B'.repeat(dayIndex+1);
+
+    return dateLine
+      ? `${hour}<br>${dateLine}${uniqueToken}`
+      : `${hour}<br>${uniqueToken}`;
   });
 }
 
@@ -6567,7 +6584,7 @@ function renderToday(){
 
   plot('chartTodayOpenStock',stockTraces,{
     margin:{l:55,r:25,t:48,b:78},
-    xaxis:{title:'Hora / data',type:'category',tickangle:0,automargin:true},
+    xaxis:{title:'Hora / data',type:'category',categoryorder:'array',categoryarray:stockX,tickangle:0,automargin:true},
     yaxis:{
       title:'Quantidade de incidências abertas',
       range:[yLower,yUpper],
@@ -6593,7 +6610,7 @@ function renderToday(){
     {type:'bar',name:'Finalizadas',x:hourLabels,y:exitsHour,marker:{color:'#1570EF'},text:exitsHour.map(v=>v?fmtInt(v):''),textposition:'outside',cliponaxis:false}
   ],{
     barmode:'group',margin:{l:45,r:20,t:30,b:85},
-    xaxis:{title:'Hora / data',type:'category',tickangle:0,automargin:true},
+    xaxis:{title:'Hora / data',type:'category',categoryorder:'array',categoryarray:hourLabels,tickangle:0,automargin:true},
     yaxis:{title:'Incidências',rangemode:'tozero',automargin:true},
     legend:{orientation:'h',y:-.24}
   });
@@ -6614,7 +6631,7 @@ function renderToday(){
     {type:'bar',name:'Equipe',x:hourLabels,y:teamHour,marker:{color:'#175CD3'},text:teamHour.map(v=>v?fmtInt(v):''),textposition:'outside',cliponaxis:false}
   ],{
     barmode:'group',margin:{l:45,r:20,t:30,b:85},
-    xaxis:{title:'Hora / data',type:'category',tickangle:0,automargin:true},
+    xaxis:{title:'Hora / data',type:'category',categoryorder:'array',categoryarray:hourLabels,tickangle:0,automargin:true},
     yaxis:{title:'Finalizações',rangemode:'tozero',automargin:true},
     legend:{orientation:'h',y:-.24}
   });
@@ -6686,7 +6703,7 @@ function renderToday(){
     margin:{l:45,r:20,t:38,b:90},
     paper_bgcolor:'#f1f3f5',
     plot_bgcolor:'#f1f3f5',
-    xaxis:{title:'Hora / data',type:'category',tickangle:0,automargin:true,gridcolor:'#d4d8dc'},
+    xaxis:{title:'Hora / data',type:'category',categoryorder:'array',categoryarray:teamLabels,tickangle:0,automargin:true,gridcolor:'#d4d8dc'},
     yaxis:{title:'Quantidade de equipes',rangemode:'tozero',range:[0,Math.max(5,maxTeams+4)],gridcolor:'#d4d8dc'},
     legend:{orientation:'h',y:-.24},
     uniformtext:{mode:'hide',minsize:9}
@@ -8673,6 +8690,6 @@ document.addEventListener('DOMContentLoaded',init);
 <!-- EQUIPES_ATRIBUIDAS_UNICAS_V2 -->
 <!-- REGRAS_PROCESSO_VIATURA_ABC_MOE_V1 -->
 <!-- DIA_ATUAL_V6_LOGICA_EXATA_PANORAMA_GEONLINE_ORIGINAL -->
-<!-- DIA_ATUAL_V8_TEMPO_REAL_VERDE_MINUTO_SEM_H -->
+<!-- DIA_ATUAL_V9_SEQUENCIA_MULTIDIAS_CORRIGIDA -->
 </body>
 </html>
