@@ -1,39 +1,39 @@
 {
-  "gerado_em": "2026-08-25T10:41:24",
+  "gerado_em": "2026-08-25T10:53:40",
   "versao": 6,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 5867,
-      "tamanho_bytes": 906383,
+      "linhas": 5871,
+      "tamanho_bytes": 908070,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-25T10:41:22"
+      "fonte_modificada_em": "2026-08-25T10:53:38"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
       "linhas": 47262,
-      "tamanho_bytes": 8503672,
+      "tamanho_bytes": 8503664,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
       "fonte_modificada_em": "2026-08-25T09:00:48"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 236741,
-      "tamanho_bytes": 22848011,
+      "linhas": 236778,
+      "tamanho_bytes": 22851208,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
-      "fonte_modificada_em": "2026-08-25T09:58:22",
-      "linhas_origem": 236741,
-      "linhas_publicadas": 236741,
+      "fonte_modificada_em": "2026-08-25T10:56:53",
+      "linhas_origem": 236778,
+      "linhas_publicadas": 236778,
       "clientes_oficiais": 3653,
       "modo": "universo_completo_denominador",
-      "denominador_elegivel": 100427
+      "denominador_elegivel": 100443
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4530,
-      "tamanho_bytes": 498683,
+      "tamanho_bytes": 498678,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-25T09:54:42",
+      "fonte_modificada_em": "2026-08-25T10:57:08",
       "vinculadas_principal": 4530,
       "sem_vinculo_principal": 0,
       "modo": "oficial_enriquecida"
