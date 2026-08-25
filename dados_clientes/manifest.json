@@ -1,25 +1,25 @@
 {
-  "gerado_em": "2026-08-25T17:26:02",
-  "versao": 6,
+  "gerado_em": "2026-08-25T17:31:20",
+  "versao": 7,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 5984,
-      "tamanho_bytes": 926706,
+      "linhas": 5989,
+      "tamanho_bytes": 928191,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-25T17:11:24"
+      "fonte_modificada_em": "2026-08-25T17:30:09"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
       "linhas": 47361,
-      "tamanho_bytes": 8530022,
+      "tamanho_bytes": 8530023,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
       "fonte_modificada_em": "2026-08-25T17:25:58"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
       "linhas": 236178,
-      "tamanho_bytes": 22804941,
+      "tamanho_bytes": 22804955,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
       "fonte_modificada_em": "2026-08-25T17:10:48",
       "linhas_origem": 236178,
@@ -31,12 +31,33 @@
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4538,
-      "tamanho_bytes": 499773,
+      "tamanho_bytes": 499776,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
       "fonte_modificada_em": "2026-08-25T15:19:06",
       "vinculadas_principal": 4538,
       "sem_vinculo_principal": 0,
       "modo": "oficial_enriquecida"
+    },
+    "analise_grupo_causa": {
+      "arquivo": "analise_grupo_causa.json.gz",
+      "linhas": 0,
+      "tamanho_bytes": 326,
+      "metodologia": "grupo_causa_contextual_v1",
+      "linhas_antiga": 0,
+      "linhas_nova": 0,
+      "clientes_antiga": 0,
+      "clientes_nova": 0,
+      "sem_vinculo_principal": 0,
+      "execucao_arquivos": [
+        "Produt_Resultado_Mes_2026-08_17_091830.xlsx",
+        "Produt_Resultado_Mes_2026-08_NOVO.xlsx",
+        "Produt_Resultado_Mes_2026-08.xlsx"
+      ],
+      "observacoes_janela_dias": 30,
+      "reincidencias_ramal": 0,
+      "reincidencias_medidor": 0,
+      "reincidencias_vegetacao": 0,
+      "reincidencias_animais": 0
     }
   },
   "erros": {}
