@@ -1,37 +1,37 @@
 {
-  "gerado_em": "2026-08-26T10:45:04",
-  "versao": 8,
+  "gerado_em": "2026-08-26T12:32:22",
+  "versao": 9,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 6077,
-      "tamanho_bytes": 942262,
+      "linhas": 6108,
+      "tamanho_bytes": 945902,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-26T10:45:03"
+      "fonte_modificada_em": "2026-08-26T12:27:45"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
-      "linhas": 47439,
-      "tamanho_bytes": 8550261,
+      "linhas": 47448,
+      "tamanho_bytes": 8552668,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
-      "fonte_modificada_em": "2026-08-26T10:11:13"
+      "fonte_modificada_em": "2026-08-26T12:17:13"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 236371,
-      "tamanho_bytes": 22824917,
+      "linhas": 236405,
+      "tamanho_bytes": 22828731,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
-      "fonte_modificada_em": "2026-08-26T09:50:49",
-      "linhas_origem": 236371,
-      "linhas_publicadas": 236371,
+      "fonte_modificada_em": "2026-08-26T11:51:48",
+      "linhas_origem": 236405,
+      "linhas_publicadas": 236405,
       "clientes_oficiais": 3670,
       "modo": "universo_completo_denominador",
-      "denominador_elegivel": 100488
+      "denominador_elegivel": 100506
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4550,
-      "tamanho_bytes": 501349,
+      "tamanho_bytes": 501350,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
       "fonte_modificada_em": "2026-08-26T10:02:47",
       "vinculadas_principal": 4550,
@@ -40,30 +40,35 @@
     },
     "analise_grupo_causa": {
       "arquivo": "analise_grupo_causa.json.gz",
-      "linhas": 4550,
-      "tamanho_bytes": 160255,
-      "metodologia": "grupo_causa_contextual_v3_base_oficial_mestre",
-      "linhas_antiga": 4550,
-      "linhas_nova": 450,
-      "clientes_antiga": 3670,
-      "clientes_nova": 368,
-      "linhas_base_oficial": 4550,
-      "linhas_saida": 4550,
-      "sem_atendimento_anterior_30d": 2404,
-      "linhas_sem_cliente": 0,
-      "linhas_sem_data": 0,
+      "linhas": 25045,
+      "tamanho_bytes": 1265505,
+      "metodologia": "grupo_causa_contextual_v4_consulta_incidencia_mestre",
+      "fonte_mestre": "Base_Final_Incidencia / Consulta Incidência",
+      "janela_reincidencia_dias": 30,
+      "linhas_consulta_total": 236405,
+      "linhas_consulta_elegiveis": 100506,
+      "duplicidades_numero_removidas": 0,
+      "origens_identificadas": 75461,
+      "ciclos_identificados": 75461,
+      "linhas_antiga": 25045,
+      "linhas_nova": 4655,
+      "clientes_antiga": 11849,
+      "clientes_nova": 3840,
+      "referencia_base_reincidencia_oficial": 4550,
+      "diferenca_antiga_vs_oficial": 20495,
+      "ambiguas_sem_contexto": 107,
       "execucao_arquivos": [
         "Produt_Resultado_Mes_2026-08.xlsx"
       ],
       "observacoes_janela_dias": 30,
-      "execucao_modo_vinculo": "LEFT JOIN complementar: Reincidencia.Numero+Equipe = Execucao.Numero da Incidencia+Recurso/Equipe",
-      "execucao_matches": 236,
-      "execucao_sem_match": 129,
-      "execucao_fora_janela_30d": 8735,
-      "reincidencias_ramal": 276,
-      "reincidencias_medidor": 163,
-      "reincidencias_vegetacao": 0,
-      "reincidencias_animais": 0
+      "execucao_modo_vinculo": "LEFT JOIN complementar: Consulta.Numero+Equipe = Execucao.Numero da Incidencia+Recurso/Equipe",
+      "execucao_matches": 1516,
+      "execucao_sem_match": 998,
+      "execucao_fora_janela_30d": 47576,
+      "reincidencias_ramal": 1933,
+      "reincidencias_medidor": 2048,
+      "reincidencias_vegetacao": 475,
+      "reincidencias_animais": 9
     }
   },
   "erros": {}
