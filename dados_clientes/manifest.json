@@ -1,13 +1,13 @@
 {
-  "gerado_em": "2026-08-26T09:42:49",
+  "gerado_em": "2026-08-26T09:58:19",
   "versao": 8,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 6054,
-      "tamanho_bytes": 939472,
+      "linhas": 6061,
+      "tamanho_bytes": 938651,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-26T09:42:47"
+      "fonte_modificada_em": "2026-08-26T09:58:17"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
@@ -18,22 +18,22 @@
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 236351,
-      "tamanho_bytes": 22822445,
+      "linhas": 236371,
+      "tamanho_bytes": 22824917,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
-      "fonte_modificada_em": "2026-08-26T08:52:19",
-      "linhas_origem": 236351,
-      "linhas_publicadas": 236351,
+      "fonte_modificada_em": "2026-08-26T09:50:49",
+      "linhas_origem": 236371,
+      "linhas_publicadas": 236371,
       "clientes_oficiais": 3670,
       "modo": "universo_completo_denominador",
-      "denominador_elegivel": 100479
+      "denominador_elegivel": 100488
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4550,
-      "tamanho_bytes": 501353,
+      "tamanho_bytes": 501355,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-26T09:06:42",
+      "fonte_modificada_em": "2026-08-26T10:02:47",
       "vinculadas_principal": 4550,
       "sem_vinculo_principal": 0,
       "modo": "oficial_enriquecida"
@@ -41,7 +41,7 @@
     "analise_grupo_causa": {
       "arquivo": "analise_grupo_causa.json.gz",
       "linhas": 4550,
-      "tamanho_bytes": 160256,
+      "tamanho_bytes": 160254,
       "metodologia": "grupo_causa_contextual_v3_base_oficial_mestre",
       "linhas_antiga": 4550,
       "linhas_nova": 450,
