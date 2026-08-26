@@ -1169,6 +1169,18 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 @media(max-width:1200px){.gc-kpis{grid-template-columns:repeat(2,1fr)}.gc-section-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.gc-kpis{grid-template-columns:1fr}.gc-head{align-items:flex-start;flex-direction:column}.gc-search{width:100%;min-width:0}}
 
+
+.gc-filters{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:0 0 12px}
+.gc-filter-field{display:flex;flex-direction:column;gap:4px}
+.gc-filter-field label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#6f8179}
+.gc-filter-field input{height:34px;border:1px solid #ccd9d4;border-radius:7px;padding:0 9px;background:#fff;color:#20352d}
+.gc-filter-clear{height:34px;border:1px solid #cfdad5;border-radius:7px;background:#f7faf8;padding:0 12px;font-weight:750;cursor:pointer}
+.gc-filter-clear:hover{background:#edf5f1}
+.gc-group-badge{display:inline-block;padding:3px 7px;border-radius:999px;color:#fff;font-size:9px;font-weight:850;margin:1px 3px 1px 0;white-space:nowrap}
+.gc-break{display:inline-block;padding:3px 7px;border-radius:999px;background:#f7e4e2;color:#aa342d;border:1px solid #efc3bf;font-size:9px;font-weight:900}
+.gc-continue{display:inline-block;padding:3px 7px;border-radius:999px;background:#e3f4ec;color:#006d4b;border:1px solid #b9dfcf;font-size:9px;font-weight:900}
+.gc-eorder{max-width:360px;white-space:normal;line-height:1.35;color:#4d5e56}
+
 </style>
 </head>
 <body>
@@ -1667,7 +1679,13 @@ const CAUSE_GROUP_RELATIONS = [
 const CAUSE_GROUP_MAP = (()=>{const map=new Map();for(const [cause,group] of CAUSE_GROUP_RELATIONS){const key=normalizeHeaderKey(cause);if(!map.has(key))map.set(key,new Set());map.get(key).add(group)}return map})();
 const GROUP_REINCIDENCE_MAX_MS = 30*86400000;
 let _groupRecurrenceCache={key:'',evaluations:[],events:[]};
-function causeGroups(value){return CAUSE_GROUP_MAP.get(normalizeHeaderKey(value))||new Set()}
+function causeGroups(value){
+  const key=normalizeHeaderKey(value);
+  const mapped=CAUSE_GROUP_MAP.get(key);
+  if(mapped&&mapped.size)return mapped;
+  const causa=normCausa(value);
+  return causa?new Set([causa]):new Set();
+}
 function sharedCauseGroups(a,b){const ga=causeGroups(a),gb=causeGroups(b),shared=[];for(const group of ga)if(gb.has(group))shared.push(group);return shared}
 function isGroupReincidenceEligible(row){return !!row&&isIndicatorRow(row)&&!isAtendimentoRemoto(row)&&isValidClientId(row[COL.nCliente])&&hasValidValue(row[COL.equipeDesl])&&causeGroups(row[COL.causa]).size>0}
 function buildGroupRecurrenceEvaluations(sourceRows){
@@ -1823,6 +1841,8 @@ const S = {
   causeUI:{indicator:'conexao',currentYear:2026,periodMode:'equivalent',cause:'',team:'',customerType:'',search:'',selectedCause:'',page:1,pageSize:10},
   causeDrillRows:[],
   analiseGrupoCausaSearch:'',
+  analiseGrupoCausaDateFrom:'',
+  analiseGrupoCausaDateTo:'',
   analiseGrupoCausaExpanded:new Set(),
   teamUI: {minIncidents:0,minDays:0,sort:'pct_desc'},
   processUI: {sort:'reinc_desc'},
@@ -2686,7 +2706,12 @@ function processRawRows(rows, fileName, mapaObsEorder, options){
     r.__grupoMesId = null; r.__posicaoReinc = null; r.__qtdGrupoMes = null; r.__qtdReincGrupoMes = null;
     r.__incGeradora = null; r.__equipeGeradora = null; r.__diasDesdeAnterior = null;
     r.__dataPrimeiraGrupo = null; r.__ultimaEquipeGrupo = null;
-    r.__obsEorder = r.__obsEorder==null ? null : r.__obsEorder;
+    r.__obsEorder = r.__obsEorder==null
+      ? (r['Observações Eorder']!=null ? r['Observações Eorder'] : (r['Observacao Eorder']!=null?r['Observacao Eorder']:null))
+      : r.__obsEorder;
+    r.__dataFimExecucao = r.__dataFimExecucao==null
+      ? (r['Data Fim Execução']!=null ? r['Data Fim Execução'] : (r['Data fim Execução']!=null?r['Data fim Execução']:null))
+      : r.__dataFimExecucao;
     if(r[COL.concat]!=null && String(r[COL.concat]).trim()!==''){
       const chaveNorm = normalizeConcat(r[COL.concat]);
       if(chaveNorm && mapaObsEorder.has(chaveNorm)){
@@ -4244,7 +4269,7 @@ function activeRenderKey(){
   if(S.currentTab==='callbackContingencia')return `callback:${S.callbackView}:${S.callbackBase.length}:${Object.keys(S.callbackHistoryBase||{}).length}:${(S.callbackTransitions||[]).length}:${S.callbackVersion}:${JSON.stringify(S.callbackFilters)}:${JSON.stringify(S.callbackDiagnosticFilters)}:${JSON.stringify(S.callbackAssignments)}`;
   if(S.currentTab==='acao')return `acao:${S.actionView}:${S.actionVersion}:${S.fiscalizacaoVersion}:${S.baseCompleta.length}:${S.baseReincidencia.length}:${S.fiscalizacaoBase.length}:${JSON.stringify(S.actionUI)}:${JSON.stringify(S.fiscalizacaoFilters)}`;
   if(S.currentTab==='analiseCausa')return `causa:${S.processedAt||''}:${S.reincidenciaProcessedAt||''}:${S.baseCompleta.length}:${S.baseReincidencia.length}:${JSON.stringify(S.causeUI)}`;
-  if(S.currentTab==='analiseGrupoCausa')return `grupocausa:${S.processedAt||''}:${S.baseCompleta.length}:${S.analiseGrupoCausaSearch}`;
+  if(S.currentTab==='analiseGrupoCausa')return `grupocausa:${S.processedAt||''}:${S.baseCompleta.length}:${S.analiseGrupoCausaSearch}:${S.analiseGrupoCausaDateFrom}:${S.analiseGrupoCausaDateTo}`;
   if(S.currentTab==='ordem2'||S.currentTab==='ordem2Diagnostico')return `ordem2:${S.currentTab}:${S.processedAt||''}:${S.baseCompleta.length}:${S.order2Version}:${JSON.stringify(S.order2UI)}`;
   return filterCacheKey()+'|principal:'+S.baseCompleta.length+'|reinc:'+S.baseReincidencia.length;
 }
@@ -11555,8 +11580,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 
 /* ============================================================
-   14B2. ANÁLISE CAUSA — usa diretamente o motor validado de GRUPO
-   Não depende de JSON auxiliar nem da tentativa anterior em Python.
+   14B2. ANÁLISE CAUSA — motor validado de Reincidência por Grupo
+   + E-Order complementar + filtro de período próprio + visual por grupo
    ============================================================ */
 function gcGeneralEligible(row){
   return !!row &&
@@ -11581,12 +11606,7 @@ function gcBuildGeneralEvents(){
     for(let i=1;i<rows.length;i++){
       const current=rows[i],previous=rows[i-1],diffMs=current.__dataFim-previous.__dataFim;
       if(diffMs<0||diffMs>30*86400000)continue;
-      events.push({
-        client,current,previous,row:current,
-        diffMs,diasDesdeAnterior:Math.floor(diffMs/86400000),
-        incGeradora:previous[COL.numero],
-        equipeGeradora:previous[COL.equipeDesl]
-      });
+      events.push({client,current,previous,row:current,diffMs,diasDesdeAnterior:Math.floor(diffMs/86400000),incGeradora:previous[COL.numero],equipeGeradora:previous[COL.equipeDesl]});
     }
   }
   return events;
@@ -11597,11 +11617,61 @@ function gcPairKey(event){
 function gcClientKey(v){return normalizeNumero(v)||String(v||'').trim()}
 function gcDate(v){const d=v instanceof Date?v:parseDateVal(v);return validDate(d)?fmtDateTime(d):'—'}
 function gcText(v){return v==null||String(v).trim()===''?'—':String(v)}
+function gcDateInputToDate(value,endOfDay){
+  if(!value)return null;
+  const d=new Date(value+'T00:00:00');
+  if(Number.isNaN(d.getTime()))return null;
+  if(endOfDay)d.setHours(23,59,59,999);
+  return d;
+}
+function gcInPagePeriod(event){
+  const from=gcDateInputToDate(S.analiseGrupoCausaDateFrom,false);
+  const to=gcDateInputToDate(S.analiseGrupoCausaDateTo,true);
+  const d=event&&event.current&&event.current.__dataFim;
+  if(!d)return false;
+  if(from&&d<from)return false;
+  if(to&&d>to)return false;
+  return true;
+}
+function gcGroupColor(group){
+  const g=String(group||'').toUpperCase();
+  const fixed={
+    'RAMAL':'#147d64',
+    'MEDIDOR':'#d17a24',
+    'VEGETAÇÃO':'#4f8c3f',
+    'ANIMAIS':'#7556a3',
+    'TERCEIROS ACIDENTAL':'#4472a8',
+    'PIPA':'#ad6b2f',
+    'CORPO ESTRANHO':'#687781',
+    'CS QUEIMADO':'#b34843',
+    'DESCARGAS ATMOSFÉRICAS':'#5271a7',
+    'SOBRECARGA':'#a85c33'
+  };
+  if(fixed[g])return fixed[g];
+  let h=0;for(let i=0;i<g.length;i++)h=(h*31+g.charCodeAt(i))%360;
+  return `hsl(${h} 42% 45%)`;
+}
+function gcGroupBadge(group){
+  if(!group)return '<span class="gc-muted">—</span>';
+  return `<span class="gc-group-badge" style="background:${gcGroupColor(group)}">${esc(group)}</span>`;
+}
+function gcGroupBadges(groups){
+  const arr=[...(groups||[])];
+  return arr.length?arr.map(gcGroupBadge).join(''):'<span class="gc-muted">—</span>';
+}
+function gcEorderObs(row){
+  return gcText(row&&row.__obsEorder);
+}
+function gcEorderDate(row){
+  return gcDate(row&&row.__dataFimExecucao);
+}
 function gcBuildModel(){
-  const general=gcBuildGeneralEvents();
-  const evaluations=allGroupRecurrenceEvaluations();
+  const generalAll=gcBuildGeneralEvents();
+  const evaluationsAll=allGroupRecurrenceEvaluations();
+  const general=generalAll.filter(gcInPagePeriod);
+  const evaluations=evaluationsAll.filter(gcInPagePeriod);
   const confirmed=evaluations.filter(e=>e.confirmada);
-  const evalByPair=new Map(evaluations.map(e=>[gcPairKey(e),e]));
+  const evalByPair=new Map(evaluationsAll.map(e=>[gcPairKey(e),e]));
   const byClient=new Map();
 
   function ensure(client){
@@ -11626,27 +11696,34 @@ function gcDetailTable(client,model){
   const rows=client.general.slice().sort((a,b)=>a.current.__dataFim-b.current.__dataFim);
   if(!rows.length)return '<div class="gc-empty">Nenhum vínculo geral encontrado.</div>';
   return `<div class="gc-detail-box"><table class="gc-detail-table"><thead><tr>
-    <th>Incidência anterior</th><th>Data anterior</th><th>Equipe anterior</th><th>Causa anterior</th>
-    <th>Incidência atual</th><th>Data atual</th><th>Equipe atual</th><th>Causa atual</th>
-    <th>Dias</th><th>Grupos em comum</th><th>Nova classificação</th><th>Motivo</th>
+    <th>Incidência anterior</th><th>Data anterior</th><th>Equipe anterior</th><th>Causa anterior</th><th>Grupo anterior</th>
+    <th>Incidência atual</th><th>Data atual</th><th>Equipe atual</th><th>Causa atual</th><th>Grupo atual</th>
+    <th>Dias</th><th>Continuidade</th><th>Grupo confirmado</th>
+    <th>Obs. E-Order anterior</th><th>Fim Execução anterior</th><th>Obs. E-Order atual</th><th>Fim Execução atual</th>
   </tr></thead><tbody>${rows.map(e=>{
     const ev=model.evalByPair.get(gcPairKey(e));
     const ok=!!(ev&&ev.confirmada);
-    const groups=ev&&ev.groups&&ev.groups.length?ev.groups.join(' / '):'—';
-    const motivo=ev?ev.motivo:'Causa fora do agrupamento de causas';
+    const prevGroups=ev?ev.previousGroups:[...causeGroups(e.previous[COL.causa])];
+    const currGroups=ev?ev.currentGroups:[...causeGroups(e.current[COL.causa])];
+    const shared=ev&&ev.groups?ev.groups:[];
     return `<tr>
       <td><b>${esc(formatNumero(e.previous[COL.numero]))}</b></td>
       <td>${esc(gcDate(e.previous.__dataFim))}</td>
       <td>${esc(gcText(e.previous[COL.equipeDesl]))}</td>
       <td>${esc(gcText(e.previous[COL.causa]))}</td>
+      <td>${gcGroupBadges(prevGroups)}</td>
       <td><b>${esc(formatNumero(e.current[COL.numero]))}</b></td>
       <td>${esc(gcDate(e.current.__dataFim))}</td>
       <td>${esc(gcText(e.current[COL.equipeDesl]))}</td>
       <td>${esc(gcText(e.current[COL.causa]))}</td>
+      <td>${gcGroupBadges(currGroups)}</td>
       <td>${fmtNum(e.diasDesdeAnterior)}</td>
-      <td>${esc(groups)}</td>
-      <td><span class="gc-badge ${ok?'':'off'}">${ok?'REINCIDENTE POR GRUPO':'NÃO CONFIRMADA'}</span></td>
-      <td>${esc(gcText(motivo))}</td>
+      <td>${ok?'<span class="gc-continue">CONTINUAÇÃO</span>':'<span class="gc-break">QUEBRA DE GRUPO</span>'}</td>
+      <td>${ok?gcGroupBadges(shared):'<span class="gc-muted">—</span>'}</td>
+      <td class="gc-eorder">${esc(gcEorderObs(e.previous))}</td>
+      <td>${esc(gcEorderDate(e.previous))}</td>
+      <td class="gc-eorder">${esc(gcEorderObs(e.current))}</td>
+      <td>${esc(gcEorderDate(e.current))}</td>
     </tr>`;
   }).join('')}</tbody></table></div>`;
 }
@@ -11690,36 +11767,39 @@ function renderAnaliseGrupoCausa(){
   const reduction=totalGeneral?((totalGeneral-totalGroup)/totalGeneral*100):0;
   const groupCounts={RAMAL:0,MEDIDOR:0,'VEGETAÇÃO':0,ANIMAIS:0,OUTROS:0};
   for(const e of model.confirmed){
-    const gs=e.groups||[];
-    let principal=false;
-    for(const g of gs){
-      if(g in groupCounts){groupCounts[g]++;principal=true}
-    }
+    const gs=e.groups||[];let principal=false;
+    for(const g of gs){if(g in groupCounts){groupCounts[g]++;principal=true}}
     if(!principal)groupCounts.OUTROS++;
   }
 
   el.innerHTML=`<div class="gc-page">
+    <div class="gc-filters">
+      <div class="gc-filter-field"><label>Data inicial</label><input type="date" id="gcDateFrom" value="${esc(S.analiseGrupoCausaDateFrom||'')}"></div>
+      <div class="gc-filter-field"><label>Data final</label><input type="date" id="gcDateTo" value="${esc(S.analiseGrupoCausaDateTo||'')}"></div>
+      <button class="gc-filter-clear" id="gcDateClear">Limpar período</button>
+    </div>
+
     <div class="gc-kpis">
       <div class="gc-kpi" style="--gc:#7b8580"><div class="l">Reincidência Geral</div><div class="v">${fmtNum(totalGeneral)}</div><div class="s">mesmo cliente + retorno em até 30 dias</div></div>
       <div class="gc-kpi" style="--gc:#008556"><div class="l">Reincidência por Grupo</div><div class="v">${fmtNum(totalGroup)}</div><div class="s">até 30 dias + grupo de causa em comum</div></div>
       <div class="gc-kpi" style="--gc:#ca463f"><div class="l">Redução</div><div class="v">${fmtPct(reduction)}</div><div class="s">${fmtNum(Math.max(0,totalGeneral-totalGroup))} reincidência(s) deixam de ser confirmadas</div></div>
       <div class="gc-kpi" style="--gc:#1266a8"><div class="l">Clientes reincidentes por Grupo</div><div class="v">${fmtNum(model.clients.filter(c=>c.group.length>0).length)}</div><div class="s">clientes com ao menos um vínculo confirmado</div></div>
-      <div class="gc-kpi" style="--gc:#1266a8"><div class="l">Ramal</div><div class="v">${fmtNum(groupCounts.RAMAL)}</div><div class="s">vínculos confirmados</div></div>
-      <div class="gc-kpi" style="--gc:#d97925"><div class="l">Medidor</div><div class="v">${fmtNum(groupCounts.MEDIDOR)}</div><div class="s">vínculos confirmados</div></div>
-      <div class="gc-kpi" style="--gc:#4b8b42"><div class="l">Vegetação</div><div class="v">${fmtNum(groupCounts['VEGETAÇÃO'])}</div><div class="s">vínculos confirmados</div></div>
-      <div class="gc-kpi" style="--gc:#73529d"><div class="l">Animais</div><div class="v">${fmtNum(groupCounts.ANIMAIS)}</div><div class="s">vínculos confirmados</div></div>
+      <div class="gc-kpi" style="--gc:#147d64"><div class="l">Ramal</div><div class="v">${fmtNum(groupCounts.RAMAL)}</div><div class="s">vínculos confirmados</div></div>
+      <div class="gc-kpi" style="--gc:#d17a24"><div class="l">Medidor</div><div class="v">${fmtNum(groupCounts.MEDIDOR)}</div><div class="s">vínculos confirmados</div></div>
+      <div class="gc-kpi" style="--gc:#4f8c3f"><div class="l">Vegetação</div><div class="v">${fmtNum(groupCounts['VEGETAÇÃO'])}</div><div class="s">vínculos confirmados</div></div>
+      <div class="gc-kpi" style="--gc:#7556a3"><div class="l">Animais</div><div class="v">${fmtNum(groupCounts.ANIMAIS)}</div><div class="s">vínculos confirmados</div></div>
     </div>
 
     <div class="gc-note">
-      Esta página usa <b>exatamente o mesmo motor da Reincidência por Grupo validada na aba Reincidente</b>:
-      mesmo cliente, ocorrência imediatamente anterior, intervalo de até 30 dias e ao menos um Grupo Causa em comum.
-      A aba <b>Análise por Causa</b> existente foi preservada sem alterações.
+      <b>Regra:</b> mesmo cliente, ocorrência imediatamente anterior, até 30 dias e ao menos um Grupo Causa em comum.
+      Causas que não aparecem na relação de agrupamento passam automaticamente a formar <b>um grupo próprio</b>.
+      A Execução Mês é <b>complementar</b>: Observação e Data Fim Execução aparecem quando houver correspondência por Número + Equipe.
     </div>
 
     <section class="gc-card">
       <div class="gc-head"><div>
         <div class="gc-title">Clientes que permanecem reincidentes pela metodologia por Grupo</div>
-        <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · clique em uma linha para abrir a sequência completa</div>
+        <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · clique para visualizar continuidades, quebras e E-Order</div>
       </div><input class="gc-search" id="gcSearch" value="${esc(S.analiseGrupoCausaSearch||'')}" placeholder="Buscar número do cliente"></div>
       ${gcClientTable(ativos,'ativo',model)}
     </section>
@@ -11738,12 +11818,18 @@ function renderAnaliseGrupoCausa(){
     let timer;
     search.oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>{S.analiseGrupoCausaSearch=search.value;S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa()},160)};
   }
+  const df=document.getElementById('gcDateFrom'),dt=document.getElementById('gcDateTo'),clear=document.getElementById('gcDateClear');
+  if(df)df.onchange=()=>{S.analiseGrupoCausaDateFrom=df.value||'';S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa()};
+  if(dt)dt.onchange=()=>{S.analiseGrupoCausaDateTo=dt.value||'';S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa()};
+  if(clear)clear.onclick=()=>{S.analiseGrupoCausaDateFrom='';S.analiseGrupoCausaDateTo='';S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa()};
+
   el.querySelectorAll('[data-gc-client]').forEach(tr=>tr.onclick=()=>{
     const cli=decodeURIComponent(tr.dataset.gcClient||''),key=`${tr.dataset.gcKind}:${cli}`;
     if(S.analiseGrupoCausaExpanded.has(key))S.analiseGrupoCausaExpanded.delete(key);else S.analiseGrupoCausaExpanded.add(key);
     S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa();
   });
 }
+
 
 
 /* ============================================================
