@@ -1,32 +1,32 @@
 {
-  "gerado_em": "2026-08-26T15:42:01",
+  "gerado_em": "2026-08-26T16:57:17",
   "versao": 9,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 6165,
-      "tamanho_bytes": 956205,
+      "linhas": 6184,
+      "tamanho_bytes": 958662,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-26T15:38:52"
+      "fonte_modificada_em": "2026-08-26T16:27:02"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
-      "linhas": 47464,
-      "tamanho_bytes": 8557294,
+      "linhas": 47468,
+      "tamanho_bytes": 8558479,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
-      "fonte_modificada_em": "2026-08-26T15:27:07"
+      "fonte_modificada_em": "2026-08-26T16:35:45"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 236466,
-      "tamanho_bytes": 22961676,
+      "linhas": 236488,
+      "tamanho_bytes": 22964313,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
-      "fonte_modificada_em": "2026-08-26T15:10:02",
-      "linhas_origem": 236466,
-      "linhas_publicadas": 236466,
+      "fonte_modificada_em": "2026-08-26T16:09:20",
+      "linhas_origem": 236488,
+      "linhas_publicadas": 236488,
       "clientes_oficiais": 3670,
       "modo": "universo_completo_denominador",
-      "denominador_elegivel": 100533
+      "denominador_elegivel": 100540
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
@@ -40,29 +40,29 @@
     },
     "analise_grupo_causa": {
       "arquivo": "analise_grupo_causa.json.gz",
-      "linhas": 25057,
-      "tamanho_bytes": 1266826,
+      "linhas": 25059,
+      "tamanho_bytes": 1267074,
       "metodologia": "grupo_causa_contextual_v4_consulta_incidencia_mestre",
       "fonte_mestre": "Base_Final_Incidencia / Consulta Incidência",
       "janela_reincidencia_dias": 30,
-      "linhas_consulta_total": 236466,
-      "linhas_consulta_elegiveis": 100533,
+      "linhas_consulta_total": 236488,
+      "linhas_consulta_elegiveis": 100540,
       "duplicidades_numero_removidas": 0,
-      "origens_identificadas": 75476,
-      "ciclos_identificados": 75476,
-      "linhas_antiga": 25057,
+      "origens_identificadas": 75481,
+      "ciclos_identificados": 75481,
+      "linhas_antiga": 25059,
       "linhas_nova": 4657,
-      "clientes_antiga": 11855,
+      "clientes_antiga": 11856,
       "clientes_nova": 3842,
       "referencia_base_reincidencia_oficial": 4550,
-      "diferenca_antiga_vs_oficial": 20507,
+      "diferenca_antiga_vs_oficial": 20509,
       "ambiguas_sem_contexto": 107,
       "execucao_arquivos": [
         "Produt_Resultado_Mes_2026-08.xlsx"
       ],
       "observacoes_janela_dias": 30,
       "execucao_modo_vinculo": "LEFT JOIN complementar: Consulta.Numero+Equipe = Execucao.Numero da Incidencia+Recurso/Equipe",
-      "execucao_matches": 1536,
+      "execucao_matches": 1540,
       "execucao_sem_match": 1002,
       "execucao_fora_janela_30d": 47576,
       "reincidencias_ramal": 1934,
