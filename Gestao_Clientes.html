@@ -1236,9 +1236,17 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 #panel-analiseGrupoCausa .gc-att-card{position:relative;border:1px solid #dce6e2;border-radius:13px;background:#fff;padding:13px;min-width:0}
 #panel-analiseGrupoCausa .gc-att-card.recurrent{border:2px solid #008556;background:#f5fbf8;box-shadow:0 0 0 3px rgba(0,133,86,.06)}
 
-#panel-analiseGrupoCausa .gc-att-card.origin{border:1px dashed #aeb8b3;background:#f3f5f4;box-shadow:none}
+#panel-analiseGrupoCausa .gc-att-card.origin{border:1px solid #c7cfcb;background:#f4f6f5;box-shadow:none}
 #panel-analiseGrupoCausa .gc-att-card.origin .gc-cause-highlight{border-left-color:#89938e;background:#e8ecea}
 #panel-analiseGrupoCausa .gc-origin-badge{display:inline-flex;align-items:center;border-radius:999px;background:#6f7a75;color:#fff;font-size:8px;font-weight:900;letter-spacing:.25px;padding:4px 7px;white-space:nowrap}
+
+#panel-analiseGrupoCausa .gc-group-badge-inactive{
+  background:#d8ddda !important;
+  color:#7a8580 !important;
+  border:1px solid #c8cfcb;
+  opacity:.92;
+}
+
 #panel-analiseGrupoCausa .gc-origin-note{margin-top:8px;padding:6px 8px;border-radius:7px;background:#e5e9e7;color:#52605a;font-size:8.5px;font-weight:800}
 
 #panel-analiseGrupoCausa .gc-att-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:9px}
@@ -11941,6 +11949,18 @@ function gcGroupBadges(groups){
   const arr=[...(groups||[])];
   return arr.length?arr.map(gcGroupBadge).join(''):'<span class="gc-muted">—</span>';
 }
+
+function gcGroupBadgeInactive(group){
+  if(!group)return '<span class="gc-muted">—</span>';
+  return `<span class="gc-group-badge gc-group-badge-inactive">${esc(group)}</span>`;
+}
+function gcGroupBadgesContext(allGroups,activeGroups){
+  const all=[...new Set([...(allGroups||[])])];
+  const active=new Set([...(activeGroups||[])]);
+  if(!all.length)return '<span class="gc-muted">—</span>';
+  return all.map(group=>active.has(group)?gcGroupBadge(group):gcGroupBadgeInactive(group)).join('');
+}
+
 function gcEorderObs(row){return gcText(row&&row.__obsEorder)}
 function gcEorderDate(row){return gcDate(row&&row.__dataFimExecucao)}
 function gcExpandableText(value,empty='—'){
@@ -11964,22 +11984,219 @@ function gcAssignCycles(rows){
     return {...e,__gcCycle:cycle,__gcCycleStart:cycleStart};
   });
 }
+
+function gcBuildParallelGroupEvaluations(sourceRows){
+  const byClient=new Map();
+  const evaluations=[];
+  const rowMeta=new Map();
+  const rowsByClient=new Map();
+
+  const rowKey=row=>normalizeNumero(row?.[COL.numero]);
+
+  for(const row of sourceRows||[]){
+    if(!gcGeneralEligible(row))continue;
+    const client=String(row[COL.nCliente]||'').trim();
+    if(!client)continue;
+    if(!byClient.has(client))byClient.set(client,[]);
+    byClient.get(client).push(row);
+  }
+
+  for(const [client,rows] of byClient){
+    rows.sort((a,b)=>(a.__dataFim-b.__dataFim)||String(a[COL.numero]||'').localeCompare(String(b[COL.numero]||'')));
+    rowsByClient.set(gcClientKey(client),rows);
+
+    // Cada grupo mantém sua própria "memória".
+    // Assim RAMALs no meio não apagam a última referência de MEDIDOR, e vice-versa.
+    const anchors=new Map(); // grupo -> {row, time, pending}
+    const activeByRow=new Map();
+
+    const ensureMeta=row=>{
+      const key=rowKey(row);
+      if(!rowMeta.has(key)){
+        rowMeta.set(key,{
+          client:gcClientKey(client),
+          row,
+          possibleGroups:[...causeGroups(row?.[COL.causa])],
+          activeGroups:[],
+          status:'ORIGEM',
+          recurrent:false,
+          event:null
+        });
+      }
+      return rowMeta.get(key);
+    };
+
+    for(let i=0;i<rows.length;i++){
+      const current=rows[i];
+      const currentKey=rowKey(current);
+      const possible=[...causeGroups(current?.[COL.causa])];
+      const currentMeta=ensureMeta(current);
+
+      // Descarta referências vencidas apenas para a incidência atual.
+      const candidates=[];
+      for(const group of possible){
+        const anchor=anchors.get(group);
+        if(!anchor)continue;
+        const diffMs=current.__dataFim-anchor.time;
+        if(diffMs>=0&&diffMs<=GROUP_REINCIDENCE_MAX_MS){
+          candidates.push({group,anchor,diffMs});
+        }
+      }
+
+      if(candidates.length){
+        // Se mais de um grupo possível possui memória, usa o mais recente.
+        // Isso resolve causas RAMAL/MEDIDOR pelo contexto mais próximo,
+        // sem apagar as memórias paralelas dos demais grupos.
+        candidates.sort((a,b)=>b.anchor.time-a.anchor.time||String(a.group).localeCompare(String(b.group),'pt-BR'));
+        const chosen=candidates[0];
+        const group=chosen.group;
+        const previous=chosen.anchor.row;
+        const previousKey=rowKey(previous);
+
+        // Se a origem anterior era uma causa ambígua ainda não resolvida,
+        // o primeiro vínculo posterior define qual grupo ela estava usando.
+        if(chosen.anchor.pending){
+          const prevMeta=ensureMeta(previous);
+          prevMeta.activeGroups=[group];
+          prevMeta.status='ORIGEM';
+          activeByRow.set(previousKey,new Set([group]));
+
+          // A causa ambígua passa a pertencer à sequência escolhida;
+          // os outros grupos continuam visíveis no cartão, porém em cinza.
+          for(const [g,a] of [...anchors.entries()]){
+            if(g!==group && a.row===previous && a.pending)anchors.delete(g);
+          }
+        }
+
+        const previousPossible=[...causeGroups(previous?.[COL.causa])];
+        const diffMs=chosen.diffMs;
+        const diasDesdeAnterior=Math.floor(diffMs/86400000);
+
+        const ev={
+          client:gcClientKey(client),
+          row:current,
+          current,
+          previous,
+          previousRow:previous,
+          previousGroups:previousPossible,
+          currentGroups:possible,
+          previousEffectiveGroups:[group],
+          currentEffectiveGroups:[group],
+          groups:[group],
+          group,
+          groupLinks:[{group,previous,current,diffMs,diasDesdeAnterior}],
+          diffMs,
+          diasDesdeAnterior,
+          dentroJanela:true,
+          mesmoGrupo:true,
+          confirmada:true,
+          status:'MESMO GRUPO',
+          motivo:`Reincidente de ${group}; última incidência do grupo em ${gcDate(previous.__dataFim)}`,
+          incGeradora:previous[COL.numero],
+          equipeGeradora:previous[COL.equipeDesl],
+          classificacao:'REINCIDENTE'
+        };
+
+        evaluations.push(ev);
+        currentMeta.activeGroups=[group];
+        currentMeta.status='REINCIDENTE';
+        currentMeta.recurrent=true;
+        currentMeta.event=ev;
+        activeByRow.set(currentKey,new Set([group]));
+
+        // Atualiza apenas a memória do grupo efetivamente usado.
+        // As memórias dos outros grupos seguem vivas em paralelo.
+        anchors.set(group,{row:current,time:current.__dataFim,pending:false});
+      }else{
+        // Não existe incidência anterior compatível em até 30 dias:
+        // esta incidência passa a ser origem de uma nova cadeia de grupo.
+        currentMeta.status='ORIGEM';
+        currentMeta.recurrent=false;
+
+        if(possible.length===1){
+          const group=possible[0];
+          currentMeta.activeGroups=[group];
+          activeByRow.set(currentKey,new Set([group]));
+          anchors.set(group,{row:current,time:current.__dataFim,pending:false});
+        }else{
+          // Uma causa multigrupo sem contexto anterior fica "em aberto".
+          // Ela pode ser resolvida pelo primeiro atendimento posterior compatível.
+          currentMeta.activeGroups=[];
+          activeByRow.set(currentKey,new Set());
+          for(const group of possible){
+            anchors.set(group,{row:current,time:current.__dataFim,pending:true});
+          }
+        }
+      }
+    }
+  }
+
+  // Garante que os metadados reflitam resoluções retroativas de origens multigrupo.
+  for(const [key,set] of activeByRow){
+    const meta=rowMeta.get(key);
+    if(meta)meta.activeGroups=[...set];
+  }
+
+  return {evaluations,rowMeta,rowsByClient};
+}
+
+function gcBuildTimelineCycles(rows,confirmedEvents){
+  const sorted=(rows||[]).slice().sort((a,b)=>a.__dataFim-b.__dataFim);
+  if(!sorted.length)return [];
+
+  // Ciclos visuais: nova faixa quando há mais de 30 dias sem qualquer atendimento.
+  const cycles=[];
+  let current=[];
+  for(const row of sorted){
+    if(current.length){
+      const gap=row.__dataFim-current[current.length-1].__dataFim;
+      if(gap>GROUP_REINCIDENCE_MAX_MS){
+        cycles.push(current);
+        current=[];
+      }
+    }
+    current.push(row);
+  }
+  if(current.length)cycles.push(current);
+
+  const eventCurrentKeys=new Set((confirmedEvents||[]).map(e=>normalizeNumero(e.current?.[COL.numero])));
+  return cycles.filter(cycle=>cycle.some(row=>eventCurrentKeys.has(normalizeNumero(row?.[COL.numero]))));
+}
+
 function gcBuildModel(){
   const generalAll=gcBuildGeneralEvents();
-  const evaluationsAll=allGroupRecurrenceEvaluations();
+  const parallel=gcBuildParallelGroupEvaluations(S.baseCompleta||[]);
+  const evaluationsAll=parallel.evaluations;
+
   const general=generalAll.filter(gcInPagePeriod);
   const evaluations=evaluationsAll.filter(gcInPagePeriod);
   const confirmed=evaluations.filter(e=>e.confirmada);
   const evalByPair=new Map(evaluationsAll.map(e=>[gcPairKey(e),e]));
+
   const byClient=new Map();
   function ensure(client){
     const key=gcClientKey(client);
-    if(!byClient.has(key))byClient.set(key,{cliente:key,general:[],group:[],ramal:0,medidor:0,vegetacao:0,animais:0,outros:0});
+    if(!byClient.has(key)){
+      byClient.set(key,{
+        cliente:key,
+        general:[],
+        group:[],
+        ramal:0,
+        medidor:0,
+        vegetacao:0,
+        animais:0,
+        outros:0,
+        timeline:parallel.rowsByClient.get(key)||[]
+      });
+    }
     return byClient.get(key);
   }
+
   for(const e of general)ensure(e.client).general.push(e);
+
   for(const e of confirmed){
-    const c=ensure(e.client);c.group.push(e);
+    const c=ensure(e.client);
+    c.group.push(e);
     const gs=e.groups||[];
     if(gs.includes('RAMAL'))c.ramal++;
     if(gs.includes('MEDIDOR'))c.medidor++;
@@ -11987,8 +12204,19 @@ function gcBuildModel(){
     if(gs.includes('ANIMAIS'))c.animais++;
     if(!gs.some(g=>['RAMAL','MEDIDOR','VEGETAÇÃO','ANIMAIS'].includes(g)))c.outros++;
   }
-  const clients=[...byClient.values()].sort((a,b)=>b.group.length-a.group.length||b.general.length-a.general.length||String(a.cliente).localeCompare(String(b.cliente),'pt-BR'));
-  return {general,evaluations,confirmed,evalByPair,clients};
+
+  const clients=[...byClient.values()]
+    .sort((a,b)=>b.group.length-a.group.length||b.general.length-a.general.length||String(a.cliente).localeCompare(String(b.cliente),'pt-BR'));
+
+  return {
+    general,
+    evaluations,
+    confirmed,
+    evalByPair,
+    clients,
+    rowMeta:parallel.rowMeta,
+    rowsByClient:parallel.rowsByClient
+  };
 }
 
 /* ---------- Correções: local + Supabase ---------- */
@@ -12056,17 +12284,11 @@ async function gcSetCorrection(event,value){
 
 /* ---------- tabela detalhada ---------- */
 
-function gcAttendanceCard(row,recurrent,event,model,cycleNo,origin=false){
-  const ev=event||null;
-  const groups=ev
-    ? (
-        origin
-          ?(ev.previousEffectiveGroups?.length?ev.previousEffectiveGroups:(ev.previousGroups||[]))
-          :recurrent
-            ?(ev.currentEffectiveGroups?.length?ev.currentEffectiveGroups:(ev.groups?.length?ev.groups:(ev.currentGroups||[])))
-            :(ev.previousEffectiveGroups?.length?ev.previousEffectiveGroups:(ev.previousGroups||[]))
-      )
-    : [...causeGroups(row?.[COL.causa])];
+function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
+  const recurrent=!!meta?.recurrent;
+  const ev=meta?.event||null;
+  const allGroups=meta?.possibleGroups?.length?meta.possibleGroups:[...causeGroups(row?.[COL.causa])];
+  const activeGroups=meta?.activeGroups||[];
   const change=ev?gcCauseChangeValue(ev):{};
   const correction=ev?gcCorrectionValue(ev):'Sem Ação';
   const pair=ev?gcPairKey(ev):'';
@@ -12075,12 +12297,26 @@ function gcAttendanceCard(row,recurrent,event,model,cycleNo,origin=false){
   const process=row?.[COL.processo];
   const al=row?.[COL.al];
   const ponto=row?.[COL.pontoEletrico];
-  const cardClass=origin?'origin':recurrent?'recurrent':'';
-  const badge=origin
-    ? '<span class="gc-origin-badge">ORIGEM DO REINCIDENTE</span>'
-    : recurrent
-      ? '<span class="gc-recurrent-badge">REINCIDENTE</span>'
-      : '<span class="gc-initial-badge">ATENDIMENTO INICIAL</span>';
+
+  let cardClass='',badge='';
+  if(recurrent){
+    cardClass='recurrent';
+    badge='<span class="gc-recurrent-badge">REINCIDENTE</span>';
+  }else if(isFirst){
+    badge='<span class="gc-initial-badge">ATENDIMENTO INICIAL</span>';
+  }else{
+    cardClass='origin';
+    badge='<span class="gc-origin-badge">ORIGEM DE GRUPO</span>';
+  }
+
+  const originText=!recurrent&&!isFirst
+    ? (
+        activeGroups.length
+          ? `Inicia/reinicia a referência de ${activeGroups.join(' / ')}. Outras sequências de grupo permanecem independentes.`
+          : 'Causa com mais de um grupo possível ainda sem grupo definido pelo contexto posterior.'
+      )
+    :'';
+
   return `<article class="gc-att-card ${cardClass}" ${pair?`data-gc-pair="${esc(pair)}"`:''}>
     <div class="gc-att-top">
       <div>
@@ -12089,23 +12325,33 @@ function gcAttendanceCard(row,recurrent,event,model,cycleNo,origin=false){
       </div>
       ${badge}
     </div>
+
     <div class="gc-att-grid">
       <div class="gc-att-field"><label>Equipe</label><div class="value">${esc(gcText(row?.[COL.equipeDesl]))}</div></div>
       <div class="gc-att-field"><label>Processo</label><div class="value">${esc(gcText(process))}</div></div>
-      <div class="gc-att-field full ${(recurrent||origin)?'gc-cause-highlight':''}">
+
+      <div class="gc-att-field full ${(recurrent||!isFirst)?'gc-cause-highlight':''}">
         <label>Causa</label><div class="value">${gcExpandableText(row?.[COL.causa])}</div>
       </div>
-      <div class="gc-att-field full"><label>Grupo causa</label><div class="value">${gcGroupBadges(groups)}</div></div>
+
+      <div class="gc-att-field full">
+        <label>Grupo causa</label>
+        <div class="value">${gcGroupBadgesContext(allGroups,activeGroups)}</div>
+      </div>
+
       <div class="gc-att-field"><label>AL</label><div class="value">${esc(gcText(al))}</div></div>
       <div class="gc-att-field"><label>Ponto elétrico</label><div class="value">${esc(gcPontoEletricoShort(ponto))}</div></div>
     </div>
+
     <div class="gc-exec-box">
       <label>Busca Execução</label>
       <div class="value">${gcExpandableText(gcEorderObs(row))}</div>
       <div class="gc-exec-date">${esc(gcEorderDate(row))}</div>
     </div>
-    ${origin?'<div class="gc-origin-note">Quebra real da sequência anterior. Esta incidência inicia o grupo que dará origem ao próximo reincidente.</div>':''}
-    ${recurrent&&ev&&!origin?`<div class="gc-action-box">
+
+    ${originText?`<div class="gc-origin-note">${esc(originText)}</div>`:''}
+
+    ${recurrent&&ev?`<div class="gc-action-box">
       <div class="gc-action-row">
         <label>Ação</label>
         <select class="gc-correction ${correction==='Sim'?'sim':correction==='Não'?'nao':''}" data-gc-correction="${esc(pair)}">
@@ -12113,8 +12359,9 @@ function gcAttendanceCard(row,recurrent,event,model,cycleNo,origin=false){
           <option ${correction==='Sim'?'selected':''}>Sim</option>
           <option ${correction==='Não'?'selected':''}>Não</option>
         </select>
-        <span class="gc-muted">${fmtNum(ev.diasDesdeAnterior)} dia(s) desde o atendimento anterior</span>
+        <span class="gc-muted">${fmtNum(ev.diasDesdeAnterior)} dia(s) desde o último atendimento de ${esc(ev.group)}</span>
       </div>
+
       ${correction==='Sim'?`<div class="gc-change-editor">
         <div class="gc-change-grid">
           <div class="gc-change-field">
@@ -12134,59 +12381,56 @@ function gcAttendanceCard(row,recurrent,event,model,cycleNo,origin=false){
 }
 
 function gcDetailTable(client,model){
-  const assigned=gcAssignCycles(client.general);
-  const rows=assigned.filter(e=>model.evalByPair.get(gcPairKey(e))?.confirmada);
-  if(!rows.length)return '<div class="gc-empty">Nenhum vínculo encontrado para este filtro.</div>';
+  const clientRows=(client.timeline||model.rowsByClient.get(gcClientKey(client.cliente))||[])
+    .slice()
+    .sort((a,b)=>a.__dataFim-b.__dataFim);
 
-  const cycles=new Map();
-  for(const e of rows){
-    if(!cycles.has(e.__gcCycle))cycles.set(e.__gcCycle,[]);
-    cycles.get(e.__gcCycle).push(e);
-  }
+  const clientConfirmed=model.confirmed
+    .filter(e=>gcClientKey(e.client)===gcClientKey(client.cliente))
+    .sort((a,b)=>a.current.__dataFim-b.current.__dataFim);
+
+  const cycles=gcBuildTimelineCycles(clientRows,clientConfirmed);
+  if(!cycles.length)return '<div class="gc-empty">Nenhum vínculo encontrado para este filtro.</div>';
+
+  const confirmedCurrentKeys=new Set(clientConfirmed.map(e=>normalizeNumero(e.current?.[COL.numero])));
 
   let html='<div class="gc-cycle-cards">';
-  for(const [cycleNo,cycleRows] of cycles){
-    cycleRows.sort((a,b)=>a.current.__dataFim-b.current.__dataFim);
+
+  cycles.forEach((cycleRows,index)=>{
+    const cycleNo=index+1;
+    const cycleKeys=new Set(cycleRows.map(r=>normalizeNumero(r?.[COL.numero])));
+    const cycleEvents=clientConfirmed.filter(e=>cycleKeys.has(normalizeNumero(e.current?.[COL.numero])));
+    const recurrentCount=cycleEvents.length;
     const first=cycleRows[0],last=cycleRows[cycleRows.length-1];
-    const linked=cycleRows.length;
-    const cards=[];
-    let lastDisplayed='';
-
-    const firstEv=model.evalByPair.get(gcPairKey(first));
-    cards.push(gcAttendanceCard(first.previous,false,firstEv,model,cycleNo,false));
-    lastDisplayed=normalizeNumero(first.previous?.[COL.numero]);
-
-    for(const e of cycleRows){
-      const ev=model.evalByPair.get(gcPairKey(e));
-      if(!ev)continue;
-      const originNum=normalizeNumero(ev.previous?.[COL.numero]);
-      const currentNum=normalizeNumero(ev.current?.[COL.numero]);
-
-      // Se a origem deste reincidente foi escondida por uma quebra de grupo,
-      // recoloca a incidência na sequência em cinza antes do reincidente.
-      if(originNum && originNum!==lastDisplayed){
-        cards.push(gcAttendanceCard(ev.previous,false,ev,model,cycleNo,true));
-        lastDisplayed=originNum;
-      }
-
-      if(currentNum && currentNum!==lastDisplayed){
-        cards.push(gcAttendanceCard(ev.current,true,ev,model,cycleNo,false));
-        lastDisplayed=currentNum;
-      }
-    }
 
     html+=`<section class="gc-cycle-card">
       <div class="gc-cycle-card-head">
-        <strong>Ciclo ${cycleNo} · ${linked} reincidência(s)</strong>
-        <span>${esc(gcDateShort(first.previous.__dataFim))} → ${esc(gcDateShort(last.current.__dataFim))} · janela de até 30 dias</span>
+        <strong>Ciclo ${cycleNo} · ${fmtNum(recurrentCount)} reincidência(s)</strong>
+        <span>${esc(gcDateShort(first.__dataFim))} → ${esc(gcDateShort(last.__dataFim))} · memórias paralelas por grupo em janela de até 30 dias</span>
       </div>
-      <div class="gc-cycle-flow">${cards.join('')}</div>
+
+      <div class="gc-cycle-flow">
+        ${cycleRows.map((row,rowIndex)=>{
+          const key=normalizeNumero(row?.[COL.numero]);
+          const meta=model.rowMeta.get(key)||{
+            row,
+            possibleGroups:[...causeGroups(row?.[COL.causa])],
+            activeGroups:[],
+            status:'ORIGEM',
+            recurrent:false,
+            event:null
+          };
+          return gcAttendanceCard(row,meta,model,cycleNo,rowIndex===0);
+        }).join('')}
+      </div>
+
       <div class="gc-cycle-foot">
-        <span>Cliente ${esc(client.cliente)} · origens intermediárias em cinza preservam a referência de cada reincidência</span>
-        <span>${gcGroupBadges([...new Set(cycleRows.flatMap(e=>(model.evalByPair.get(gcPairKey(e))?.groups||[])))])}</span>
+        <span>Cliente ${esc(client.cliente)} · todas as incidências do período são exibidas na ordem cronológica</span>
+        <span>RAMAL, MEDIDOR e demais grupos mantêm referências independentes dentro de 30 dias</span>
       </div>
     </section>`;
-  }
+  });
+
   return html+'</div>';
 }
 
@@ -12298,7 +12542,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
 
     <div class="gc-kpis">
       <div class="gc-kpi" style="--gc:#7b8580"><div class="l">Reincidência Geral</div><div class="v">${fmtNum(totalGeneral)}</div><div class="s">mesmo cliente + retorno em até 30 dias</div></div>
-      <div class="gc-kpi" style="--gc:#008556"><div class="l">Reincidência por Grupo</div><div class="v">${fmtNum(totalGroup)}</div><div class="s">até 30 dias + grupo de causa em comum</div></div>
+      <div class="gc-kpi" style="--gc:#008556"><div class="l">Reincidência por Grupo</div><div class="v">${fmtNum(totalGroup)}</div><div class="s">último atendimento do mesmo grupo em até 30 dias</div></div>
       <div class="gc-kpi" style="--gc:#ca463f"><div class="l">Redução pela metodologia</div><div class="v">${fmtPct(reduction)}</div><div class="s">${fmtNum(Math.max(0,totalGeneral-totalGroup))} reincidência(s) deixam de ser confirmadas</div></div>
       <div class="gc-kpi corrected"><div class="l">Causas corrigidas</div><div class="v">${fmtNum(correctedPairs.size)}</div><div class="s">reincidentes marcados como Correção = Sim</div></div>
       <div class="gc-kpi" style="--gc:#147d64"><div class="l">Ramal</div><div class="v">${fmtNum(groupCounts.RAMAL)}</div><div class="s">vínculos confirmados</div></div>
@@ -12309,10 +12553,10 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     </div>
 
     <div class="gc-note">
-      <b>Continuidade é a regra fixa da Reincidência por Grupo:</b> somente pares do mesmo cliente, em até 30 dias e com ao menos um Grupo Causa em comum são contabilizados como reincidentes.
-      Quebras de grupo aparecem apenas na área de diagnóstico e <b>não entram na contagem</b>.
-      A coluna <b>Correção</b> inicia como “Sem Ação”; “Sim” contabiliza no cartão Causas corrigidas.
-      Os separadores “Ciclo” mostram a divisão das sequências por janelas de até 30 dias.
+      <b>Reincidência por Grupo usa memória independente para cada grupo:</b> RAMAL, MEDIDOR e os demais grupos mantêm sua própria última incidência válida por até 30 dias.
+      Por isso, atendimentos de outro grupo no meio da linha do tempo <b>não apagam</b> a referência anterior.
+      Causas que pertencem a mais de um grupo mostram todas as possibilidades; o grupo usado naquele vínculo fica colorido e os demais ficam em cinza.
+      Ao expandir um cliente, todas as incidências do ciclo são exibidas em ordem cronológica.
     </div>
 
     <section class="gc-card">
