@@ -1,25 +1,25 @@
 {
-  "gerado_em": "2026-08-27T10:52:41",
+  "gerado_em": "2026-08-27T11:02:43",
   "versao": 11,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 6278,
-      "tamanho_bytes": 974283,
+      "linhas": 6283,
+      "tamanho_bytes": 975261,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-27T10:52:39"
+      "fonte_modificada_em": "2026-08-27T11:02:41"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
       "linhas": 47555,
-      "tamanho_bytes": 8581531,
+      "tamanho_bytes": 8581538,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
       "fonte_modificada_em": "2026-08-27T10:27:56"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
       "linhas": 236708,
-      "tamanho_bytes": 23930537,
+      "tamanho_bytes": 23930531,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
       "fonte_modificada_em": "2026-08-27T10:14:13",
       "linhas_origem": 236708,
@@ -31,7 +31,7 @@
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4572,
-      "tamanho_bytes": 504226,
+      "tamanho_bytes": 504228,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
       "fonte_modificada_em": "2026-08-27T10:21:04",
       "vinculadas_principal": 4572,
@@ -41,7 +41,7 @@
     "analise_grupo_causa": {
       "arquivo": "analise_grupo_causa.json.gz",
       "linhas": 25098,
-      "tamanho_bytes": 1904214,
+      "tamanho_bytes": 1904216,
       "metodologia": "grupo_causa_contextual_v4_consulta_incidencia_mestre",
       "fonte_mestre": "Base_Final_Incidencia / Consulta Incidência",
       "janela_reincidencia_dias": 30,
