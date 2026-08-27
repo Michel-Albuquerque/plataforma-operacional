@@ -1226,90 +1226,47 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 }
 
 
-/* ============================================================
-   CLIENTE — novo layout da régua do tempo por reincidência
-   ============================================================ */
-.client-cycle-page{display:flex;flex-direction:column;gap:14px}
-.client-cycle-note{background:#f4faf7;border:1px solid #d8ebe1;border-radius:14px;padding:12px 14px;color:var(--ink);font-size:12px;line-height:1.45}
-.client-cycle-hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:12px;align-items:stretch}
-.client-cycle-hero .hero-main,.client-cycle-hero .hero-metrics{background:#fff;border:1px solid var(--border);border-radius:18px;padding:16px 18px;box-shadow:0 10px 22px rgba(12,43,32,.06)}
-.client-cycle-hero .hero-main{display:flex;gap:14px;align-items:flex-start}
-.client-cycle-avatar{width:54px;height:54px;border-radius:16px;background:#ecf6f1;color:var(--brand);display:grid;place-items:center;flex:0 0 54px}
-.client-cycle-avatar svg{width:28px;height:28px}
-.client-cycle-title{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.client-cycle-title h3{margin:0;font-size:30px;line-height:1.05;color:#173f31}
-.client-cycle-badge{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:#ecf6f1;color:#0a7f52;font-size:12px;font-weight:700}
-.client-cycle-badge.alt{background:#f2f7f4;color:#335d4f}
-.client-cycle-sub{margin-top:8px;color:var(--ink-faint);font-size:12px;line-height:1.45}
-.client-cycle-hero .hero-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.client-cycle-metric{padding:4px 8px;border-left:1px solid #e6efeb}
-.client-cycle-metric:first-child{border-left:none;padding-left:0}
-.client-cycle-metric .k{font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);line-height:1.3}
-.client-cycle-metric .v{font-size:30px;font-weight:800;color:#0a7f52;margin-top:2px;line-height:1}
-.client-cycle-metric .s{font-size:11px;color:#5f766d;margin-top:4px}
-.client-cycle-block{background:#fff;border:1px solid #dfeae5;border-radius:20px;padding:16px;box-shadow:0 10px 22px rgba(12,43,32,.05)}
-.client-cycle-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
-.client-cycle-head-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.client-cycle-index{width:34px;height:34px;border-radius:50%;background:#0a7f52;color:#fff;display:grid;place-items:center;font-weight:800;font-size:18px}
-.client-cycle-head h4{margin:0;font-size:24px;color:#173f31;line-height:1.1}
-.client-cycle-head .sub{margin-top:4px;font-size:12px;color:#5b7168}
-.client-cycle-window{display:flex;align-items:center;gap:8px;color:#0a7f52;font-weight:700;font-size:12px;padding:8px 12px;background:#eff8f3;border-radius:999px;border:1px solid #d7ebdf}
-.client-cycle-window svg{width:15px;height:15px}
-.client-cycle-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,.92fr);gap:14px;align-items:start}
-.client-cycle-track{display:flex;align-items:stretch;gap:10px;overflow-x:auto;padding-bottom:6px}
-.client-cycle-track::-webkit-scrollbar{height:8px}
-.client-cycle-track::-webkit-scrollbar-thumb{background:#d8e5df;border-radius:999px}
-.client-cycle-connector{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:62px;color:#5c756d;font-size:12px;font-weight:700;gap:8px}
-.client-cycle-connector .line{width:62px;height:0;border-top:2px dashed #a7bdb3}
-.client-event-card{min-width:270px;max-width:292px;border:1px solid #d7e7e0;border-radius:18px;background:#fcfefd;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 18px rgba(12,43,32,.04)}
-.client-event-card.recurrent{border-color:#65c88f;background:#f8fdfa;box-shadow:0 8px 20px rgba(10,127,82,.08)}
-.client-event-card .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
-.client-event-card .step{display:inline-flex;align-items:center;gap:6px;background:#eef6f1;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;color:#214b3c}
-.client-event-card .flag{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#0a7f52;color:#fff;font-size:11px;font-weight:800;letter-spacing:.02em}
-.client-event-card .detail{display:grid;grid-template-columns:16px 1fr;gap:4px 8px;font-size:12px;color:#254337;line-height:1.35}
-.client-event-card .detail svg{width:15px;height:15px;color:#467565;margin-top:1px}
-.client-event-card .detail b{font-size:13px;color:#173f31}
-.client-event-card .cause-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-top:1px dashed #d6e4de;padding-top:10px}
-.client-event-card .cause-label{font-size:11px;color:#61766d;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
-.client-event-card .cause-text{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;background:#eff8f3;color:#0d7b50;font-size:12px;font-weight:800}
-.client-event-card .group-badges{display:flex;gap:6px;flex-wrap:wrap}
-.client-event-card .group-badges .gc-group-badge{font-size:10px;padding:4px 8px}
-.client-event-card .exec-box{border-top:1px dashed #d6e4de;padding-top:10px}
-.client-event-card .exec-box .label{font-size:11px;color:#61766d;font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px}
-.client-event-card .exec-box .text{font-size:12px;line-height:1.45;color:#244438}
-.client-event-card .mini-link{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#0a7f52;font-weight:700;cursor:pointer}
-.client-event-card .mini-link svg{width:14px;height:14px}
-.client-event-card .action-box{border-top:1px dashed #d6e4de;padding-top:10px;display:flex;flex-direction:column;gap:8px}
-.client-event-card .action-box .label{font-size:11px;color:#61766d;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
-.client-event-card .action-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.client-event-card .action-select{min-width:132px;border:1px solid #c9dcd2;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;background:#fff;color:#173f31}
-.client-event-card .change-summary{font-size:11px;color:#4d675d;line-height:1.4}
-.client-event-card .change-editor{display:none;background:#f5fbf8;border:1px solid #d4e9de;border-radius:14px;padding:10px;gap:8px;flex-direction:column}
-.client-event-card .change-editor.open{display:flex}
-.client-event-card .change-editor .title{font-size:12px;font-weight:800;color:#173f31}
-.client-event-card .change-editor .sub{font-size:11px;color:#61766d;line-height:1.4}
-.client-event-card .change-editor-grid{display:grid;grid-template-columns:1fr;gap:8px}
-.client-event-card .change-editor label{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:700;color:#335547}
-.client-event-card .change-editor select{border:1px solid #c9dcd2;border-radius:10px;padding:8px 10px;background:#fff;font-size:12px;color:#173f31}
-.client-event-card .change-editor .save-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.client-event-card .change-editor .saved{font-size:11px;color:#0a7f52;font-weight:700}
-.client-event-card .change-editor .hint{font-size:11px;color:#5d746b;line-height:1.35}
-.client-cycle-summary{border:1px solid #dfeae5;border-radius:18px;background:#fbfefd;padding:14px;display:flex;flex-direction:column;gap:10px;position:sticky;top:16px}
-.client-cycle-summary h5{margin:0;font-size:18px;color:#173f31;display:flex;align-items:center;gap:8px}
-.client-cycle-summary h5 svg{width:18px;height:18px;color:#0a7f52}
-.client-cycle-summary-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
-.client-cycle-summary-item{display:grid;grid-template-columns:minmax(120px,.9fr) 1fr;gap:8px;font-size:12px;line-height:1.45;align-items:start}
-.client-cycle-summary-item .k{color:#5e776d;font-weight:700}
-.client-cycle-summary-item .v{color:#173f31;font-weight:700}
-.client-cycle-summary .history-link{display:inline-flex;align-items:center;gap:8px;color:#0a7f52;font-weight:800;font-size:12px;cursor:pointer}
-.client-cycle-summary .history-link svg{width:15px;height:15px}
-.client-cycle-footer-tools{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 0}
-.client-cycle-footer-tools .small-note{font-size:11px;color:#667d73}
-.client-cycle-other{background:#fff;border:1px solid #dfeae5;border-radius:18px;padding:14px}
-.client-cycle-other h5{margin:0 0 10px;font-size:18px;color:#173f31}
-.client-cycle-other .hint{font-size:12px;color:#61766d;line-height:1.45;margin-bottom:10px}
-@media (max-width:1100px){.client-cycle-hero,.client-cycle-grid{grid-template-columns:1fr}.client-cycle-summary{position:static}}
-@media (max-width:760px){.client-cycle-hero .hero-metrics{grid-template-columns:1fr}.client-cycle-track{flex-direction:column;overflow-x:visible}.client-cycle-connector{min-width:0;flex-direction:row;width:100%;justify-content:flex-start}.client-cycle-connector .line{width:38px}.client-event-card{min-width:0;max-width:none;width:100%}}
+/* ===== Análise Causa · detalhe em cartões (escopo exclusivo da aba) ===== */
+#panel-analiseGrupoCausa .gc-cycle-cards{display:flex;flex-direction:column;gap:14px;padding:12px 0 4px}
+#panel-analiseGrupoCausa .gc-cycle-card{border:1px solid #d7e3de;border-radius:15px;background:#fff;overflow:hidden;box-shadow:0 4px 16px rgba(22,54,42,.06)}
+#panel-analiseGrupoCausa .gc-cycle-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#f3f8f6;border-bottom:1px solid #dfe9e5}
+#panel-analiseGrupoCausa .gc-cycle-card-head strong{font-size:13px;color:#17352a}
+#panel-analiseGrupoCausa .gc-cycle-card-head span{font-size:10px;color:#708078;font-weight:700}
+#panel-analiseGrupoCausa .gc-cycle-flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:12px;padding:14px}
+#panel-analiseGrupoCausa .gc-att-card{position:relative;border:1px solid #dce6e2;border-radius:13px;background:#fff;padding:13px;min-width:0}
+#panel-analiseGrupoCausa .gc-att-card.recurrent{border:2px solid #008556;background:#f5fbf8;box-shadow:0 0 0 3px rgba(0,133,86,.06)}
+#panel-analiseGrupoCausa .gc-att-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:9px}
+#panel-analiseGrupoCausa .gc-att-order{font-size:12px;font-weight:900;color:#172b23}
+#panel-analiseGrupoCausa .gc-att-date{font-size:9px;color:#728078;margin-top:2px}
+#panel-analiseGrupoCausa .gc-recurrent-badge{display:inline-flex;align-items:center;border-radius:999px;background:#008556;color:#fff;font-size:8px;font-weight:900;letter-spacing:.35px;padding:4px 7px;white-space:nowrap}
+#panel-analiseGrupoCausa .gc-initial-badge{display:inline-flex;align-items:center;border-radius:999px;background:#edf2f0;color:#5f6d67;font-size:8px;font-weight:900;padding:4px 7px;white-space:nowrap}
+#panel-analiseGrupoCausa .gc-att-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+#panel-analiseGrupoCausa .gc-att-field{min-width:0}
+#panel-analiseGrupoCausa .gc-att-field.full{grid-column:1/-1}
+#panel-analiseGrupoCausa .gc-att-field label{display:block;font-size:7.5px;text-transform:uppercase;letter-spacing:.35px;font-weight:900;color:#84918b;margin-bottom:3px}
+#panel-analiseGrupoCausa .gc-att-field .value{font-size:10px;color:#253a31;font-weight:700;overflow-wrap:anywhere}
+#panel-analiseGrupoCausa .gc-cause-highlight{border-left:4px solid #008556;background:#eaf7f1;border-radius:7px;padding:7px 8px}
+#panel-analiseGrupoCausa .gc-cause-highlight .value{color:#006f49}
+#panel-analiseGrupoCausa .gc-exec-box{margin-top:10px;border-top:1px dashed #d5e0db;padding-top:8px}
+#panel-analiseGrupoCausa .gc-exec-box label{display:block;font-size:7.5px;text-transform:uppercase;letter-spacing:.35px;font-weight:900;color:#84918b;margin-bottom:4px}
+#panel-analiseGrupoCausa .gc-exec-date{font-size:8px;color:#7b8983;margin-top:3px}
+#panel-analiseGrupoCausa .gc-action-box{margin-top:10px;border-top:1px solid #d9e5df;padding-top:10px}
+#panel-analiseGrupoCausa .gc-action-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#panel-analiseGrupoCausa .gc-action-row>label{font-size:8px;font-weight:900;text-transform:uppercase;color:#65756e}
+#panel-analiseGrupoCausa .gc-change-editor{margin-top:9px;padding:10px;border:1px solid #b9dccc;border-radius:10px;background:#fff}
+#panel-analiseGrupoCausa .gc-change-grid{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+#panel-analiseGrupoCausa .gc-change-field label{display:block;font-size:7.5px;text-transform:uppercase;font-weight:900;color:#6d7b75;margin-bottom:4px}
+#panel-analiseGrupoCausa .gc-change-field select{width:100%;min-width:0;padding:7px 8px;border:1px solid #cbd9d3;border-radius:8px;background:#fff;font-size:9px}
+#panel-analiseGrupoCausa .gc-save-change{height:32px;border:0;border-radius:8px;background:#008556;color:#fff;font-size:9px;font-weight:900;padding:0 12px;cursor:pointer}
+#panel-analiseGrupoCausa .gc-saved-change{margin-top:7px;font-size:8.5px;font-weight:800;color:#00744d}
+#panel-analiseGrupoCausa .gc-cycle-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fbfdfc;border-top:1px solid #edf2ef;font-size:9px;color:#66766f}
+#panel-analiseGrupoCausa .gc-export-changes{border:0;border-radius:9px;background:#008556;color:#fff;font-size:10px;font-weight:900;padding:9px 12px;cursor:pointer;white-space:nowrap}
+#panel-analiseGrupoCausa .gc-export-changes:hover{filter:brightness(.95)}
+@media(max-width:900px){
+  #panel-analiseGrupoCausa .gc-cycle-flow{grid-template-columns:1fr}
+  #panel-analiseGrupoCausa .gc-change-grid{grid-template-columns:1fr}
+  #panel-analiseGrupoCausa .gc-save-change{width:100%}
+}
 
 </style>
 </head>
@@ -7145,336 +7102,6 @@ function getClientReincidenceRows(cliente, elegiveis){
     .filter(r=>String(r[COL2.nCliente]||'').trim()===cliente)
     .map(r=>porNumero.get(String(r[COL2.numero]||'').trim()) || r);
 }
-function clientTimelineIcon(kind){
-  const icons={
-    user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>',
-    calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>',
-    list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>',
-    team:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-    bolt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>',
-    external:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/></svg>'
-  };
-  return icons[kind]||icons.list;
-}
-function clientTimelineState(pairKey){
-  const saved=_clientTimelineCauseChanges&&_clientTimelineCauseChanges[pairKey];
-  return saved&&typeof saved==='object'?saved:{action:'Sem Ação',posteriorGroup:'',posteriorCause:'',savedAt:''};
-}
-function clientTimelinePairState(event){return clientTimelineState(gcPairKey(event))}
-function clientTimelineSetAction(pairKey,value){
-  const allowed=['Sem Ação','Sim','Não'];
-  const next=allowed.includes(value)?value:'Sem Ação';
-  const current=clientTimelineState(pairKey);
-  _clientTimelineCauseChanges[pairKey]={...current,action:next};
-  if(next!=='Sim'){
-    _clientTimelineCauseChanges[pairKey].posteriorGroup='';
-    _clientTimelineCauseChanges[pairKey].posteriorCause='';
-  }
-  ctSaveCauseChanges();
-}
-function clientTimelineSaveChange(pairKey,payload){
-  const current=clientTimelineState(pairKey);
-  _clientTimelineCauseChanges[pairKey]={...current,...payload,action:'Sim',savedAt:new Date().toISOString()};
-  ctSaveCauseChanges();
-}
-function timelineGroupToCausesMap(){
-  const map=new Map();
-  for(const [cause,group] of CAUSE_GROUP_RELATIONS){
-    const g=String(group||'').trim()||'OUTROS';
-    if(!map.has(g))map.set(g,new Set());
-    map.get(g).add(String(cause||'').trim());
-  }
-  return map;
-}
-const TIMELINE_GROUP_TO_CAUSES=timelineGroupToCausesMap();
-function clientTimelineOtherGroupOptions(currentGroups,selected){
-  const current=new Set([...(currentGroups||[])].map(v=>String(v||'').trim()).filter(Boolean));
-  const options=['<option value="">Selecione</option>'];
-  const groups=[...TIMELINE_GROUP_TO_CAUSES.keys()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  for(const group of groups){
-    if(current.has(group))continue;
-    options.push(`<option value="${esc(group)}" ${selected===group?'selected':''}>${esc(group)}</option>`);
-  }
-  return options.join('');
-}
-function clientTimelineCauseOptions(group,selected){
-  const set=TIMELINE_GROUP_TO_CAUSES.get(String(group||''))||new Set();
-  const options=['<option value="">Selecione</option>'];
-  [...set].sort((a,b)=>a.localeCompare(b,'pt-BR')).forEach(cause=>{
-    options.push(`<option value="${esc(cause)}" ${selected===cause?'selected':''}>${esc(cause)}</option>`);
-  });
-  return options.join('');
-}
-function buildClientTimelineCycles(cliente, rows){
-  const events=buildGroupRecurrenceEvaluations(rows)
-    .filter(e=>e.confirmada&&String(e.client||'').trim()===String(cliente||'').trim())
-    .sort((a,b)=>(a.current.__dataFim-b.current.__dataFim)||String(a.current[COL.numero]||'').localeCompare(String(b.current[COL.numero]||''),'pt-BR'));
-  const cycles=[];
-  let current=null;
-  for(const event of events){
-    const prevNum=normalizeNumero(event.previous?.[COL.numero]);
-    const lastNum=current&&current.rows.length?normalizeNumero(current.rows[current.rows.length-1]?.[COL.numero]):'';
-    if(!current||lastNum!==prevNum){
-      current={id:cycles.length+1,cliente,rows:[event.previous,event.current],pairEvents:[null,event],events:[event]};
-      cycles.push(current);
-    }else{
-      current.rows.push(event.current);
-      current.pairEvents.push(event);
-      current.events.push(event);
-    }
-  }
-  return cycles.map(cycle=>{
-    const nums=new Set(cycle.rows.map(r=>normalizeNumero(r[COL.numero])));
-    const firstDate=cycle.rows[0]?.__dataFim||null;
-    const lastDate=cycle.rows[cycle.rows.length-1]?.__dataFim||null;
-    const groupMap=new Map(),causeMap=new Map();
-    cycle.events.forEach(ev=>{
-      (ev.groups||[]).forEach(g=>groupMap.set(g,(groupMap.get(g)||0)+1));
-      const cause=String(ev.current?.[COL.causa]||'').trim();
-      if(cause)causeMap.set(cause,(causeMap.get(cause)||0)+1);
-    });
-    return {
-      ...cycle,
-      linkedCount:nums.size,
-      recurrentCount:cycle.events.length,
-      firstDate,lastDate,
-      periodDays:firstDate&&lastDate?Math.max(0,Math.floor((lastDate-firstDate)/86400000)):0,
-      commonGroup:mostFrequentEntry(groupMap),
-      observedPattern:mostFrequentEntry(causeMap),
-      linkedRows:[...cycle.rows]
-    };
-  });
-}
-function clientTimelineSummaryStats(rows,cycles){
-  const linkedNums=new Set();
-  cycles.forEach(c=>c.rows.forEach(r=>linkedNums.add(normalizeNumero(r[COL.numero]))));
-  return {
-    totalAtendimentos: rows.length,
-    ciclos: cycles.length,
-    atendimentosVinculados: linkedNums.size,
-    atendimentosReincidentes: cycles.reduce((sum,c)=>sum+c.recurrentCount,0)
-  };
-}
-function clientTimelineEventCardHtml(row,indexInCycle,pairEvent){
-  const recurrent=!!pairEvent;
-  const groups=[...(pairEvent&&pairEvent.currentGroups&&pairEvent.currentGroups.length?pairEvent.currentGroups:causeGroups(row[COL.causa]))];
-  const previousGroups=pairEvent&&pairEvent.previousGroups?pairEvent.previousGroups:[...causeGroups(row[COL.causa])];
-  const pairKey=pairEvent?gcPairKey(pairEvent):'';
-  const state=pairEvent?clientTimelinePairState(pairEvent):{action:'Sem Ação',posteriorGroup:'',posteriorCause:'',savedAt:''};
-  const actionClass=state.action==='Sim'?'sim':state.action==='Não'?'nao':'';
-  const editorOpen=state.action==='Sim';
-  const currentGroupText=groups.length?groups.join(' / '):(normCausa(row[COL.causa])||'—');
-  const previousGroupText=previousGroups.length?previousGroups.join(' / '):(pairEvent?normCausa(pairEvent.previous?.[COL.causa]):'—');
-  const observation=gcEorderObs(row);
-  const observationDate=gcEorderDate(row);
-  return `<div class="client-event-card ${recurrent?'recurrent':''}" data-ct-card="${esc(pairKey)}">
-    <div class="top">
-      <span class="step">${indexInCycle+1}º atendimento</span>
-      ${recurrent?'<span class="flag">REINCIDENTE</span>':''}
-    </div>
-    <div class="detail">
-      ${clientTimelineIcon('calendar')}<div><b>${esc(gcDate(row.__dataFim))}</b></div>
-      ${clientTimelineIcon('list')}<div>Incidência: <b>${esc(formatNumero(row[COL.numero]))}</b></div>
-      ${clientTimelineIcon('team')}<div>Equipe: <b>${esc(gcText(row[COL.equipeDesl]))}</b></div>
-      ${clientTimelineIcon('bolt')}<div>Processo: <b>${esc(gcText(row[COL.processo]))}</b></div>
-    </div>
-    <div class="cause-wrap">
-      <span class="cause-label">Causa</span>
-      <span class="cause-text">${esc(gcText(row[COL.causa]))}</span>
-    </div>
-    <div class="group-badges">${gcGroupBadges(groups)}</div>
-    <div class="exec-box">
-      <div class="label">Busca Execução</div>
-      <div class="text">${gcExpandableText(observation)}</div>
-      <div class="text" style="margin-top:4px;color:#5f776d">${esc(observationDate)}</div>
-    </div>
-    <div class="mini-link" onclick='event.stopPropagation();openRowModal(${JSON.stringify(row[COL.numero])})'>${clientTimelineIcon('external')} Ver detalhes da incidência</div>
-    ${recurrent?`<div class="action-box">
-      <div class="label">Ação</div>
-      <div class="action-row">
-        <select class="action-select gc-correction ${actionClass}" data-ct-action="${esc(pairKey)}">
-          <option ${state.action==='Sem Ação'?'selected':''}>Sem Ação</option>
-          <option ${state.action==='Sim'?'selected':''}>Sim</option>
-          <option ${state.action==='Não'?'selected':''}>Não</option>
-        </select>
-        <div class="change-summary">${state.posteriorCause?`Troca registrada para <b>${esc(state.posteriorGroup||'')}</b> · ${esc(state.posteriorCause)}`:(state.action==='Sim'?'Selecione abaixo o novo grupo e a nova causa.':'') }</div>
-      </div>
-      <div class="change-editor ${editorOpen?'open':''}" data-ct-editor="${esc(pairKey)}">
-        <div class="title">Troca de causa</div>
-        <div class="sub">Ao escolher <b>Sim</b>, selecione a causa posterior em um grupo diferente do grupo atual do atendimento.</div>
-        <div class="hint"><b>Grupo atual:</b> ${esc(currentGroupText)} · <b>Grupo anterior:</b> ${esc(previousGroupText)}</div>
-        <div class="change-editor-grid">
-          <label>Grupo posterior
-            <select data-ct-group="${esc(pairKey)}">${clientTimelineOtherGroupOptions(groups,state.posteriorGroup)}</select>
-          </label>
-          <label>Causa posterior
-            <select data-ct-cause="${esc(pairKey)}">${clientTimelineCauseOptions(state.posteriorGroup,state.posteriorCause)}</select>
-          </label>
-        </div>
-        <div class="save-row">
-          <button class="btn sm primary" type="button" data-ct-save="${esc(pairKey)}">Salvar troca</button>
-          <span class="saved">${state.posteriorCause?`Salvo${state.savedAt?` em ${esc(gcDate(state.savedAt))}`:''}`:''}</span>
-        </div>
-      </div>
-    </div>`:''}
-  </div>`;
-}
-function clientTimelineCycleSummaryHtml(cycle){
-  const recurrentLabels=cycle.rows.slice(1).map((_,idx)=>`${idx+2}º`).join(' e ');
-  return `<aside class="client-cycle-summary">
-    <h5>${clientTimelineIcon('list')} Resumo do ciclo</h5>
-    <div class="client-cycle-summary-grid">
-      <div class="client-cycle-summary-item"><div class="k">Quantidade de atendimentos</div><div class="v">${fmtNum(cycle.rows.length)}</div></div>
-      <div class="client-cycle-summary-item"><div class="k">Período do ciclo</div><div class="v">${cycle.firstDate?fmtDate(cycle.firstDate):'—'} a ${cycle.lastDate?fmtDate(cycle.lastDate):'—'} (${fmtNum(cycle.periodDays)} dia(s))</div></div>
-      <div class="client-cycle-summary-item"><div class="k">Grupo comum</div><div class="v">${gcGroupBadge(cycle.commonGroup||'SEM GRUPO')}</div></div>
-      <div class="client-cycle-summary-item"><div class="k">Atendimentos reincidentes</div><div class="v">${fmtNum(cycle.recurrentCount)} (${esc(recurrentLabels)} atendimento(s))</div></div>
-      <div class="client-cycle-summary-item"><div class="k">Padrão observado</div><div class="v">${esc(cycle.observedPattern||'—')}</div></div>
-    </div>
-    <div class="history-link" onclick='event.stopPropagation();openRowModal(${JSON.stringify(cycle.rows[cycle.rows.length-1][COL.numero])})'>${clientTimelineIcon('external')} Ver histórico do ciclo</div>
-  </aside>`;
-}
-function clientTimelineCycleHtml(cycle){
-  const items=[];
-  cycle.rows.forEach((row,index)=>{
-    if(index>0){
-      const ev=cycle.pairEvents[index];
-      items.push(`<div class="client-cycle-connector"><div>${fmtNum(ev?.diasDesdeAnterior||0)} dia(s)</div><div class="line"></div></div>`);
-    }
-    items.push(clientTimelineEventCardHtml(row,index,cycle.pairEvents[index]));
-  });
-  return `<section class="client-cycle-block">
-    <div class="client-cycle-head">
-      <div class="client-cycle-head-left">
-        <span class="client-cycle-index">${fmtNum(cycle.id)}</span>
-        <div>
-          <h4>${cycle.id}ª reincidência</h4>
-          <div class="sub">Ciclo formado por atendimentos do mesmo grupo dentro de 30 dias</div>
-        </div>
-        <span class="client-cycle-badge alt">Grupo em comum: ${gcGroupBadge(cycle.commonGroup||'SEM GRUPO')}</span>
-      </div>
-      <div class="client-cycle-window">${clientTimelineIcon('calendar')} Dentro da janela de 30 dias</div>
-    </div>
-    <div class="client-cycle-grid">
-      <div class="client-cycle-track">${items.join('')}</div>
-      ${clientTimelineCycleSummaryHtml(cycle)}
-    </div>
-  </section>`;
-}
-function renderClientTimelineRegua(){
-  if(!_clienteDetailCtx)return;
-  const {cliente,baseRows,cycles,stats,filterSummary}=_clienteDetailCtx;
-  const groupsAll=new Map();
-  cycles.forEach(c=>(c.events||[]).forEach(ev=>(ev.groups||[]).forEach(g=>groupsAll.set(g,(groupsAll.get(g)||0)+1))));
-  const groupPrincipal=mostFrequentEntry(groupsAll)||'—';
-  const notes=`${filterSummary?`<div class="client-cycle-note">Filtro ativo: ${esc(filterSummary)} — exibindo apenas as incidências visíveis neste contexto.</div>`:''}
-    <div class="client-cycle-note">Nesta página o destaque fica nos <b>atendimentos reincidentes</b> e nas respectivas <b>causas</b>. O ciclo é formado quando o cliente retorna em até <b>30 dias</b> e o atendimento pertence ao <b>mesmo grupo de causa</b>. A ação “Sim” abre o painel para registrar a troca de causa em outro grupo.</div>`;
-  let html=`<div class="client-cycle-page">${notes}
-    <section class="client-cycle-hero">
-      <div class="hero-main">
-        <div class="client-cycle-avatar">${clientTimelineIcon('user')}</div>
-        <div style="flex:1">
-          <div class="client-cycle-title"><h3>Cliente ${esc(cliente)}</h3><span class="client-cycle-badge">${fmtNum(stats.atendimentosReincidentes)} atendimento(s) reincidente(s)</span><span class="client-cycle-badge alt">Grupo mais recorrente: ${gcGroupBadge(groupPrincipal)}</span></div>
-          <div class="client-cycle-sub">Layout exclusivo desta página. Os cartões abaixo usam as informações originais da base e destacam somente os atendimentos reincidentes e suas causas. Se o mesmo cliente tiver mais de um ciclo reincidente, cada ciclo fica separado em seu próprio bloco.</div>
-        </div>
-      </div>
-      <div class="hero-metrics">
-        <div class="client-cycle-metric"><div class="k">Total de atendimentos do cliente no período</div><div class="v">${fmtNum(stats.totalAtendimentos)}</div><div class="s">dentro do filtro atual</div></div>
-        <div class="client-cycle-metric"><div class="k">Ciclos reincidentes</div><div class="v">${fmtNum(stats.ciclos)}</div><div class="s">com regra de até 30 dias</div></div>
-        <div class="client-cycle-metric"><div class="k">Atendimentos vinculados aos ciclos</div><div class="v">${fmtNum(stats.atendimentosVinculados)}</div><div class="s">geradores + reincidentes</div></div>
-      </div>
-    </section>
-    <div class="client-cycle-footer-tools">
-      <div class="small-note">Exportação dedicada: somente os casos em que a Ação = <b>Sim</b> e a troca de causa tiver sido registrada.</div>
-      <button class="btn sm primary" type="button" id="btnExportClienteCauseChanges">Exportar trocas de causa</button>
-    </div>`;
-  if(!cycles.length){
-    html+=`<div class="empty-state"><div class="t1">Nenhum ciclo reincidente encontrado</div><div class="t2">Este cliente não possui vínculo confirmado de mesmo grupo dentro de 30 dias no filtro atual.</div></div>`;
-  }else{
-    html+=cycles.map(clientTimelineCycleHtml).join('');
-  }
-  const naoAnalisadas=baseRows.filter(r=>!isReincElegivel(r));
-  if(naoAnalisadas.length){
-    html+=`<section class="client-cycle-other"><h5>Outras ocorrências do cliente</h5><div class="hint">Ocorrências fora da análise principal por causa excluída, ausência de equipe deslocada ou Data Fim inválida.</div><div class="table-scroll compact"><table><thead><tr><th>Número</th><th>Data Fim</th><th>Causa</th><th>Equipe Desl.</th></tr></thead><tbody>${naoAnalisadas.map(r=>`<tr style="cursor:pointer" onclick='openRowModal(${JSON.stringify(r[COL.numero])})'><td class="strong">${esc(r[COL.numero])}</td><td>${fmtDate(r.__dataFim)}</td><td>${esc(r[COL.causa]||'—')}</td><td>${hasValidValue(r[COL.equipeDesl])?`<button class="table-link" onclick='event.stopPropagation();openEquipeDetail(${JSON.stringify(String(r[COL.equipeDesl]).trim())})'>${esc(r[COL.equipeDesl])}</button>`:'—'}</td></tr>`).join('')}</tbody></table></div></section>`;
-  }
-  html+='</div>';
-  document.getElementById('subtabPanelRegua').innerHTML=html;
-  wireClientTimelineRegua();
-}
-function wireClientTimelineRegua(){
-  const root=document.getElementById('subtabPanelRegua');
-  if(!root)return;
-  const btnExport=root.querySelector('#btnExportClienteCauseChanges');
-  if(btnExport)btnExport.onclick=()=>exportClientTimelineCauseChanges();
-  root.querySelectorAll('[data-ct-action]').forEach(select=>select.onchange=()=>{
-    const pairKey=select.dataset.ctAction;
-    clientTimelineSetAction(pairKey,select.value);
-    const card=select.closest('.client-event-card');
-    const editor=card&&card.querySelector(`[data-ct-editor="${CSS.escape(pairKey)}"]`);
-    const summary=card&&card.querySelector('.change-summary');
-    if(editor)editor.classList.toggle('open',select.value==='Sim');
-    if(summary){
-      const state=clientTimelineState(pairKey);
-      summary.innerHTML=state.posteriorCause?`Troca registrada para <b>${esc(state.posteriorGroup||'')}</b> · ${esc(state.posteriorCause)}`:(select.value==='Sim'?'Selecione abaixo o novo grupo e a nova causa.':'');
-    }
-  });
-  root.querySelectorAll('[data-ct-group]').forEach(select=>select.onchange=(event)=>{
-    const pairKey=select.dataset.ctGroup;
-    const causeSelect=root.querySelector(`[data-ct-cause="${CSS.escape(pairKey)}"]`);
-    const state=clientTimelineState(pairKey);
-    if(causeSelect)causeSelect.innerHTML=clientTimelineCauseOptions(event.target.value,state.posteriorGroup===event.target.value?state.posteriorCause:'');
-  });
-  root.querySelectorAll('[data-ct-save]').forEach(btn=>btn.onclick=()=>{
-    const pairKey=btn.dataset.ctSave;
-    const groupSelect=root.querySelector(`[data-ct-group="${CSS.escape(pairKey)}"]`);
-    const causeSelect=root.querySelector(`[data-ct-cause="${CSS.escape(pairKey)}"]`);
-    const group=groupSelect?String(groupSelect.value||'').trim():'';
-    const cause=causeSelect?String(causeSelect.value||'').trim():'';
-    if(!group||!cause){alert('Selecione o grupo posterior e a causa posterior antes de salvar a troca.');return;}
-    clientTimelineSaveChange(pairKey,{posteriorGroup:group,posteriorCause:cause});
-    const summary=btn.closest('.action-box')?.querySelector('.change-summary');
-    if(summary)summary.innerHTML=`Troca registrada para <b>${esc(group)}</b> · ${esc(cause)}`;
-    const saved=btn.parentElement?.querySelector('.saved');
-    if(saved)saved.textContent='Troca registrada com sucesso';
-  });
-}
-function exportClientTimelineCauseChanges(){
-  if(!_clienteDetailCtx)return;
-  const rows=[];
-  for(const cycle of _clienteDetailCtx.cycles||[]){
-    cycle.events.forEach((event,index)=>{
-      const state=clientTimelinePairState(event);
-      if(state.action!=='Sim'||!state.posteriorGroup||!state.posteriorCause)return;
-      rows.push({
-        Cliente:_clienteDetailCtx.cliente,
-        Ciclo:cycle.id,
-        'Atendimento reincidente':`${index+2}º atendimento`,
-        'Janela 30 dias':'Sim',
-        'Incidência anterior':formatNumero(event.previous?.[COL.numero]),
-        'Data anterior':gcDate(event.previous?.__dataFim),
-        'Equipe anterior':gcText(event.previous?.[COL.equipeDesl]),
-        'Grupo anterior':(event.previousGroups||[]).join(' / ')||normCausa(event.previous?.[COL.causa])||'—',
-        'Causa anterior':gcText(event.previous?.[COL.causa]),
-        'Busca Execução anterior':gcText(gcEorderObs(event.previous)),
-        'Incidência atual':formatNumero(event.current?.[COL.numero]),
-        'Data atual':gcDate(event.current?.__dataFim),
-        'Equipe atual':gcText(event.current?.[COL.equipeDesl]),
-        'Grupo atual':(event.currentGroups||[]).join(' / ')||normCausa(event.current?.[COL.causa])||'—',
-        'Causa atual':gcText(event.current?.[COL.causa]),
-        'Busca Execução atual':gcText(gcEorderObs(event.current)),
-        'Grupo posterior':state.posteriorGroup,
-        'Causa posterior':state.posteriorCause,
-        'Dias entre atendimentos':event.diasDesdeAnterior,
-        'Processo atual':gcText(event.current?.[COL.processo]),
-        'AL atual':gcText(event.current?.[COL.al]),
-        'Ponto Elétrico atual':gcText(event.current?.[COL.pontoEletrico]),
-        'Ação':state.action,
-        'Registrado em':state.savedAt?gcDate(state.savedAt):''
-      });
-    });
-  }
-  if(!rows.length){alert('Nenhuma troca de causa registrada com Ação = Sim para este cliente.');return;}
-  exportRowsXlsx(rows,`cliente_${_clienteDetailCtx.cliente}_trocas_causa_${stamp()}.xlsx`,'Trocas Causa');
-}
 function openClientTimeline(cliente){
   cliente = String(cliente||'').trim();
   if(!isValidClientId(cliente)) return;
@@ -7506,32 +7133,83 @@ function openClientTimeline(cliente){
   }else compute30DayChain(elegiveis);
   const reincRows = getClientReincidenceRows(cliente, elegiveis)
     .slice().sort((a,b)=>(b.__dataFim||0)-(a.__dataFim||0));
+  const reincCount = reincRows.length;
   const primeira = rows.find(r=>r.__dataFim);
   const ultima = [...rows].reverse().find(r=>r.__dataFim);
-  const cycles=buildClientTimelineCycles(cliente,rows);
-  const stats=clientTimelineSummaryStats(rows,cycles);
 
   _clienteDetailCtx = {
     cliente,
     indicadorRows: indicadorRows.slice().sort((a,b)=>(b.__dataFim||0)-(a.__dataFim||0)),
     baseRows: rows.slice().sort((a,b)=>(b.__dataFim||0)-(a.__dataFim||0)),
     reincRows,
-    activeSubtab:'regua',
-    cycles,
-    stats,
-    primeira,
-    ultima,
-    filterSummary
+    activeSubtab:'regua'
   };
   S.pager.clienteGeral = {page:1, size:50};
   S.pager.clienteReinc = {page:1, size:50};
   S.sort.clienteGeral = {key:COL.dataFim, dir:-1};
   S.sort.clienteReinc = {key:COL.dataFim, dir:-1};
 
+  const groups = new Map();
+  elegiveis.forEach(r=>{
+    if(!groups.has(r.__grupoMesId)) groups.set(r.__grupoMesId, []);
+    groups.get(r.__grupoMesId).push(r);
+  });
+
+  let reguaHtml = `
+    ${filterSummary?`<div class="tag-note">Filtro ativo: ${esc(filterSummary)} — mostrando apenas incidências dentro deste filtro</div>`:''}
+    <div class="tag-note">Reincidência considera 30 dias corridos a partir da Data Fim anterior — mesma regra do ranking. Os resumos abaixo agrupam visualmente por mês civil, mas a classificação Geradora/Reincidente segue os 30 dias (por isso um ciclo pode atravessar a virada do mês).</div>
+  `;
+
+  if(!groups.size){
+    reguaHtml += `<div class="empty-state"><div class="t1">Sem incidências elegíveis para análise</div><div class="t2">Todas as ocorrências deste cliente foram excluídas (causa, sem equipe deslocada ou data inválida)</div></div>`;
+  } else {
+    for(const [gid, grows] of groups){
+      const mesNum = grows[0].__mes, nomeMes = MESES_NOMES[mesNum]||'';
+      const n = grows.length;
+      const m = grows.filter(r=>r.__tlClassificacao==='REINCIDENTE').length;
+      reguaHtml += `
+        <div class="month-block">
+          <div class="month-resumo-wrap">
+            <div class="month-resumo">Resumo — <span class="n">${n}</span> ${pluraliza(n,'incidência','incidências')} no mês de ${nomeMes} — <span class="n">${m}</span> ${pluraliza(m,'reincidência','reincidências')} <span style="opacity:.7;font-weight:400">(30 dias)</span></div>
+            <div class="month-chain-pad">
+              <div class="chain">
+                ${grows.map(r=>`
+                  <div class="chain-node" style="cursor:pointer" onclick='openRowModal(${JSON.stringify(r[COL.numero])})' title="Clique para ver todas as informações desta incidência">
+                    <div class="ord">${badgeHtml(r.__tlClassificacao)} · Posição ${r.__tlPosicao}</div>
+                    <div class="causa">${esc(r[COL.causa]||'—')}</div>
+                    <div class="meta">
+                      <b>${esc(r[COL.numero])}</b><br>
+                      ${fmtDate(r.__dataFim)}<br>
+                      Equipe desl.: ${hasValidValue(r[COL.equipeDesl]) ? `<button class="table-link" onclick='event.stopPropagation();openEquipeDetail(${JSON.stringify(String(r[COL.equipeDesl]).trim())})'>${esc(r[COL.equipeDesl])}</button>` : '—'}<br>
+                      Inc. geradora: ${esc(r.__tlIncGeradora)}<br>
+                      AL: ${esc(r[COL.al]||'—')}<br>
+                      Ponto Elétrico: ${esc(r[COL.pontoEletrico]||'—')}<br>
+                      Processo: ${esc(r[COL.processo]||'—')}<br>
+                      ${r.__tlDiasDesdeAnterior!=null ? `+${r.__tlDiasDesdeAnterior} dia(s) da anterior`:'Início do ciclo (30 dias)'}
+                    </div>
+                    <div class="obs">${esc(r[COL.observacao]) || '—'}${r.__obsEorder ? `<br><b style="font-style:normal;color:var(--brand-dark)">Obs. Eorder:</b> ${esc(r.__obsEorder)}` : ''}</div>
+                  </div>`).join('')}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+  }
+
+  const naoAnalisadas = rows.filter(r=>!isReincElegivel(r));
+  if(naoAnalisadas.length){
+    reguaHtml += `
+    <div class="section-title" style="margin-top:8px">Outras ocorrências <span class="hint">Causa fora da lista permitida para reincidência / sem equipe deslocada / sem Data Fim — não entram na análise</span></div>
+    <div class="table-scroll compact">
+      <table><thead><tr><th>Número</th><th>Data Fim</th><th>Causa</th><th>Equipe Desl.</th></tr></thead>
+      <tbody>${naoAnalisadas.map(r=>`<tr style="cursor:pointer" onclick='openRowModal(${JSON.stringify(r[COL.numero])})' title="Clique para ver todas as informações"><td class="strong">${esc(r[COL.numero])}</td><td>${fmtDate(r.__dataFim)}</td><td>${esc(r[COL.causa]||'—')}</td><td>${hasValidValue(r[COL.equipeDesl]) ? `<button class="table-link" onclick='event.stopPropagation();openEquipeDetail(${JSON.stringify(String(r[COL.equipeDesl]).trim())})'>${esc(r[COL.equipeDesl])}</button>` : '—'}</td></tr>`).join('')}</tbody></table>
+    </div>`;
+  }
+
   const body = `
     <div class="client-summary" style="grid-template-columns:repeat(4,minmax(0,1fr))">
       <div class="mini-kpi"><div class="l">Total incidências</div><div class="v">${fmtNum(indicadorRows.length)}</div></div>
-      <div class="mini-kpi"><div class="l">Reincidências (30 dias)</div><div class="v" style="color:var(--reinc)">${fmtNum(reincRows.length)}</div></div>
+      <div class="mini-kpi"><div class="l">Reincidências (30 dias)</div><div class="v" style="color:var(--reinc)">${fmtNum(reincCount)}</div></div>
       <div class="mini-kpi"><div class="l">Primeira incidência</div><div class="v" style="font-size:15px">${primeira?fmtDate(primeira.__dataFim):'—'}</div></div>
       <div class="mini-kpi"><div class="l">Última incidência</div><div class="v" style="font-size:15px">${ultima?fmtDate(ultima.__dataFim):'—'}</div></div>
     </div>
@@ -7542,13 +7220,12 @@ function openClientTimeline(cliente){
       <span style="flex:1"></span>
       <button class="btn sm primary" id="btnExportClienteDetailXlsx" style="display:none">Exportar Excel</button>
     </div>
-    <div id="subtabPanelRegua"></div>
+    <div id="subtabPanelRegua">${reguaHtml}</div>
     <div id="subtabPanelClienteGeral" style="display:none"></div>
     <div id="subtabPanelClienteReinc" style="display:none"></div>
   `;
   document.getElementById('modalBody').innerHTML = body;
   document.getElementById('modalBg').classList.add('show');
-  renderClientTimelineRegua();
 
   document.getElementById('subtabBtnRegua').onclick = ()=>switchClienteDetailSubtab('regua');
   document.getElementById('subtabBtnClienteGeral').onclick = ()=>switchClienteDetailSubtab('geral');
@@ -7566,7 +7243,6 @@ function switchClienteDetailSubtab(tab){
   document.getElementById('subtabPanelClienteGeral').style.display = tab==='geral' ? '' : 'none';
   document.getElementById('subtabPanelClienteReinc').style.display = tab==='reinc' ? '' : 'none';
   document.getElementById('btnExportClienteDetailXlsx').style.display = tab==='regua' ? 'none' : '';
-  if(tab==='regua') renderClientTimelineRegua();
   if(tab==='geral') renderClienteDetailGeral();
   if(tab==='reinc') renderClienteDetailReinc();
 }
@@ -12002,18 +11678,59 @@ document.addEventListener('DOMContentLoaded',()=>{
    - E-Order complementar
    ============================================================ */
 const GC_CORRECTION_STORAGE_KEY='analise_causa_correcoes_v1';
-const CLIENT_TIMELINE_CHANGE_STORAGE_KEY='reinc_cliente_timeline_trocas_v1';
-let _clientTimelineCauseChanges={};
-function ctLoadCauseChanges(){
+
+const GC_CAUSE_CHANGE_STORAGE_KEY='analise_causa_trocas_v1';
+let GC_CAUSE_CHANGES={};
+function gcLoadCauseChanges(){
   try{
-    const saved=JSON.parse(localStorage.getItem(CLIENT_TIMELINE_CHANGE_STORAGE_KEY)||'{}');
-    _clientTimelineCauseChanges=saved&&typeof saved==='object'?saved:{};
-  }catch(_){_clientTimelineCauseChanges={}}
+    const saved=JSON.parse(localStorage.getItem(GC_CAUSE_CHANGE_STORAGE_KEY)||'{}');
+    GC_CAUSE_CHANGES=saved&&typeof saved==='object'?saved:{};
+  }catch(_){GC_CAUSE_CHANGES={}}
 }
-function ctSaveCauseChanges(){
-  try{localStorage.setItem(CLIENT_TIMELINE_CHANGE_STORAGE_KEY,JSON.stringify(_clientTimelineCauseChanges||{}))}catch(_){}
+function gcSaveCauseChanges(){
+  try{localStorage.setItem(GC_CAUSE_CHANGE_STORAGE_KEY,JSON.stringify(GC_CAUSE_CHANGES||{}))}catch(_){}
 }
-ctLoadCauseChanges();
+function gcCauseChangeValue(event){return GC_CAUSE_CHANGES[gcPairKey(event)]||{}}
+function gcSaveCauseChange(event,posteriorGroup,posteriorCause){
+  const key=gcPairKey(event);
+  GC_CAUSE_CHANGES[key]={
+    posteriorGroup:String(posteriorGroup||'').trim(),
+    posteriorCause:String(posteriorCause||'').trim(),
+    savedAt:new Date().toISOString()
+  };
+  gcSaveCauseChanges();
+}
+gcLoadCauseChanges();
+
+function gcGroupCauseCatalog(){
+  const map=new Map();
+  for(const rel of CAUSE_GROUP_RELATIONS||[]){
+    const cause=String(rel?.[0]||'').trim(),group=String(rel?.[1]||'').trim();
+    if(!cause||!group)continue;
+    if(!map.has(group))map.set(group,new Set());
+    map.get(group).add(cause);
+  }
+  return map;
+}
+const GC_GROUP_CAUSE_CATALOG=gcGroupCauseCatalog();
+function gcOtherGroupOptions(event,selected=''){
+  const ev=event;
+  const currentGroups=new Set(
+    (ev?.currentGroups?.length?ev.currentGroups:[...causeGroups(ev?.current?.[COL.causa])])
+      .map(x=>String(x||'').trim()).filter(Boolean)
+  );
+  const groups=[...GC_GROUP_CAUSE_CATALOG.keys()]
+    .filter(g=>!currentGroups.has(g))
+    .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  return '<option value="">Selecionar outro grupo</option>'+
+    groups.map(g=>`<option value="${esc(g)}" ${g===selected?'selected':''}>${esc(g)}</option>`).join('');
+}
+function gcCauseOptionsForGroup(group,selected=''){
+  const causes=[...(GC_GROUP_CAUSE_CATALOG.get(group)||[])]
+    .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  return '<option value="">Selecionar causa</option>'+
+    causes.map(c=>`<option value="${esc(c)}" ${c===selected?'selected':''}>${esc(c)}</option>`).join('');
+}
 
 
 function gcGeneralEligible(row){
@@ -12198,71 +11915,148 @@ async function gcSetCorrection(event,value){
 }
 
 /* ---------- tabela detalhada ---------- */
-function gcDetailTable(client,model){
-  let rows=gcAssignCycles(client.general)
-    .filter(e=>model.evalByPair.get(gcPairKey(e))?.confirmada);
-  if(!rows.length)return '<div class="gc-empty">Nenhum vínculo encontrado para este filtro.</div>';
-  let lastCycle=null,body='';
-  for(const e of rows){
-    const ev=model.evalByPair.get(gcPairKey(e));
-    const ok=!!(ev&&ev.confirmada);
-    const prevGroups=ev?ev.previousGroups:[...causeGroups(e.previous[COL.causa])];
-    const currGroups=ev?ev.currentGroups:[...causeGroups(e.current[COL.causa])];
-    const shared=ev&&ev.groups?ev.groups:[];
-    const effective=gcEffectiveGroup(ev,e);
-    if(e.__gcCycle!==lastCycle){
-      lastCycle=e.__gcCycle;
-      body+=`<tr class="gc-cycle-divider"><td colspan="8"><span class="gc-period-label"><span class="gc-period-dot"></span>Ciclo ${e.__gcCycle} · janela de até 30 dias</span><small>início ${esc(gcDateShort(e.__gcCycleStart))}</small></td></tr>`;
-    }
-    const correction=gcCorrectionValue(e);
-    body+=`<tr class="gc-event-row ${ok?'cont-row':'break-row'}" style="background:${gcGroupSoftColor(effective)}" data-gc-pair="${esc(gcPairKey(e))}">
-      <td>
-        <b>${esc(gcText(e.__gcCycle))}</b>
-        <div style="margin-top:4px">${ok?'<span class="gc-continue">CONTINUAÇÃO</span>':'<span class="gc-break">QUEBRA</span>'}</div>
-        <div style="margin-top:4px">${gcGroupBadge(effective)}</div>
-      </td>
-      <td class="gc-stack">
-        <b>${esc(formatNumero(e.previous[COL.numero]))}</b>
-        <span>${esc(gcDateShort(e.previous.__dataFim))}</span>
-        <span>${esc(gcText(e.previous[COL.equipeDesl]))}</span>
-      </td>
-      <td>
-        <div class="gc-cause">${gcExpandableText(e.previous[COL.causa])}</div>
-        ${gcGroupBadges(prevGroups)}
-      </td>
-      <td class="gc-stack">
-        <b>${esc(formatNumero(e.current[COL.numero]))}</b>
-        <span>${esc(gcDateShort(e.current.__dataFim))}</span>
-        <span>${esc(gcText(e.current[COL.equipeDesl]))}</span>
-      </td>
-      <td>
-        <div class="gc-cause">${gcExpandableText(e.current[COL.causa])}</div>
-        ${gcGroupBadges(currGroups)}
-        ${ok?`<div style="margin-top:4px"><b style="font-size:8px">Em comum:</b> ${gcGroupBadges(shared)}</div>`:''}
-      </td>
-      <td>
-        <b>${fmtNum(e.diasDesdeAnterior)} dia(s)</b>
-        <div style="margin-top:4px">${ok?'Mesmo grupo':'Mudança de grupo'}</div>
-      </td>
-      <td>
-        <div><b style="font-size:8px">Anterior</b>${gcExpandableText(gcEorderObs(e.previous))}<div class="gc-muted">${esc(gcEorderDate(e.previous))}</div></div>
-        <div style="margin-top:6px"><b style="font-size:8px">Atual</b>${gcExpandableText(gcEorderObs(e.current))}<div class="gc-muted">${esc(gcEorderDate(e.current))}</div></div>
-      </td>
-      <td>
-        ${ok?`<select class="gc-correction ${correction==='Sim'?'sim':correction==='Não'?'nao':''}" data-gc-correction="${esc(gcPairKey(e))}">
+
+function gcAttendanceCard(row,recurrent,event,model,cycleNo){
+  const ev=event||null;
+  const groups=ev
+    ? (recurrent?(ev.currentGroups||[]):(ev.previousGroups||[]))
+    : [...causeGroups(row?.[COL.causa])];
+  const change=ev?gcCauseChangeValue(ev):{};
+  const correction=ev?gcCorrectionValue(ev):'Sem Ação';
+  const pair=ev?gcPairKey(ev):'';
+  const groupSelected=String(change.posteriorGroup||'');
+  const causeSelected=String(change.posteriorCause||'');
+  const process=row?.[COL.processo];
+  const al=row?.[COL.al];
+  const ponto=row?.[COL.pontoEletrico];
+  return `<article class="gc-att-card ${recurrent?'recurrent':''}" ${pair?`data-gc-pair="${esc(pair)}"`:''}>
+    <div class="gc-att-top">
+      <div>
+        <div class="gc-att-order">${esc(formatNumero(row?.[COL.numero]))}</div>
+        <div class="gc-att-date">${esc(gcDate(row?.__dataFim))}</div>
+      </div>
+      ${recurrent?'<span class="gc-recurrent-badge">REINCIDENTE</span>':'<span class="gc-initial-badge">ATENDIMENTO INICIAL</span>'}
+    </div>
+    <div class="gc-att-grid">
+      <div class="gc-att-field"><label>Equipe</label><div class="value">${esc(gcText(row?.[COL.equipeDesl]))}</div></div>
+      <div class="gc-att-field"><label>Processo</label><div class="value">${esc(gcText(process))}</div></div>
+      <div class="gc-att-field full ${recurrent?'gc-cause-highlight':''}">
+        <label>Causa</label><div class="value">${gcExpandableText(row?.[COL.causa])}</div>
+      </div>
+      <div class="gc-att-field full"><label>Grupo causa</label><div class="value">${gcGroupBadges(groups)}</div></div>
+      <div class="gc-att-field"><label>AL</label><div class="value">${esc(gcText(al))}</div></div>
+      <div class="gc-att-field"><label>Ponto elétrico</label><div class="value">${esc(gcText(ponto))}</div></div>
+    </div>
+    <div class="gc-exec-box">
+      <label>Busca Execução</label>
+      <div class="value">${gcExpandableText(gcEorderObs(row))}</div>
+      <div class="gc-exec-date">${esc(gcEorderDate(row))}</div>
+    </div>
+    ${recurrent&&ev?`<div class="gc-action-box">
+      <div class="gc-action-row">
+        <label>Ação</label>
+        <select class="gc-correction ${correction==='Sim'?'sim':correction==='Não'?'nao':''}" data-gc-correction="${esc(pair)}">
           <option ${correction==='Sem Ação'?'selected':''}>Sem Ação</option>
           <option ${correction==='Sim'?'selected':''}>Sim</option>
           <option ${correction==='Não'?'selected':''}>Não</option>
-        </select>`:'<span class="gc-muted">—</span>'}
-      </td>
-    </tr>`;
-  }
-  return `<div class="gc-detail-box"><table class="gc-detail-table"><thead><tr>
-    <th>Ciclo / Status</th><th>Atendimento anterior</th><th>Causa / Grupo anterior</th>
-    <th>Atendimento atual</th><th>Causa / Grupo atual</th><th>Intervalo</th>
-    <th>Execução Mês</th><th>Correção</th>
-  </tr></thead><tbody>${body}</tbody></table></div>`;
+        </select>
+        <span class="gc-muted">${fmtNum(ev.diasDesdeAnterior)} dia(s) desde o atendimento anterior</span>
+      </div>
+      ${correction==='Sim'?`<div class="gc-change-editor">
+        <div class="gc-change-grid">
+          <div class="gc-change-field">
+            <label>Grupo posterior</label>
+            <select data-gc-change-group="${esc(pair)}">${gcOtherGroupOptions(ev,groupSelected)}</select>
+          </div>
+          <div class="gc-change-field">
+            <label>Causa posterior</label>
+            <select data-gc-change-cause="${esc(pair)}">${gcCauseOptionsForGroup(groupSelected,causeSelected)}</select>
+          </div>
+          <button type="button" class="gc-save-change" data-gc-save-change="${esc(pair)}">Salvar troca</button>
+        </div>
+        ${groupSelected&&causeSelected?`<div class="gc-saved-change">Troca registrada: ${esc(groupSelected)} · ${esc(causeSelected)}</div>`:''}
+      </div>`:''}
+    </div>`:''}
+  </article>`;
 }
+function gcDetailTable(client,model){
+  const rows=gcAssignCycles(client.general)
+    .filter(e=>model.evalByPair.get(gcPairKey(e))?.confirmada);
+  if(!rows.length)return '<div class="gc-empty">Nenhum vínculo encontrado para este filtro.</div>';
+
+  const cycles=new Map();
+  for(const e of rows){
+    if(!cycles.has(e.__gcCycle))cycles.set(e.__gcCycle,[]);
+    cycles.get(e.__gcCycle).push(e);
+  }
+
+  let html='<div class="gc-cycle-cards">';
+  for(const [cycleNo,cycleRows] of cycles){
+    cycleRows.sort((a,b)=>a.current.__dataFim-b.current.__dataFim);
+    const first=cycleRows[0],last=cycleRows[cycleRows.length-1];
+    const linked=cycleRows.length;
+    html+=`<section class="gc-cycle-card">
+      <div class="gc-cycle-card-head">
+        <strong>Ciclo ${cycleNo} · ${linked} reincidência(s)</strong>
+        <span>${esc(gcDateShort(first.previous.__dataFim))} → ${esc(gcDateShort(last.current.__dataFim))} · janela de até 30 dias</span>
+      </div>
+      <div class="gc-cycle-flow">
+        ${gcAttendanceCard(first.previous,false,model.evalByPair.get(gcPairKey(first)),model,cycleNo)}
+        ${cycleRows.map(e=>{
+          const ev=model.evalByPair.get(gcPairKey(e));
+          return gcAttendanceCard(e.current,true,ev,model,cycleNo);
+        }).join('')}
+      </div>
+      <div class="gc-cycle-foot">
+        <span>Cliente ${esc(client.cliente)} · ${fmtNum(linked+1)} atendimento(s) no ciclo</span>
+        <span>${gcGroupBadges([...new Set(cycleRows.flatMap(e=>(model.evalByPair.get(gcPairKey(e))?.groups||[])))])}</span>
+      </div>
+    </section>`;
+  }
+  return html+'</div>';
+}
+function gcExportCauseChanges(model){
+  const exported=[];
+  for(const ev of model.confirmed){
+    if(gcCorrectionValue(ev)!=='Sim')continue;
+    const change=gcCauseChangeValue(ev);
+    if(!change.posteriorGroup||!change.posteriorCause)continue;
+    const previous=ev.previous,current=ev.current;
+    const prevGroups=ev.previousGroups?.length?ev.previousGroups:[...causeGroups(previous?.[COL.causa])];
+    const currGroups=ev.currentGroups?.length?ev.currentGroups:[...causeGroups(current?.[COL.causa])];
+    exported.push({
+      'Cliente':String(ev.client||''),
+      'Incidência anterior':formatNumero(previous?.[COL.numero]),
+      'Data anterior':gcDate(previous?.__dataFim),
+      'Equipe anterior':gcText(previous?.[COL.equipeDesl]),
+      'Grupo anterior':prevGroups.join(' | '),
+      'Causa anterior':gcText(previous?.[COL.causa]),
+      'Busca Execução anterior':gcEorderObs(previous),
+      'Data Busca Execução anterior':gcEorderDate(previous),
+      'Incidência atual':formatNumero(current?.[COL.numero]),
+      'Data atual':gcDate(current?.__dataFim),
+      'Equipe atual':gcText(current?.[COL.equipeDesl]),
+      'Grupo atual':currGroups.join(' | '),
+      'Causa atual':gcText(current?.[COL.causa]),
+      'Busca Execução atual':gcEorderObs(current),
+      'Data Busca Execução atual':gcEorderDate(current),
+      'Grupo posterior':change.posteriorGroup,
+      'Causa posterior':change.posteriorCause,
+      'Dias entre atendimentos':ev.diasDesdeAnterior,
+      'Processo atual':gcText(current?.[COL.processo]),
+      'AL atual':gcText(current?.[COL.al]),
+      'Ponto Elétrico atual':gcText(current?.[COL.pontoEletrico]),
+      'Ação':'Sim',
+      'Registrado em':change.savedAt?gcDate(new Date(change.savedAt)):'—'
+    });
+  }
+  if(!exported.length){
+    alert('Não há trocas de causa salvas para exportar.');
+    return;
+  }
+  exportRowsXlsx(exported,`analise_causa_trocas_${stamp()}.xlsx`,'Trocas de causa');
+}
+
 function gcClientTable(clients,kind,model){
   if(!clients.length)return '<div class="gc-empty">Nenhum cliente encontrado.</div>';
   return `<div class="gc-table-wrap"><table class="gc-table"><thead><tr>
@@ -12345,8 +12139,11 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     <section class="gc-card">
       <div class="gc-head"><div>
         <div class="gc-title">Reincidentes por Grupo — somente continuidades</div>
-        <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · ao abrir um cliente, o anterior é fechado · o cabeçalho permanece congelado</div>
-      </div><input class="gc-search" id="gcSearch" value="${esc(S.analiseGrupoCausaSearch||'')}" placeholder="Buscar número do cliente"></div>
+        <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · ao abrir um cliente, o anterior é fechado</div>
+      </div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button type="button" class="gc-export-changes" id="gcExportCauseChanges">Exportar trocas de causa</button>
+        <input class="gc-search" id="gcSearch" value="${esc(S.analiseGrupoCausaSearch||'')}" placeholder="Buscar número do cliente">
+      </div></div>
       ${gcClientTable(ativos,'ativo',model)}
     </section>
 
@@ -12393,6 +12190,33 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     const ev=model.confirmed.find(item=>gcPairKey(item)===pair);
     if(ev)gcSetCorrection(ev,select.value);
   });
+
+  el.querySelectorAll('[data-gc-change-group]').forEach(select=>select.onchange=(event)=>{
+    event.stopPropagation();
+    const pair=select.dataset.gcChangeGroup;
+    const ev=model.confirmed.find(item=>gcPairKey(item)===pair);
+    const causeSelect=el.querySelector(`[data-gc-change-cause="${CSS.escape(pair)}"]`);
+    if(ev&&causeSelect)causeSelect.innerHTML=gcCauseOptionsForGroup(select.value,'');
+  });
+
+  el.querySelectorAll('[data-gc-save-change]').forEach(button=>button.onclick=(event)=>{
+    event.stopPropagation();
+    const pair=button.dataset.gcSaveChange;
+    const ev=model.confirmed.find(item=>gcPairKey(item)===pair);
+    const groupSelect=el.querySelector(`[data-gc-change-group="${CSS.escape(pair)}"]`);
+    const causeSelect=el.querySelector(`[data-gc-change-cause="${CSS.escape(pair)}"]`);
+    if(!ev||!groupSelect||!causeSelect)return;
+    if(!groupSelect.value||!causeSelect.value){
+      alert('Selecione o grupo posterior e a causa posterior.');
+      return;
+    }
+    gcSaveCauseChange(ev,groupSelect.value,causeSelect.value);
+    S.renderKeys.analiseGrupoCausa='';
+    renderAnaliseGrupoCausa(true);
+  });
+
+  const exportChanges=document.getElementById('gcExportCauseChanges');
+  if(exportChanges)exportChanges.onclick=()=>gcExportCauseChanges(model);
 }
 
 
