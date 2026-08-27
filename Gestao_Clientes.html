@@ -1268,6 +1268,24 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 #panel-analiseGrupoCausa .gc-cycle-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fbfdfc;border-top:1px solid #edf2ef;font-size:9px;color:#66766f}
 #panel-analiseGrupoCausa .gc-export-changes{border:0;border-radius:9px;background:#008556;color:#fff;font-size:10px;font-weight:900;padding:9px 12px;cursor:pointer;white-space:nowrap}
 #panel-analiseGrupoCausa .gc-export-changes:hover{filter:brightness(.95)}
+
+#panel-analiseGrupoCausa .gc-att-card{overflow:hidden}
+#panel-analiseGrupoCausa .gc-att-card *{min-width:0}
+#panel-analiseGrupoCausa .gc-exec-box,
+#panel-analiseGrupoCausa .gc-exec-box .value,
+#panel-analiseGrupoCausa .gc-text-expand,
+#panel-analiseGrupoCausa .gc-text-expand summary,
+#panel-analiseGrupoCausa .gc-text-preview,
+#panel-analiseGrupoCausa .gc-text-full{
+  max-width:100%;
+  min-width:0;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  white-space:normal;
+}
+#panel-analiseGrupoCausa .gc-text-expand{overflow:hidden}
+#panel-analiseGrupoCausa .gc-text-expand .gc-text-full{box-sizing:border-box;width:100%;overflow:hidden}
+
 @media(max-width:900px){
   #panel-analiseGrupoCausa .gc-cycle-flow{grid-template-columns:1fr}
   #panel-analiseGrupoCausa .gc-change-grid{grid-template-columns:1fr}
@@ -1783,28 +1801,87 @@ function sharedCauseGroups(a,b){const ga=causeGroups(a),gb=causeGroups(b),shared
 function isGroupReincidenceEligible(row){return !!row&&isIndicatorRow(row)&&!isAtendimentoRemoto(row)&&isValidClientId(row[COL.nCliente])&&hasValidValue(row[COL.equipeDesl])&&causeGroups(row[COL.causa]).size>0}
 function buildGroupRecurrenceEvaluations(sourceRows){
   const byClient=new Map(),evaluations=[];
-  for(const row of sourceRows||[]){if(!isGroupReincidenceEligible(row))continue;const client=String(row[COL.nCliente]).trim();if(!byClient.has(client))byClient.set(client,[]);byClient.get(client).push(row)}
+  for(const row of sourceRows||[]){
+    if(!isGroupReincidenceEligible(row))continue;
+    const client=String(row[COL.nCliente]).trim();
+    if(!byClient.has(client))byClient.set(client,[]);
+    byClient.get(client).push(row);
+  }
+
   for(const [client,rows] of byClient){
     rows.sort((a,b)=>(a.__dataFim-b.__dataFim)||String(a[COL.numero]||'').localeCompare(String(b[COL.numero]||'')));
+    if(rows.length<2)continue;
+
+    // A sequência mantém um "grupo efetivo".
+    // Causas que pertencem a mais de um grupo são resolvidas pelo grupo que
+    // já vinha ativo na sequência. Em uma quebra, a incidência atual passa
+    // a ser a origem de uma nova sequência.
+    let activeGroups=new Set(causeGroups(rows[0][COL.causa]));
+
     for(let i=1;i<rows.length;i++){
       const current=rows[i],previous=rows[i-1];
       const diffMs=current.__dataFim-previous.__dataFim;
       const diasDesdeAnterior=Math.floor(diffMs/86400000);
       const previousGroups=[...causeGroups(previous[COL.causa])];
       const currentGroups=[...causeGroups(current[COL.causa])];
-      const groups=sharedCauseGroups(previous[COL.causa],current[COL.causa]);
+      const activeBefore=[...activeGroups];
+
       const dentroJanela=diffMs>=0&&diffMs<=GROUP_REINCIDENCE_MAX_MS;
-      const mesmoGrupo=groups.length>0;
-      const confirmada=dentroJanela&&mesmoGrupo;
+      const shared=activeBefore.filter(group=>currentGroups.includes(group));
+      const mesmoGrupo=dentroJanela&&shared.length>0;
+      const confirmada=mesmoGrupo;
+
+      let previousEffectiveGroups;
+      let currentEffectiveGroups;
       let motivo;
-      if(!dentroJanela)motivo=`Fora da janela de 30 dias (${diasDesdeAnterior} dia(s))`;
-      else if(!mesmoGrupo)motivo=`Grupos diferentes: ${previousGroups.join(' / ')||'sem grupo'} x ${currentGroups.join(' / ')||'sem grupo'}`;
-      else motivo=`Mesmo grupo: ${groups.join(' / ')}`;
-      evaluations.push({client,row:current,current,previous,previousRow:previous,previousGroups,currentGroups,groups,group:groups.join(' / '),diffMs,diasDesdeAnterior,dentroJanela,mesmoGrupo,confirmada,status:confirmada?'MESMO GRUPO':'NÃO CONFIRMADA',motivo,incGeradora:previous[COL.numero],equipeGeradora:previous[COL.equipeDesl],classificacao:confirmada?'REINCIDENTE':'NÃO CONFIRMADA'});
+
+      if(confirmada){
+        // O grupo compartilhado resolve causas ambíguas e passa a reger
+        // a continuação da sequência.
+        previousEffectiveGroups=[...shared];
+        currentEffectiveGroups=[...shared];
+        activeGroups=new Set(shared);
+        motivo=`Continuidade do grupo: ${shared.join(' / ')}`;
+      }else{
+        previousEffectiveGroups=activeBefore.length?activeBefore:previousGroups;
+        currentEffectiveGroups=[...currentGroups];
+        activeGroups=new Set(currentGroups);
+
+        if(!dentroJanela){
+          motivo=`Fora da janela de 30 dias (${diasDesdeAnterior} dia(s)); nova sequência iniciada`;
+        }else{
+          motivo=`Quebra da sequência: ${previousEffectiveGroups.join(' / ')||'sem grupo'} x ${currentGroups.join(' / ')||'sem grupo'}`;
+        }
+      }
+
+      evaluations.push({
+        client,
+        row:current,
+        current,
+        previous,
+        previousRow:previous,
+        previousGroups,
+        currentGroups,
+        previousEffectiveGroups,
+        currentEffectiveGroups,
+        groups:confirmada?[...shared]:[],
+        group:confirmada?shared.join(' / '):'',
+        diffMs,
+        diasDesdeAnterior,
+        dentroJanela,
+        mesmoGrupo,
+        confirmada,
+        status:confirmada?'MESMO GRUPO':'NÃO CONFIRMADA',
+        motivo,
+        incGeradora:previous[COL.numero],
+        equipeGeradora:previous[COL.equipeDesl],
+        classificacao:confirmada?'REINCIDENTE':'NÃO CONFIRMADA'
+      });
     }
   }
   return evaluations;
 }
+
 function buildGroupRecurrenceEvents(sourceRows){return buildGroupRecurrenceEvaluations(sourceRows).filter(item=>item.confirmada)}
 function refreshGroupRecurrenceCache(){const key=[S.processedAt||'',S.baseCompleta.length].join('|');if(_groupRecurrenceCache.key!==key){const evaluations=buildGroupRecurrenceEvaluations(S.baseCompleta);_groupRecurrenceCache={key,evaluations,events:evaluations.filter(item=>item.confirmada)}}return _groupRecurrenceCache}
 function allGroupRecurrenceEvaluations(){return refreshGroupRecurrenceCache().evaluations}
@@ -11741,7 +11818,7 @@ async function gcSaveCauseChange(event,posteriorGroup,posteriorCause){
       p_cliente:String(event.client||''),
       p_incidencia_anterior:String(event.previous?.[COL.numero]||''),
       p_incidencia_atual:String(event.current?.[COL.numero]||''),
-      p_grupo_atual:(event.currentGroups||[]).join(' | '),
+      p_grupo_atual:(event.currentEffectiveGroups?.length?event.currentEffectiveGroups:(event.groups||event.currentGroups||[])).join(' | '),
       p_causa_atual:String(event.current?.[COL.causa]||''),
       p_grupo_posterior:payload.posteriorGroup,
       p_causa_posterior:payload.posteriorCause
@@ -11766,7 +11843,13 @@ const GC_GROUP_CAUSE_CATALOG=gcGroupCauseCatalog();
 function gcOtherGroupOptions(event,selected=''){
   const ev=event;
   const currentGroups=new Set(
-    (ev?.currentGroups?.length?ev.currentGroups:[...causeGroups(ev?.current?.[COL.causa])])
+    (ev?.currentEffectiveGroups?.length
+      ?ev.currentEffectiveGroups
+      :ev?.groups?.length
+        ?ev.groups
+        :ev?.currentGroups?.length
+          ?ev.currentGroups
+          :[...causeGroups(ev?.current?.[COL.causa])])
       .map(x=>String(x||'').trim()).filter(Boolean)
   );
   const groups=[...GC_GROUP_CAUSE_CATALOG.keys()]
@@ -11818,6 +11901,13 @@ function gcClientKey(v){return normalizeNumero(v)||String(v||'').trim()}
 function gcDate(v){const d=v instanceof Date?v:parseDateVal(v);return validDate(d)?fmtDateTime(d):'—'}
 function gcDateShort(v){const d=v instanceof Date?v:parseDateVal(v);return validDate(d)?fmtDate(d):'—'}
 function gcText(v){return v==null||String(v).trim()===''?'—':String(v)}
+
+function gcPontoEletricoShort(v){
+  const text=gcText(v);
+  if(text==='—')return text;
+  return text.replace(/\s*-\s*Centro de Distribui[cç][aã]o\s*$/i,'').trim()||'—';
+}
+
 function gcDateInputToDate(value,endOfDay){
   if(!value)return null;
   const d=new Date(value+'T00:00:00');
@@ -11969,7 +12059,13 @@ async function gcSetCorrection(event,value){
 function gcAttendanceCard(row,recurrent,event,model,cycleNo,origin=false){
   const ev=event||null;
   const groups=ev
-    ? (origin?(ev.previousGroups||[]):recurrent?(ev.currentGroups||[]):(ev.previousGroups||[]))
+    ? (
+        origin
+          ?(ev.previousEffectiveGroups?.length?ev.previousEffectiveGroups:(ev.previousGroups||[]))
+          :recurrent
+            ?(ev.currentEffectiveGroups?.length?ev.currentEffectiveGroups:(ev.groups?.length?ev.groups:(ev.currentGroups||[])))
+            :(ev.previousEffectiveGroups?.length?ev.previousEffectiveGroups:(ev.previousGroups||[]))
+      )
     : [...causeGroups(row?.[COL.causa])];
   const change=ev?gcCauseChangeValue(ev):{};
   const correction=ev?gcCorrectionValue(ev):'Sem Ação';
@@ -12001,14 +12097,14 @@ function gcAttendanceCard(row,recurrent,event,model,cycleNo,origin=false){
       </div>
       <div class="gc-att-field full"><label>Grupo causa</label><div class="value">${gcGroupBadges(groups)}</div></div>
       <div class="gc-att-field"><label>AL</label><div class="value">${esc(gcText(al))}</div></div>
-      <div class="gc-att-field"><label>Ponto elétrico</label><div class="value">${esc(gcText(ponto))}</div></div>
+      <div class="gc-att-field"><label>Ponto elétrico</label><div class="value">${esc(gcPontoEletricoShort(ponto))}</div></div>
     </div>
     <div class="gc-exec-box">
       <label>Busca Execução</label>
       <div class="value">${gcExpandableText(gcEorderObs(row))}</div>
       <div class="gc-exec-date">${esc(gcEorderDate(row))}</div>
     </div>
-    ${origin?'<div class="gc-origin-note">Esta incidência não é reincidente deste grupo neste ponto da sequência; ela aparece porque é a origem do próximo reincidente confirmado.</div>':''}
+    ${origin?'<div class="gc-origin-note">Quebra real da sequência anterior. Esta incidência inicia o grupo que dará origem ao próximo reincidente.</div>':''}
     ${recurrent&&ev&&!origin?`<div class="gc-action-box">
       <div class="gc-action-row">
         <label>Ação</label>
@@ -12101,8 +12197,12 @@ function gcExportCauseChanges(model){
     const change=gcCauseChangeValue(ev);
     if(!change.posteriorGroup||!change.posteriorCause)continue;
     const previous=ev.previous,current=ev.current;
-    const prevGroups=ev.previousGroups?.length?ev.previousGroups:[...causeGroups(previous?.[COL.causa])];
-    const currGroups=ev.currentGroups?.length?ev.currentGroups:[...causeGroups(current?.[COL.causa])];
+    const prevGroups=ev.previousEffectiveGroups?.length
+      ?ev.previousEffectiveGroups
+      :(ev.previousGroups?.length?ev.previousGroups:[...causeGroups(previous?.[COL.causa])]);
+    const currGroups=ev.currentEffectiveGroups?.length
+      ?ev.currentEffectiveGroups
+      :(ev.groups?.length?ev.groups:(ev.currentGroups?.length?ev.currentGroups:[...causeGroups(current?.[COL.causa])]));
     exported.push({
       'Cliente':String(ev.client||''),
       'Incidência anterior':formatNumero(previous?.[COL.numero]),
