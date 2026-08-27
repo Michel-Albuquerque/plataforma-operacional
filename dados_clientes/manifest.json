@@ -1,13 +1,13 @@
 {
-  "gerado_em": "2026-08-27T11:13:06",
+  "gerado_em": "2026-08-27T11:27:28",
   "versao": 11,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 6290,
-      "tamanho_bytes": 976215,
+      "linhas": 6294,
+      "tamanho_bytes": 975937,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-08-27T11:13:05"
+      "fonte_modificada_em": "2026-08-27T11:27:26"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
@@ -19,7 +19,7 @@
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
       "linhas": 236730,
-      "tamanho_bytes": 23931982,
+      "tamanho_bytes": 23932122,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
       "fonte_modificada_em": "2026-08-27T11:13:45",
       "linhas_origem": 236730,
@@ -31,9 +31,9 @@
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4572,
-      "tamanho_bytes": 504226,
+      "tamanho_bytes": 504224,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-08-27T10:21:04",
+      "fonte_modificada_em": "2026-08-27T11:29:21",
       "vinculadas_principal": 4572,
       "sem_vinculo_principal": 0,
       "modo": "oficial_enriquecida"
@@ -41,7 +41,7 @@
     "analise_grupo_causa": {
       "arquivo": "analise_grupo_causa.json.gz",
       "linhas": 25101,
-      "tamanho_bytes": 1904576,
+      "tamanho_bytes": 1904651,
       "metodologia": "grupo_causa_contextual_v4_consulta_incidencia_mestre",
       "fonte_mestre": "Base_Final_Incidencia / Consulta Incidência",
       "janela_reincidencia_dias": 30,
@@ -70,8 +70,8 @@
       ],
       "observacoes_janela_dias": 30,
       "execucao_modo_vinculo": "LEFT JOIN complementar: Consulta.Numero+Equipe = Execucao.Numero da Incidencia+Recurso/Equipe",
-      "execucao_matches": 18389,
-      "execucao_sem_match": 31813,
+      "execucao_matches": 18391,
+      "execucao_sem_match": 31811,
       "execucao_fora_janela_30d": 0,
       "reincidencias_ramal": 1939,
       "reincidencias_medidor": 2049,
