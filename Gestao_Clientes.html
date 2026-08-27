@@ -1331,6 +1331,58 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
   #panel-analiseGrupoCausa .gc-save-change{width:100%}
 }
 
+
+/* V11 · Correção — enquadramento e alinhamento */
+#panel-analiseGrupoCausa .gc-correction-summary{
+  width:100%;
+  table-layout:fixed;
+}
+#panel-analiseGrupoCausa .gc-correction-summary th,
+#panel-analiseGrupoCausa .gc-correction-summary td{
+  text-align:center !important;
+  vertical-align:middle !important;
+}
+#panel-analiseGrupoCausa .gc-correction-summary th:first-child,
+#panel-analiseGrupoCausa .gc-correction-summary td:first-child{
+  text-align:center !important;
+}
+#panel-analiseGrupoCausa .gc-change-editor{
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+  overflow:visible;
+}
+#panel-analiseGrupoCausa .gc-change-grid{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) !important;
+  gap:8px !important;
+  width:100%;
+  max-width:100%;
+}
+#panel-analiseGrupoCausa .gc-change-field{
+  width:100%;
+  min-width:0;
+}
+#panel-analiseGrupoCausa .gc-change-field select,
+#panel-analiseGrupoCausa select[data-gc-inc-group],
+#panel-analiseGrupoCausa select[data-gc-inc-cause]{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  box-sizing:border-box;
+  min-height:40px;
+  padding:8px 10px;
+  font-size:9px;
+}
+#panel-analiseGrupoCausa .gc-save-change{
+  width:100% !important;
+  max-width:100%;
+  min-height:38px;
+  height:auto;
+  box-sizing:border-box;
+  white-space:normal;
+}
+
 </style>
 </head>
 <body>
@@ -12100,14 +12152,18 @@ function gcGroupLogosContext(allGroups,activeGroups){
 }
 function gcCorrectionGroupOptions(selected=''){
   const opts=[
-    ['TODOS','Todos'],
-    ['G1','G1 · RAMAL'],
-    ['G2','G2 · MEDIDOR'],
-    ['G3','G3 · VEGETAÇÃO'],
-    ['G4','G4 · ANIMAIS'],
-    ['G5','G5 · OUTROS']
+    ['TODOS','Todos',''],
+    ['G1','G1 · RAMAL',gcGroupCodeColor('RAMAL')],
+    ['G2','G2 · MEDIDOR',gcGroupCodeColor('MEDIDOR')],
+    ['G3','G3 · VEGETAÇÃO',gcGroupCodeColor('VEGETAÇÃO')],
+    ['G4','G4 · ANIMAIS',gcGroupCodeColor('ANIMAIS')],
+    ['G5','G5 · OUTROS','#687781']
   ];
-  return '<option value="">Selecionar grupo</option>'+opts.map(([v,l])=>`<option value="${v}" ${v===selected?'selected':''}>${l}</option>`).join('');
+  return '<option value="" style="background:#fff;color:#172b23">Selecionar grupo</option>'+
+    opts.map(([v,l,bg])=>{
+      const style=bg?`background:${bg};color:#fff;font-weight:700`:'background:#f3f5f4;color:#172b23;font-weight:700';
+      return `<option value="${v}" ${v===selected?'selected':''} style="${style}">${l}</option>`;
+    }).join('');
 }
 function gcActualGroupFromCategory(code,cause){
   const groups=[...causeGroups(cause)];
@@ -12703,24 +12759,25 @@ function gcExportCauseChanges(model){
 
 function gcClientTable(clients,kind,model){
   if(!clients.length)return '<div class="gc-empty">Nenhum cliente encontrado.</div>';
-  return `<div class="gc-table-wrap"><table class="gc-table"><thead><tr>
-    <th>Cliente</th><th class="gc-num">Reinc. Geral</th><th class="gc-num">Reinc. Grupo</th>
-    <th class="gc-num">Ramal</th><th class="gc-num">Medidor</th><th class="gc-num">Vegetação</th>
-    <th class="gc-num">Animais</th><th class="gc-num">Outros</th><th>Impacto</th>
+  return `<div class="gc-table-wrap"><table class="gc-table gc-correction-summary"><thead><tr>
+    <th>Cliente</th>
+    <th>Reinc. Grupo</th>
+    <th>Ramal</th>
+    <th>Medidor</th>
+    <th>Vegetação</th>
+    <th>Animais</th>
+    <th>Outros</th>
   </tr></thead><tbody>${clients.map(c=>{
     const key=`${kind}:${c.cliente}`,open=S.analiseGrupoCausaExpanded.has(key);
-    const reducao=c.general.length?((c.general.length-c.group.length)/c.general.length*100):0;
-    const detail=open?`<tr class="gc-detail"><td colspan="9">${gcDetailTable(c,model)}</td></tr>`:'';
+    const detail=open?`<tr class="gc-detail"><td colspan="7">${gcDetailTable(c,model)}</td></tr>`:'';
     return `<tr class="gc-row" data-gc-client="${encodeURIComponent(c.cliente)}" data-gc-kind="${kind}">
       <td><b>${open?'▾':'▸'} ${esc(c.cliente)}</b></td>
-      
-      <td class="gc-num">${fmtNum(c.group.length)}</td>
-      <td class="gc-num">${fmtNum(c.ramal)}</td>
-      <td class="gc-num">${fmtNum(c.medidor)}</td>
-      <td class="gc-num">${fmtNum(c.vegetacao)}</td>
-      <td class="gc-num">${fmtNum(c.animais)}</td>
-      <td class="gc-num">${fmtNum(c.outros)}</td>
-      <td>${c.group.length?`<span class="gc-badge">${fmtPct(reducao)} redução</span>`:'<span class="gc-badge off">Sai da nova metodologia</span>'}</td>
+      <td>${fmtNum(c.group.length)}</td>
+      <td>${fmtNum(c.ramal)}</td>
+      <td>${fmtNum(c.medidor)}</td>
+      <td>${fmtNum(c.vegetacao)}</td>
+      <td>${fmtNum(c.animais)}</td>
+      <td>${fmtNum(c.outros)}</td>
     </tr>${detail}`;
   }).join('')}</tbody></table></div>`;
 }
