@@ -12165,7 +12165,25 @@ function gcBuildTimelineCycles(rows,confirmedEvents){
 
 function gcBuildModel(){
   const generalAll=gcBuildGeneralEvents();
-  const parallel=gcBuildParallelGroupEvaluations(S.baseCompleta||[]);
+
+  // Trabalha apenas com as incidências que efetivamente participam de uma
+  // janela de reincidência geral. Isso mantém toda a sequência necessária,
+  // mas evita reprocessar a base inteira ao abrir a Análise Causa.
+  const timelineRowsMap=new Map();
+  for(const ev of generalAll){
+    const prev=ev?.previous;
+    const cur=ev?.current;
+    if(prev){
+      const key=gcClientKey(prev?.[COL.nCliente])+'|'+normalizeNumero(prev?.[COL.numero]);
+      timelineRowsMap.set(key,prev);
+    }
+    if(cur){
+      const key=gcClientKey(cur?.[COL.nCliente])+'|'+normalizeNumero(cur?.[COL.numero]);
+      timelineRowsMap.set(key,cur);
+    }
+  }
+
+  const parallel=gcBuildParallelGroupEvaluations([...timelineRowsMap.values()]);
   const evaluationsAll=parallel.evaluations;
 
   const general=generalAll.filter(gcInPagePeriod);
@@ -12505,6 +12523,7 @@ function gcClientTable(clients,kind,model){
 }
 function renderAnaliseGrupoCausa(fromAsync=false){
   const el=document.getElementById('panel-analiseGrupoCausa');if(!el)return;
+  try{
   if(!S.analiseGrupoCausaCorrectionsLoaded&&!S.analiseGrupoCausaCorrectionsLoading)gcLoadCorrectionsServer();
   if(!GC_CAUSE_CHANGES_SERVER_LOADED&&!GC_CAUSE_CHANGES_SERVER_LOADING)gcLoadCauseChangesServer();
   if(!S.baseCompleta.length){
@@ -12633,6 +12652,13 @@ function renderAnaliseGrupoCausa(fromAsync=false){
 
   const exportChanges=document.getElementById('gcExportCauseChanges');
   if(exportChanges)exportChanges.onclick=()=>gcExportCauseChanges(model);
+  }catch(error){
+    console.error('Erro ao renderizar Análise Causa:',error);
+    el.innerHTML=`<div class="gc-page"><div class="gc-card"><div class="gc-empty">
+      <b>Não foi possível montar a Análise Causa.</b><br>
+      <span style="font-size:11px">${esc(error?.message||String(error))}</span>
+    </div></div></div>`;
+  }
 }
 
 
