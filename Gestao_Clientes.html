@@ -1235,6 +1235,12 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 #panel-analiseGrupoCausa .gc-cycle-flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:12px;padding:14px}
 #panel-analiseGrupoCausa .gc-att-card{position:relative;border:1px solid #dce6e2;border-radius:13px;background:#fff;padding:13px;min-width:0}
 #panel-analiseGrupoCausa .gc-att-card.recurrent{border:2px solid #008556;background:#f5fbf8;box-shadow:0 0 0 3px rgba(0,133,86,.06)}
+
+#panel-analiseGrupoCausa .gc-att-card.origin{border:1px dashed #aeb8b3;background:#f3f5f4;box-shadow:none}
+#panel-analiseGrupoCausa .gc-att-card.origin .gc-cause-highlight{border-left-color:#89938e;background:#e8ecea}
+#panel-analiseGrupoCausa .gc-origin-badge{display:inline-flex;align-items:center;border-radius:999px;background:#6f7a75;color:#fff;font-size:8px;font-weight:900;letter-spacing:.25px;padding:4px 7px;white-space:nowrap}
+#panel-analiseGrupoCausa .gc-origin-note{margin-top:8px;padding:6px 8px;border-radius:7px;background:#e5e9e7;color:#52605a;font-size:8.5px;font-weight:800}
+
 #panel-analiseGrupoCausa .gc-att-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:9px}
 #panel-analiseGrupoCausa .gc-att-order{font-size:12px;font-weight:900;color:#172b23}
 #panel-analiseGrupoCausa .gc-att-date{font-size:9px;color:#728078;margin-top:2px}
@@ -11691,14 +11697,58 @@ function gcSaveCauseChanges(){
   try{localStorage.setItem(GC_CAUSE_CHANGE_STORAGE_KEY,JSON.stringify(GC_CAUSE_CHANGES||{}))}catch(_){}
 }
 function gcCauseChangeValue(event){return GC_CAUSE_CHANGES[gcPairKey(event)]||{}}
-function gcSaveCauseChange(event,posteriorGroup,posteriorCause){
+let GC_CAUSE_CHANGES_SERVER_LOADED=false;
+let GC_CAUSE_CHANGES_SERVER_LOADING=false;
+async function gcLoadCauseChangesServer(){
+  if(GC_CAUSE_CHANGES_SERVER_LOADED||GC_CAUSE_CHANGES_SERVER_LOADING)return;
+  GC_CAUSE_CHANGES_SERVER_LOADING=true;
+  try{
+    const result=await callbackSupabaseRpc('analise_causa_trocas_listar',{});
+    const rows=Array.isArray(result)?result:(Array.isArray(result?.registros)?result.registros:[]);
+    for(const item of rows){
+      const key=String(item.pair_key||'').trim();
+      if(!key)continue;
+      GC_CAUSE_CHANGES[key]={
+        posteriorGroup:String(item.grupo_posterior||'').trim(),
+        posteriorCause:String(item.causa_posterior||'').trim(),
+        savedAt:item.updated_at||item.created_at||''
+      };
+    }
+    gcSaveCauseChanges();
+  }catch(error){
+    console.warn('Trocas de causa: Supabase ainda não configurado; usando armazenamento local.',error);
+  }finally{
+    GC_CAUSE_CHANGES_SERVER_LOADED=true;
+    GC_CAUSE_CHANGES_SERVER_LOADING=false;
+    if(S.currentTab==='analiseGrupoCausa'){
+      S.renderKeys.analiseGrupoCausa='';
+      renderAnaliseGrupoCausa(true);
+    }
+  }
+}
+async function gcSaveCauseChange(event,posteriorGroup,posteriorCause){
   const key=gcPairKey(event);
-  GC_CAUSE_CHANGES[key]={
+  const payload={
     posteriorGroup:String(posteriorGroup||'').trim(),
     posteriorCause:String(posteriorCause||'').trim(),
     savedAt:new Date().toISOString()
   };
+  GC_CAUSE_CHANGES[key]=payload;
   gcSaveCauseChanges();
+  try{
+    await callbackSupabaseRpc('analise_causa_troca_salvar',{
+      p_pair_key:key,
+      p_cliente:String(event.client||''),
+      p_incidencia_anterior:String(event.previous?.[COL.numero]||''),
+      p_incidencia_atual:String(event.current?.[COL.numero]||''),
+      p_grupo_atual:(event.currentGroups||[]).join(' | '),
+      p_causa_atual:String(event.current?.[COL.causa]||''),
+      p_grupo_posterior:payload.posteriorGroup,
+      p_causa_posterior:payload.posteriorCause
+    });
+  }catch(error){
+    console.warn('Troca de causa salva somente neste navegador:',error);
+  }
 }
 gcLoadCauseChanges();
 
@@ -11916,10 +11966,10 @@ async function gcSetCorrection(event,value){
 
 /* ---------- tabela detalhada ---------- */
 
-function gcAttendanceCard(row,recurrent,event,model,cycleNo){
+function gcAttendanceCard(row,recurrent,event,model,cycleNo,origin=false){
   const ev=event||null;
   const groups=ev
-    ? (recurrent?(ev.currentGroups||[]):(ev.previousGroups||[]))
+    ? (origin?(ev.previousGroups||[]):recurrent?(ev.currentGroups||[]):(ev.previousGroups||[]))
     : [...causeGroups(row?.[COL.causa])];
   const change=ev?gcCauseChangeValue(ev):{};
   const correction=ev?gcCorrectionValue(ev):'Sem Ação';
@@ -11929,18 +11979,24 @@ function gcAttendanceCard(row,recurrent,event,model,cycleNo){
   const process=row?.[COL.processo];
   const al=row?.[COL.al];
   const ponto=row?.[COL.pontoEletrico];
-  return `<article class="gc-att-card ${recurrent?'recurrent':''}" ${pair?`data-gc-pair="${esc(pair)}"`:''}>
+  const cardClass=origin?'origin':recurrent?'recurrent':'';
+  const badge=origin
+    ? '<span class="gc-origin-badge">ORIGEM DO REINCIDENTE</span>'
+    : recurrent
+      ? '<span class="gc-recurrent-badge">REINCIDENTE</span>'
+      : '<span class="gc-initial-badge">ATENDIMENTO INICIAL</span>';
+  return `<article class="gc-att-card ${cardClass}" ${pair?`data-gc-pair="${esc(pair)}"`:''}>
     <div class="gc-att-top">
       <div>
         <div class="gc-att-order">${esc(formatNumero(row?.[COL.numero]))}</div>
         <div class="gc-att-date">${esc(gcDate(row?.__dataFim))}</div>
       </div>
-      ${recurrent?'<span class="gc-recurrent-badge">REINCIDENTE</span>':'<span class="gc-initial-badge">ATENDIMENTO INICIAL</span>'}
+      ${badge}
     </div>
     <div class="gc-att-grid">
       <div class="gc-att-field"><label>Equipe</label><div class="value">${esc(gcText(row?.[COL.equipeDesl]))}</div></div>
       <div class="gc-att-field"><label>Processo</label><div class="value">${esc(gcText(process))}</div></div>
-      <div class="gc-att-field full ${recurrent?'gc-cause-highlight':''}">
+      <div class="gc-att-field full ${(recurrent||origin)?'gc-cause-highlight':''}">
         <label>Causa</label><div class="value">${gcExpandableText(row?.[COL.causa])}</div>
       </div>
       <div class="gc-att-field full"><label>Grupo causa</label><div class="value">${gcGroupBadges(groups)}</div></div>
@@ -11952,7 +12008,8 @@ function gcAttendanceCard(row,recurrent,event,model,cycleNo){
       <div class="value">${gcExpandableText(gcEorderObs(row))}</div>
       <div class="gc-exec-date">${esc(gcEorderDate(row))}</div>
     </div>
-    ${recurrent&&ev?`<div class="gc-action-box">
+    ${origin?'<div class="gc-origin-note">Esta incidência não é reincidente deste grupo neste ponto da sequência; ela aparece porque é a origem do próximo reincidente confirmado.</div>':''}
+    ${recurrent&&ev&&!origin?`<div class="gc-action-box">
       <div class="gc-action-row">
         <label>Ação</label>
         <select class="gc-correction ${correction==='Sim'?'sim':correction==='Não'?'nao':''}" data-gc-correction="${esc(pair)}">
@@ -11979,9 +12036,10 @@ function gcAttendanceCard(row,recurrent,event,model,cycleNo){
     </div>`:''}
   </article>`;
 }
+
 function gcDetailTable(client,model){
-  const rows=gcAssignCycles(client.general)
-    .filter(e=>model.evalByPair.get(gcPairKey(e))?.confirmada);
+  const assigned=gcAssignCycles(client.general);
+  const rows=assigned.filter(e=>model.evalByPair.get(gcPairKey(e))?.confirmada);
   if(!rows.length)return '<div class="gc-empty">Nenhum vínculo encontrado para este filtro.</div>';
 
   const cycles=new Map();
@@ -11995,26 +12053,47 @@ function gcDetailTable(client,model){
     cycleRows.sort((a,b)=>a.current.__dataFim-b.current.__dataFim);
     const first=cycleRows[0],last=cycleRows[cycleRows.length-1];
     const linked=cycleRows.length;
+    const cards=[];
+    let lastDisplayed='';
+
+    const firstEv=model.evalByPair.get(gcPairKey(first));
+    cards.push(gcAttendanceCard(first.previous,false,firstEv,model,cycleNo,false));
+    lastDisplayed=normalizeNumero(first.previous?.[COL.numero]);
+
+    for(const e of cycleRows){
+      const ev=model.evalByPair.get(gcPairKey(e));
+      if(!ev)continue;
+      const originNum=normalizeNumero(ev.previous?.[COL.numero]);
+      const currentNum=normalizeNumero(ev.current?.[COL.numero]);
+
+      // Se a origem deste reincidente foi escondida por uma quebra de grupo,
+      // recoloca a incidência na sequência em cinza antes do reincidente.
+      if(originNum && originNum!==lastDisplayed){
+        cards.push(gcAttendanceCard(ev.previous,false,ev,model,cycleNo,true));
+        lastDisplayed=originNum;
+      }
+
+      if(currentNum && currentNum!==lastDisplayed){
+        cards.push(gcAttendanceCard(ev.current,true,ev,model,cycleNo,false));
+        lastDisplayed=currentNum;
+      }
+    }
+
     html+=`<section class="gc-cycle-card">
       <div class="gc-cycle-card-head">
         <strong>Ciclo ${cycleNo} · ${linked} reincidência(s)</strong>
         <span>${esc(gcDateShort(first.previous.__dataFim))} → ${esc(gcDateShort(last.current.__dataFim))} · janela de até 30 dias</span>
       </div>
-      <div class="gc-cycle-flow">
-        ${gcAttendanceCard(first.previous,false,model.evalByPair.get(gcPairKey(first)),model,cycleNo)}
-        ${cycleRows.map(e=>{
-          const ev=model.evalByPair.get(gcPairKey(e));
-          return gcAttendanceCard(e.current,true,ev,model,cycleNo);
-        }).join('')}
-      </div>
+      <div class="gc-cycle-flow">${cards.join('')}</div>
       <div class="gc-cycle-foot">
-        <span>Cliente ${esc(client.cliente)} · ${fmtNum(linked+1)} atendimento(s) no ciclo</span>
+        <span>Cliente ${esc(client.cliente)} · origens intermediárias em cinza preservam a referência de cada reincidência</span>
         <span>${gcGroupBadges([...new Set(cycleRows.flatMap(e=>(model.evalByPair.get(gcPairKey(e))?.groups||[])))])}</span>
       </div>
     </section>`;
   }
   return html+'</div>';
 }
+
 function gcExportCauseChanges(model){
   const exported=[];
   for(const ev of model.confirmed){
@@ -12083,6 +12162,7 @@ function gcClientTable(clients,kind,model){
 function renderAnaliseGrupoCausa(fromAsync=false){
   const el=document.getElementById('panel-analiseGrupoCausa');if(!el)return;
   if(!S.analiseGrupoCausaCorrectionsLoaded&&!S.analiseGrupoCausaCorrectionsLoading)gcLoadCorrectionsServer();
+  if(!GC_CAUSE_CHANGES_SERVER_LOADED&&!GC_CAUSE_CHANGES_SERVER_LOADING)gcLoadCauseChangesServer();
   if(!S.baseCompleta.length){
     el.innerHTML='<div class="gc-page"><div class="gc-card"><div class="gc-empty">Aguardando a Base de Incidências.</div></div></div>';
     return;
@@ -12092,7 +12172,6 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   let clients=model.clients;
   if(q)clients=clients.filter(c=>String(c.cliente).toLowerCase().includes(q));
   const ativos=clients.filter(c=>c.group.length>0);
-  const perdidos=clients.filter(c=>c.general.length>0&&c.group.length===0);
   const totalGeneral=model.general.length,totalGroup=model.confirmed.length;
   const reduction=totalGeneral?((totalGeneral-totalGroup)/totalGeneral*100):0;
   const correctedPairs=new Set(
@@ -12147,13 +12226,6 @@ function renderAnaliseGrupoCausa(fromAsync=false){
       ${gcClientTable(ativos,'ativo',model)}
     </section>
 
-    <section class="gc-card gc-loss">
-      <div class="gc-head"><div>
-        <div class="gc-title">Clientes que deixam de ser reincidentes pela metodologia por Grupo</div>
-        <div class="gc-sub">Reincidência Geral em até 30 dias, mas sem continuidade do Grupo Causa</div>
-      </div></div>
-      ${gcClientTable(perdidos,'perdido',model)}
-    </section>
   </div>`;
 
   const search=document.getElementById('gcSearch');
@@ -12199,7 +12271,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     if(ev&&causeSelect)causeSelect.innerHTML=gcCauseOptionsForGroup(select.value,'');
   });
 
-  el.querySelectorAll('[data-gc-save-change]').forEach(button=>button.onclick=(event)=>{
+  el.querySelectorAll('[data-gc-save-change]').forEach(button=>button.onclick=async(event)=>{
     event.stopPropagation();
     const pair=button.dataset.gcSaveChange;
     const ev=model.confirmed.find(item=>gcPairKey(item)===pair);
@@ -12210,7 +12282,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
       alert('Selecione o grupo posterior e a causa posterior.');
       return;
     }
-    gcSaveCauseChange(ev,groupSelect.value,causeSelect.value);
+    await gcSaveCauseChange(ev,groupSelect.value,causeSelect.value);
     S.renderKeys.analiseGrupoCausa='';
     renderAnaliseGrupoCausa(true);
   });
