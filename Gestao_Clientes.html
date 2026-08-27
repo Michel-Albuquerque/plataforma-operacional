@@ -1181,6 +1181,50 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 .gc-continue{display:inline-block;padding:3px 7px;border-radius:999px;background:#e3f4ec;color:#006d4b;border:1px solid #b9dfcf;font-size:9px;font-weight:900}
 .gc-eorder{max-width:360px;white-space:normal;line-height:1.35;color:#4d5e56}
 
+
+/* ============================================================
+   ANÁLISE CAUSA V3 — ciclos, oportunidades e leitura sem scroll horizontal
+   ============================================================ */
+.gc-filter-check{height:34px;display:inline-flex;align-items:center;gap:7px;border:1px solid #ccd9d4;border-radius:7px;background:#fff;padding:0 10px;font-size:10px;font-weight:800;color:#34473f;cursor:pointer}
+.gc-filter-check input{accent-color:#008556}
+.gc-save-mode{font-size:9px;padding:4px 8px;border-radius:999px;background:#eef4f1;color:#5d7067;border:1px solid #d7e3dd}
+.gc-save-mode.cloud{background:#e4f3ec;color:#006f4c;border-color:#bddfce}
+.gc-detail-box{border-left:3px solid #008556;padding:8px 8px 4px;max-height:560px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+.gc-detail-table{width:100%;min-width:0!important;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:9.2px}
+.gc-detail-table thead th{position:sticky!important;top:0!important;z-index:8!important;background:#eaf3ef!important;box-shadow:0 1px 0 #cfdcd6;padding:7px 5px;white-space:normal;line-height:1.15}
+.gc-detail-table td{padding:7px 5px;vertical-align:top;line-height:1.28;word-break:break-word;overflow-wrap:anywhere}
+.gc-detail-table th:nth-child(1),.gc-detail-table td:nth-child(1){width:8%}
+.gc-detail-table th:nth-child(2),.gc-detail-table td:nth-child(2){width:13%}
+.gc-detail-table th:nth-child(3),.gc-detail-table td:nth-child(3){width:16%}
+.gc-detail-table th:nth-child(4),.gc-detail-table td:nth-child(4){width:13%}
+.gc-detail-table th:nth-child(5),.gc-detail-table td:nth-child(5){width:16%}
+.gc-detail-table th:nth-child(6),.gc-detail-table td:nth-child(6){width:10%}
+.gc-detail-table th:nth-child(7),.gc-detail-table td:nth-child(7){width:16%}
+.gc-detail-table th:nth-child(8),.gc-detail-table td:nth-child(8){width:8%}
+.gc-event-row{transition:filter .12s ease}.gc-event-row:hover{filter:brightness(.985)}
+.gc-event-row.break-row td:first-child{box-shadow:inset 4px 0 0 #b13d36}
+.gc-event-row.cont-row td:first-child{box-shadow:inset 4px 0 0 #008556}
+.gc-cycle-divider td{position:sticky;top:29px;z-index:5;padding:6px 8px!important;background:#263a32!important;color:#fff!important;font-size:8.5px;font-weight:850;letter-spacing:.025em;border:0!important}
+.gc-cycle-divider small{font-weight:500;opacity:.78;margin-left:7px}
+.gc-stack b{display:block;font-size:9.2px}.gc-stack span{display:block;color:#607169;font-size:8px;margin-top:2px}
+.gc-cause{font-weight:750;line-height:1.25;margin-bottom:4px}
+.gc-text-expand{margin-top:3px}.gc-text-expand summary{cursor:pointer;list-style:none;color:#43564d}.gc-text-expand summary::-webkit-details-marker{display:none}
+.gc-text-expand summary:after{content:' +';font-weight:900;color:#008556}.gc-text-expand[open] summary:after{content:' −'}
+.gc-text-expand .gc-text-full{margin-top:5px;padding:6px;border-radius:5px;background:rgba(255,255,255,.68);font-size:8.4px;line-height:1.35}
+.gc-text-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-height:2.7em}
+.gc-correction{width:100%;height:29px;border:1px solid #bdcbc5;border-radius:6px;background:#fff;padding:0 4px;font-size:8.4px;font-weight:800}
+.gc-correction.sim{background:#e4f4ec;color:#006e4b;border-color:#a9d8c5}.gc-correction.nao{background:#f7e8e6;color:#9d3931;border-color:#e3bbb6}
+.gc-period-label{display:inline-flex;align-items:center;gap:5px}
+.gc-period-dot{width:7px;height:7px;border-radius:50%;background:#66c29a}
+.gc-kpi.corrected{border-top-color:#0a8b60}
+.gc-kpi.corrected .v{color:#08714f}
+.gc-table-wrap{overflow-x:hidden!important}
+.gc-table{min-width:0!important;table-layout:fixed}
+.gc-table th,.gc-table td{word-break:break-word}
+@media(max-width:1100px){
+  .gc-detail-table{font-size:8.4px}.gc-detail-table thead th{font-size:7.3px;padding:6px 3px}.gc-detail-table td{padding:6px 3px}
+}
+
 </style>
 </head>
 <body>
@@ -1844,6 +1888,10 @@ const S = {
   analiseGrupoCausaDateFrom:'',
   analiseGrupoCausaDateTo:'',
   analiseGrupoCausaExpanded:new Set(),
+  analiseGrupoCausaCorrections:{},
+  analiseGrupoCausaCorrectionsLoaded:false,
+  analiseGrupoCausaCorrectionsLoading:false,
+  analiseGrupoCausaCorrectionsMode:'local',
   teamUI: {minIncidents:0,minDays:0,sort:'pct_desc'},
   processUI: {sort:'reinc_desc'},
   order2UI:{year:2026,month:'',months:[],dateFrom:'',dateTo:'',team:'',cause:'',process:'',turno:'',client:'',vehicleOrder2Filter:'',compareYearA:2025,compareYearB:2026,compareMetric:'count',processSort:'orders',vehicleSort:'rate',excludedView:'month'},
@@ -4269,7 +4317,7 @@ function activeRenderKey(){
   if(S.currentTab==='callbackContingencia')return `callback:${S.callbackView}:${S.callbackBase.length}:${Object.keys(S.callbackHistoryBase||{}).length}:${(S.callbackTransitions||[]).length}:${S.callbackVersion}:${JSON.stringify(S.callbackFilters)}:${JSON.stringify(S.callbackDiagnosticFilters)}:${JSON.stringify(S.callbackAssignments)}`;
   if(S.currentTab==='acao')return `acao:${S.actionView}:${S.actionVersion}:${S.fiscalizacaoVersion}:${S.baseCompleta.length}:${S.baseReincidencia.length}:${S.fiscalizacaoBase.length}:${JSON.stringify(S.actionUI)}:${JSON.stringify(S.fiscalizacaoFilters)}`;
   if(S.currentTab==='analiseCausa')return `causa:${S.processedAt||''}:${S.reincidenciaProcessedAt||''}:${S.baseCompleta.length}:${S.baseReincidencia.length}:${JSON.stringify(S.causeUI)}`;
-  if(S.currentTab==='analiseGrupoCausa')return `grupocausa:${S.processedAt||''}:${S.baseCompleta.length}:${S.analiseGrupoCausaSearch}:${S.analiseGrupoCausaDateFrom}:${S.analiseGrupoCausaDateTo}`;
+  if(S.currentTab==='analiseGrupoCausa')return `grupocausa:${S.processedAt||''}:${S.baseCompleta.length}:${S.analiseGrupoCausaSearch}:${S.analiseGrupoCausaDateFrom}:${S.analiseGrupoCausaDateTo}:${JSON.stringify(S.analiseGrupoCausaCorrections||{})}`;
   if(S.currentTab==='ordem2'||S.currentTab==='ordem2Diagnostico')return `ordem2:${S.currentTab}:${S.processedAt||''}:${S.baseCompleta.length}:${S.order2Version}:${JSON.stringify(S.order2UI)}`;
   return filterCacheKey()+'|principal:'+S.baseCompleta.length+'|reinc:'+S.baseReincidencia.length;
 }
@@ -11580,9 +11628,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 
 /* ============================================================
-   14B2. ANÁLISE CAUSA — motor validado de Reincidência por Grupo
-   + E-Order complementar + filtro de período próprio + visual por grupo
+   14B2. ANÁLISE CAUSA V3
+   - mesmo motor validado da Reincidência por Grupo
+   - ciclos visuais de 30 dias
+   - oportunidades + Correção persistente no Supabase
+   - E-Order complementar
    ============================================================ */
+const GC_CORRECTION_STORAGE_KEY='analise_causa_correcoes_v1';
+
 function gcGeneralEligible(row){
   return !!row &&
     isIndicatorRow(row) &&
@@ -11616,6 +11669,7 @@ function gcPairKey(event){
 }
 function gcClientKey(v){return normalizeNumero(v)||String(v||'').trim()}
 function gcDate(v){const d=v instanceof Date?v:parseDateVal(v);return validDate(d)?fmtDateTime(d):'—'}
+function gcDateShort(v){const d=v instanceof Date?v:parseDateVal(v);return validDate(d)?fmtDate(d):'—'}
 function gcText(v){return v==null||String(v).trim()===''?'—':String(v)}
 function gcDateInputToDate(value,endOfDay){
   if(!value)return null;
@@ -11633,24 +11687,15 @@ function gcInPagePeriod(event){
   if(to&&d>to)return false;
   return true;
 }
-function gcGroupColor(group){
-  const g=String(group||'').toUpperCase();
-  const fixed={
-    'RAMAL':'#147d64',
-    'MEDIDOR':'#d17a24',
-    'VEGETAÇÃO':'#4f8c3f',
-    'ANIMAIS':'#7556a3',
-    'TERCEIROS ACIDENTAL':'#4472a8',
-    'PIPA':'#ad6b2f',
-    'CORPO ESTRANHO':'#687781',
-    'CS QUEIMADO':'#b34843',
-    'DESCARGAS ATMOSFÉRICAS':'#5271a7',
-    'SOBRECARGA':'#a85c33'
-  };
-  if(fixed[g])return fixed[g];
+function gcGroupHue(group){
+  const g=String(group||'SEM GRUPO').toUpperCase();
+  const fixed={RAMAL:160,MEDIDOR:31,'VEGETAÇÃO':105,ANIMAIS:266,'TERCEIROS ACIDENTAL':212,PIPA:24,'CORPO ESTRANHO':196,'CS QUEIMADO':2,'DESCARGAS ATMOSFÉRICAS':225,SOBRECARGA:15};
+  if(fixed[g]!=null)return fixed[g];
   let h=0;for(let i=0;i<g.length;i++)h=(h*31+g.charCodeAt(i))%360;
-  return `hsl(${h} 42% 45%)`;
+  return h;
 }
+function gcGroupColor(group){return `hsl(${gcGroupHue(group)} 47% 40%)`}
+function gcGroupSoftColor(group){return `hsl(${gcGroupHue(group)} 42% 94%)`}
 function gcGroupBadge(group){
   if(!group)return '<span class="gc-muted">—</span>';
   return `<span class="gc-group-badge" style="background:${gcGroupColor(group)}">${esc(group)}</span>`;
@@ -11659,11 +11704,28 @@ function gcGroupBadges(groups){
   const arr=[...(groups||[])];
   return arr.length?arr.map(gcGroupBadge).join(''):'<span class="gc-muted">—</span>';
 }
-function gcEorderObs(row){
-  return gcText(row&&row.__obsEorder);
+function gcEorderObs(row){return gcText(row&&row.__obsEorder)}
+function gcEorderDate(row){return gcDate(row&&row.__dataFimExecucao)}
+function gcExpandableText(value,empty='—'){
+  const text=value==null||String(value).trim()===''?empty:String(value).trim();
+  if(text===empty)return `<span class="gc-muted">${esc(empty)}</span>`;
+  if(text.length<=48)return `<span>${esc(text)}</span>`;
+  return `<details class="gc-text-expand"><summary><span class="gc-text-preview">${esc(text)}</span></summary><div class="gc-text-full">${esc(text)}</div></details>`;
 }
-function gcEorderDate(row){
-  return gcDate(row&&row.__dataFimExecucao);
+function gcEffectiveGroup(ev,e){
+  if(ev&&ev.confirmada&&ev.groups&&ev.groups.length)return ev.groups[0];
+  const current=ev&&ev.currentGroups&&ev.currentGroups.length?ev.currentGroups:[...causeGroups(e.current[COL.causa])];
+  return current[0]||normCausa(e.current[COL.causa])||'SEM GRUPO';
+}
+function gcAssignCycles(rows){
+  const sorted=rows.slice().sort((a,b)=>a.current.__dataFim-b.current.__dataFim);
+  let cycle=0,lastCurrent='',cycleStart=null;
+  return sorted.map((e,index)=>{
+    const prev=normalizeNumero(e.previous[COL.numero]),cur=normalizeNumero(e.current[COL.numero]);
+    if(index===0||prev!==lastCurrent){cycle++;cycleStart=e.previous.__dataFim}
+    lastCurrent=cur;
+    return {...e,__gcCycle:cycle,__gcCycleStart:cycleStart};
+  });
 }
 function gcBuildModel(){
   const generalAll=gcBuildGeneralEvents();
@@ -11673,7 +11735,6 @@ function gcBuildModel(){
   const confirmed=evaluations.filter(e=>e.confirmada);
   const evalByPair=new Map(evaluationsAll.map(e=>[gcPairKey(e),e]));
   const byClient=new Map();
-
   function ensure(client){
     const key=gcClientKey(client);
     if(!byClient.has(key))byClient.set(key,{cliente:key,general:[],group:[],ramal:0,medidor:0,vegetacao:0,animais:0,outros:0});
@@ -11692,40 +11753,135 @@ function gcBuildModel(){
   const clients=[...byClient.values()].sort((a,b)=>b.group.length-a.group.length||b.general.length-a.general.length||String(a.cliente).localeCompare(String(b.cliente),'pt-BR'));
   return {general,evaluations,confirmed,evalByPair,clients};
 }
+
+/* ---------- Correções: local + Supabase ---------- */
+function gcLoadCorrectionsLocal(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(GC_CORRECTION_STORAGE_KEY)||'{}');
+    if(saved&&typeof saved==='object')S.analiseGrupoCausaCorrections={...saved,...(S.analiseGrupoCausaCorrections||{})};
+  }catch(_){}
+}
+function gcSaveCorrectionsLocal(){
+  try{localStorage.setItem(GC_CORRECTION_STORAGE_KEY,JSON.stringify(S.analiseGrupoCausaCorrections||{}))}catch(_){}
+}
+async function gcLoadCorrectionsServer(){
+  if(S.analiseGrupoCausaCorrectionsLoaded||S.analiseGrupoCausaCorrectionsLoading)return;
+  S.analiseGrupoCausaCorrectionsLoading=true;
+  gcLoadCorrectionsLocal();
+  try{
+    const result=await callbackSupabaseRpc('analise_causa_correcoes_listar',{});
+    const rows=Array.isArray(result)?result:(Array.isArray(result?.registros)?result.registros:[]);
+    for(const item of rows){
+      const key=String(item.pair_key||item.Pair_Key||'').trim();
+      if(!key)continue;
+      const value=String(item.correcao||item.Correcao||'Sem Ação');
+      S.analiseGrupoCausaCorrections[key]=['Sim','Não','Sem Ação'].includes(value)?value:'Sem Ação';
+    }
+    S.analiseGrupoCausaCorrectionsMode='cloud';
+  }catch(error){
+    console.warn('Correções da Análise Causa: Supabase ainda não configurado; usando armazenamento local.',error);
+    S.analiseGrupoCausaCorrectionsMode='local';
+  }finally{
+    S.analiseGrupoCausaCorrectionsLoaded=true;
+    S.analiseGrupoCausaCorrectionsLoading=false;
+    gcSaveCorrectionsLocal();
+    if(S.currentTab==='analiseGrupoCausa'){
+      S.renderKeys.analiseGrupoCausa='';
+      renderAnaliseGrupoCausa(true);
+    }
+  }
+}
+function gcCorrectionValue(event){return S.analiseGrupoCausaCorrections[gcPairKey(event)]||'Sem Ação'}
+async function gcSetCorrection(event,value){
+  const allowed=['Sem Ação','Sim','Não'];
+  const correcao=allowed.includes(value)?value:'Sem Ação';
+  const key=gcPairKey(event);
+  S.analiseGrupoCausaCorrections[key]=correcao;
+  gcSaveCorrectionsLocal();
+  const pageY=window.scrollY;
+  S.renderKeys.analiseGrupoCausa='';
+  renderAnaliseGrupoCausa(true);
+  requestAnimationFrame(()=>window.scrollTo(0,pageY));
+  try{
+    await callbackSupabaseRpc('analise_causa_correcao_salvar',{
+      p_pair_key:key,
+      p_cliente:String(event.client||''),
+      p_incidencia_anterior:String(event.previous?.[COL.numero]||''),
+      p_incidencia_atual:String(event.current?.[COL.numero]||''),
+      p_correcao:correcao
+    });
+    S.analiseGrupoCausaCorrectionsMode='cloud';
+  }catch(error){
+    S.analiseGrupoCausaCorrectionsMode='local';
+    console.warn('Correção salva somente neste navegador:',error);
+  }
+}
+
+/* ---------- tabela detalhada ---------- */
 function gcDetailTable(client,model){
-  const rows=client.general.slice().sort((a,b)=>a.current.__dataFim-b.current.__dataFim);
-  if(!rows.length)return '<div class="gc-empty">Nenhum vínculo geral encontrado.</div>';
-  return `<div class="gc-detail-box"><table class="gc-detail-table"><thead><tr>
-    <th>Incidência anterior</th><th>Data anterior</th><th>Equipe anterior</th><th>Causa anterior</th><th>Grupo anterior</th>
-    <th>Incidência atual</th><th>Data atual</th><th>Equipe atual</th><th>Causa atual</th><th>Grupo atual</th>
-    <th>Dias</th><th>Continuidade</th><th>Grupo confirmado</th>
-    <th>Obs. E-Order anterior</th><th>Fim Execução anterior</th><th>Obs. E-Order atual</th><th>Fim Execução atual</th>
-  </tr></thead><tbody>${rows.map(e=>{
+  let rows=gcAssignCycles(client.general)
+    .filter(e=>model.evalByPair.get(gcPairKey(e))?.confirmada);
+  if(!rows.length)return '<div class="gc-empty">Nenhum vínculo encontrado para este filtro.</div>';
+  let lastCycle=null,body='';
+  for(const e of rows){
     const ev=model.evalByPair.get(gcPairKey(e));
     const ok=!!(ev&&ev.confirmada);
     const prevGroups=ev?ev.previousGroups:[...causeGroups(e.previous[COL.causa])];
     const currGroups=ev?ev.currentGroups:[...causeGroups(e.current[COL.causa])];
     const shared=ev&&ev.groups?ev.groups:[];
-    return `<tr>
-      <td><b>${esc(formatNumero(e.previous[COL.numero]))}</b></td>
-      <td>${esc(gcDate(e.previous.__dataFim))}</td>
-      <td>${esc(gcText(e.previous[COL.equipeDesl]))}</td>
-      <td>${esc(gcText(e.previous[COL.causa]))}</td>
-      <td>${gcGroupBadges(prevGroups)}</td>
-      <td><b>${esc(formatNumero(e.current[COL.numero]))}</b></td>
-      <td>${esc(gcDate(e.current.__dataFim))}</td>
-      <td>${esc(gcText(e.current[COL.equipeDesl]))}</td>
-      <td>${esc(gcText(e.current[COL.causa]))}</td>
-      <td>${gcGroupBadges(currGroups)}</td>
-      <td>${fmtNum(e.diasDesdeAnterior)}</td>
-      <td>${ok?'<span class="gc-continue">CONTINUAÇÃO</span>':'<span class="gc-break">QUEBRA DE GRUPO</span>'}</td>
-      <td>${ok?gcGroupBadges(shared):'<span class="gc-muted">—</span>'}</td>
-      <td class="gc-eorder">${esc(gcEorderObs(e.previous))}</td>
-      <td>${esc(gcEorderDate(e.previous))}</td>
-      <td class="gc-eorder">${esc(gcEorderObs(e.current))}</td>
-      <td>${esc(gcEorderDate(e.current))}</td>
+    const effective=gcEffectiveGroup(ev,e);
+    if(e.__gcCycle!==lastCycle){
+      lastCycle=e.__gcCycle;
+      body+=`<tr class="gc-cycle-divider"><td colspan="8"><span class="gc-period-label"><span class="gc-period-dot"></span>Ciclo ${e.__gcCycle} · janela de até 30 dias</span><small>início ${esc(gcDateShort(e.__gcCycleStart))}</small></td></tr>`;
+    }
+    const correction=gcCorrectionValue(e);
+    body+=`<tr class="gc-event-row ${ok?'cont-row':'break-row'}" style="background:${gcGroupSoftColor(effective)}" data-gc-pair="${esc(gcPairKey(e))}">
+      <td>
+        <b>${esc(gcText(e.__gcCycle))}</b>
+        <div style="margin-top:4px">${ok?'<span class="gc-continue">CONTINUAÇÃO</span>':'<span class="gc-break">QUEBRA</span>'}</div>
+        <div style="margin-top:4px">${gcGroupBadge(effective)}</div>
+      </td>
+      <td class="gc-stack">
+        <b>${esc(formatNumero(e.previous[COL.numero]))}</b>
+        <span>${esc(gcDateShort(e.previous.__dataFim))}</span>
+        <span>${esc(gcText(e.previous[COL.equipeDesl]))}</span>
+      </td>
+      <td>
+        <div class="gc-cause">${gcExpandableText(e.previous[COL.causa])}</div>
+        ${gcGroupBadges(prevGroups)}
+      </td>
+      <td class="gc-stack">
+        <b>${esc(formatNumero(e.current[COL.numero]))}</b>
+        <span>${esc(gcDateShort(e.current.__dataFim))}</span>
+        <span>${esc(gcText(e.current[COL.equipeDesl]))}</span>
+      </td>
+      <td>
+        <div class="gc-cause">${gcExpandableText(e.current[COL.causa])}</div>
+        ${gcGroupBadges(currGroups)}
+        ${ok?`<div style="margin-top:4px"><b style="font-size:8px">Em comum:</b> ${gcGroupBadges(shared)}</div>`:''}
+      </td>
+      <td>
+        <b>${fmtNum(e.diasDesdeAnterior)} dia(s)</b>
+        <div style="margin-top:4px">${ok?'Mesmo grupo':'Mudança de grupo'}</div>
+      </td>
+      <td>
+        <div><b style="font-size:8px">Anterior</b>${gcExpandableText(gcEorderObs(e.previous))}<div class="gc-muted">${esc(gcEorderDate(e.previous))}</div></div>
+        <div style="margin-top:6px"><b style="font-size:8px">Atual</b>${gcExpandableText(gcEorderObs(e.current))}<div class="gc-muted">${esc(gcEorderDate(e.current))}</div></div>
+      </td>
+      <td>
+        ${ok?`<select class="gc-correction ${correction==='Sim'?'sim':correction==='Não'?'nao':''}" data-gc-correction="${esc(gcPairKey(e))}">
+          <option ${correction==='Sem Ação'?'selected':''}>Sem Ação</option>
+          <option ${correction==='Sim'?'selected':''}>Sim</option>
+          <option ${correction==='Não'?'selected':''}>Não</option>
+        </select>`:'<span class="gc-muted">—</span>'}
+      </td>
     </tr>`;
-  }).join('')}</tbody></table></div>`;
+  }
+  return `<div class="gc-detail-box"><table class="gc-detail-table"><thead><tr>
+    <th>Ciclo / Status</th><th>Atendimento anterior</th><th>Causa / Grupo anterior</th>
+    <th>Atendimento atual</th><th>Causa / Grupo atual</th><th>Intervalo</th>
+    <th>Execução Mês</th><th>Correção</th>
+  </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function gcClientTable(clients,kind,model){
   if(!clients.length)return '<div class="gc-empty">Nenhum cliente encontrado.</div>';
@@ -11750,8 +11906,9 @@ function gcClientTable(clients,kind,model){
     </tr>${detail}`;
   }).join('')}</tbody></table></div>`;
 }
-function renderAnaliseGrupoCausa(){
+function renderAnaliseGrupoCausa(fromAsync=false){
   const el=document.getElementById('panel-analiseGrupoCausa');if(!el)return;
+  if(!S.analiseGrupoCausaCorrectionsLoaded&&!S.analiseGrupoCausaCorrectionsLoading)gcLoadCorrectionsServer();
   if(!S.baseCompleta.length){
     el.innerHTML='<div class="gc-page"><div class="gc-card"><div class="gc-empty">Aguardando a Base de Incidências.</div></div></div>';
     return;
@@ -11762,44 +11919,53 @@ function renderAnaliseGrupoCausa(){
   if(q)clients=clients.filter(c=>String(c.cliente).toLowerCase().includes(q));
   const ativos=clients.filter(c=>c.group.length>0);
   const perdidos=clients.filter(c=>c.general.length>0&&c.group.length===0);
-
   const totalGeneral=model.general.length,totalGroup=model.confirmed.length;
   const reduction=totalGeneral?((totalGeneral-totalGroup)/totalGeneral*100):0;
+  const correctedPairs=new Set(
+    model.confirmed
+      .filter(e=>gcCorrectionValue(e)==='Sim')
+      .map(e=>gcPairKey(e))
+  );
   const groupCounts={RAMAL:0,MEDIDOR:0,'VEGETAÇÃO':0,ANIMAIS:0,OUTROS:0};
   for(const e of model.confirmed){
     const gs=e.groups||[];let principal=false;
     for(const g of gs){if(g in groupCounts){groupCounts[g]++;principal=true}}
     if(!principal)groupCounts.OUTROS++;
   }
-
   el.innerHTML=`<div class="gc-page">
     <div class="gc-filters">
       <div class="gc-filter-field"><label>Data inicial</label><input type="date" id="gcDateFrom" value="${esc(S.analiseGrupoCausaDateFrom||'')}"></div>
       <div class="gc-filter-field"><label>Data final</label><input type="date" id="gcDateTo" value="${esc(S.analiseGrupoCausaDateTo||'')}"></div>
+      <label class="gc-filter-check" title="A Reincidência por Grupo considera somente continuidades confirmadas">
+        <input type="checkbox" checked disabled> Continuidade
+      </label>
       <button class="gc-filter-clear" id="gcDateClear">Limpar período</button>
+      <span class="gc-save-mode ${S.analiseGrupoCausaCorrectionsMode==='cloud'?'cloud':''}">${S.analiseGrupoCausaCorrectionsMode==='cloud'?'● Correções sincronizadas no Supabase':'● Correções salvas neste navegador'}</span>
     </div>
 
     <div class="gc-kpis">
       <div class="gc-kpi" style="--gc:#7b8580"><div class="l">Reincidência Geral</div><div class="v">${fmtNum(totalGeneral)}</div><div class="s">mesmo cliente + retorno em até 30 dias</div></div>
       <div class="gc-kpi" style="--gc:#008556"><div class="l">Reincidência por Grupo</div><div class="v">${fmtNum(totalGroup)}</div><div class="s">até 30 dias + grupo de causa em comum</div></div>
-      <div class="gc-kpi" style="--gc:#ca463f"><div class="l">Redução</div><div class="v">${fmtPct(reduction)}</div><div class="s">${fmtNum(Math.max(0,totalGeneral-totalGroup))} reincidência(s) deixam de ser confirmadas</div></div>
-      <div class="gc-kpi" style="--gc:#1266a8"><div class="l">Clientes reincidentes por Grupo</div><div class="v">${fmtNum(model.clients.filter(c=>c.group.length>0).length)}</div><div class="s">clientes com ao menos um vínculo confirmado</div></div>
+      <div class="gc-kpi" style="--gc:#ca463f"><div class="l">Redução pela metodologia</div><div class="v">${fmtPct(reduction)}</div><div class="s">${fmtNum(Math.max(0,totalGeneral-totalGroup))} reincidência(s) deixam de ser confirmadas</div></div>
+      <div class="gc-kpi corrected"><div class="l">Causas corrigidas</div><div class="v">${fmtNum(correctedPairs.size)}</div><div class="s">reincidentes marcados como Correção = Sim</div></div>
       <div class="gc-kpi" style="--gc:#147d64"><div class="l">Ramal</div><div class="v">${fmtNum(groupCounts.RAMAL)}</div><div class="s">vínculos confirmados</div></div>
       <div class="gc-kpi" style="--gc:#d17a24"><div class="l">Medidor</div><div class="v">${fmtNum(groupCounts.MEDIDOR)}</div><div class="s">vínculos confirmados</div></div>
       <div class="gc-kpi" style="--gc:#4f8c3f"><div class="l">Vegetação</div><div class="v">${fmtNum(groupCounts['VEGETAÇÃO'])}</div><div class="s">vínculos confirmados</div></div>
       <div class="gc-kpi" style="--gc:#7556a3"><div class="l">Animais</div><div class="v">${fmtNum(groupCounts.ANIMAIS)}</div><div class="s">vínculos confirmados</div></div>
+      <div class="gc-kpi" style="--gc:#687781"><div class="l">Outros grupos</div><div class="v">${fmtNum(groupCounts.OUTROS)}</div><div class="s">vínculos confirmados em grupos exclusivos</div></div>
     </div>
 
     <div class="gc-note">
-      <b>Regra:</b> mesmo cliente, ocorrência imediatamente anterior, até 30 dias e ao menos um Grupo Causa em comum.
-      Causas que não aparecem na relação de agrupamento passam automaticamente a formar <b>um grupo próprio</b>.
-      A Execução Mês é <b>complementar</b>: Observação e Data Fim Execução aparecem quando houver correspondência por Número + Equipe.
+      <b>Continuidade é a regra fixa da Reincidência por Grupo:</b> somente pares do mesmo cliente, em até 30 dias e com ao menos um Grupo Causa em comum são contabilizados como reincidentes.
+      Quebras de grupo aparecem apenas na área de diagnóstico e <b>não entram na contagem</b>.
+      A coluna <b>Correção</b> inicia como “Sem Ação”; “Sim” contabiliza no cartão Causas corrigidas.
+      Os separadores “Ciclo” mostram a divisão das sequências por janelas de até 30 dias.
     </div>
 
     <section class="gc-card">
       <div class="gc-head"><div>
-        <div class="gc-title">Clientes que permanecem reincidentes pela metodologia por Grupo</div>
-        <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · clique para visualizar continuidades, quebras e E-Order</div>
+        <div class="gc-title">Reincidentes por Grupo — somente continuidades</div>
+        <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · ao abrir um cliente, o anterior é fechado · o cabeçalho permanece congelado</div>
       </div><input class="gc-search" id="gcSearch" value="${esc(S.analiseGrupoCausaSearch||'')}" placeholder="Buscar número do cliente"></div>
       ${gcClientTable(ativos,'ativo',model)}
     </section>
@@ -11807,7 +11973,7 @@ function renderAnaliseGrupoCausa(){
     <section class="gc-card gc-loss">
       <div class="gc-head"><div>
         <div class="gc-title">Clientes que deixam de ser reincidentes pela metodologia por Grupo</div>
-        <div class="gc-sub">Possuíam reincidência Geral em até 30 dias, mas nenhum par confirmado com Grupo Causa em comum</div>
+        <div class="gc-sub">Reincidência Geral em até 30 dias, mas sem continuidade do Grupo Causa</div>
       </div></div>
       ${gcClientTable(perdidos,'perdido',model)}
     </section>
@@ -11823,13 +11989,31 @@ function renderAnaliseGrupoCausa(){
   if(dt)dt.onchange=()=>{S.analiseGrupoCausaDateTo=dt.value||'';S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa()};
   if(clear)clear.onclick=()=>{S.analiseGrupoCausaDateFrom='';S.analiseGrupoCausaDateTo='';S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa()};
 
-  el.querySelectorAll('[data-gc-client]').forEach(tr=>tr.onclick=()=>{
+  el.querySelectorAll('[data-gc-client]').forEach(tr=>tr.onclick=(event)=>{
+    if(event.target.closest('select,button,details,summary,input,a'))return;
     const cli=decodeURIComponent(tr.dataset.gcClient||''),key=`${tr.dataset.gcKind}:${cli}`;
-    if(S.analiseGrupoCausaExpanded.has(key))S.analiseGrupoCausaExpanded.delete(key);else S.analiseGrupoCausaExpanded.add(key);
-    S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa();
+    const beforeTop=tr.getBoundingClientRect().top;
+    const wasOpen=S.analiseGrupoCausaExpanded.has(key);
+    S.analiseGrupoCausaExpanded.clear();
+    if(!wasOpen)S.analiseGrupoCausaExpanded.add(key);
+    S.renderKeys.analiseGrupoCausa='';
+    renderAnaliseGrupoCausa();
+    requestAnimationFrame(()=>{
+      const novo=[...document.querySelectorAll('[data-gc-client]')].find(x=>decodeURIComponent(x.dataset.gcClient||'')===cli&&x.dataset.gcKind===tr.dataset.gcKind);
+      if(novo){
+        const afterTop=novo.getBoundingClientRect().top;
+        window.scrollBy(0,afterTop-beforeTop);
+      }
+    });
+  });
+
+  el.querySelectorAll('[data-gc-correction]').forEach(select=>select.onchange=(event)=>{
+    event.stopPropagation();
+    const pair=select.dataset.gcCorrection;
+    const ev=model.confirmed.find(item=>gcPairKey(item)===pair);
+    if(ev)gcSetCorrection(ev,select.value);
   });
 }
-
 
 
 /* ============================================================
