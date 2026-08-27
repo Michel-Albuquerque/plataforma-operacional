@@ -12442,49 +12442,70 @@ function gcDetailTable(client,model){
 }
 
 function gcExportCauseChanges(model){
-  const exported=[];
-  for(const ev of model.confirmed){
-    if(gcCorrectionValue(ev)!=='Sim')continue;
-    const change=gcCauseChangeValue(ev);
-    if(!change.posteriorGroup||!change.posteriorCause)continue;
-    const previous=ev.previous,current=ev.current;
-    const prevGroups=ev.previousEffectiveGroups?.length
-      ?ev.previousEffectiveGroups
-      :(ev.previousGroups?.length?ev.previousGroups:[...causeGroups(previous?.[COL.causa])]);
-    const currGroups=ev.currentEffectiveGroups?.length
-      ?ev.currentEffectiveGroups
-      :(ev.groups?.length?ev.groups:(ev.currentGroups?.length?ev.currentGroups:[...causeGroups(current?.[COL.causa])]));
-    exported.push({
-      'Cliente':String(ev.client||''),
-      'Incidência anterior':formatNumero(previous?.[COL.numero]),
-      'Data anterior':gcDate(previous?.__dataFim),
-      'Equipe anterior':gcText(previous?.[COL.equipeDesl]),
-      'Grupo anterior':prevGroups.join(' | '),
-      'Causa anterior':gcText(previous?.[COL.causa]),
-      'Busca Execução anterior':gcEorderObs(previous),
-      'Data Busca Execução anterior':gcEorderDate(previous),
-      'Incidência atual':formatNumero(current?.[COL.numero]),
-      'Data atual':gcDate(current?.__dataFim),
-      'Equipe atual':gcText(current?.[COL.equipeDesl]),
-      'Grupo atual':currGroups.join(' | '),
-      'Causa atual':gcText(current?.[COL.causa]),
-      'Busca Execução atual':gcEorderObs(current),
-      'Data Busca Execução atual':gcEorderDate(current),
-      'Grupo posterior':change.posteriorGroup,
-      'Causa posterior':change.posteriorCause,
-      'Dias entre atendimentos':ev.diasDesdeAnterior,
-      'Processo atual':gcText(current?.[COL.processo]),
-      'AL atual':gcText(current?.[COL.al]),
-      'Ponto Elétrico atual':gcText(current?.[COL.pontoEletrico]),
-      'Ação':'Sim',
-      'Registrado em':change.savedAt?gcDate(new Date(change.savedAt)):'—'
-    });
+  try{
+    const exported=[];
+    const confirmed=Array.isArray(model?.confirmed)?model.confirmed:[];
+    for(const ev of confirmed){
+      if(gcCorrectionValue(ev)!=='Sim')continue;
+
+      const change=gcCauseChangeValue(ev);
+      if(!change?.posteriorGroup||!change?.posteriorCause)continue;
+
+      const previous=ev.previous,current=ev.current;
+      const prevGroups=ev.previousEffectiveGroups?.length
+        ?ev.previousEffectiveGroups
+        :(ev.previousGroups?.length?ev.previousGroups:[...causeGroups(previous?.[COL.causa])]);
+      const currGroups=ev.currentEffectiveGroups?.length
+        ?ev.currentEffectiveGroups
+        :(ev.groups?.length?ev.groups:(ev.currentGroups?.length?ev.currentGroups:[...causeGroups(current?.[COL.causa])]));
+
+      exported.push({
+        'Cliente':String(ev.client||''),
+        'Incidência anterior':formatNumero(previous?.[COL.numero]),
+        'Data anterior':gcDate(previous?.__dataFim),
+        'Equipe anterior':gcText(previous?.[COL.equipeDesl]),
+        'Grupo anterior':prevGroups.join(' | '),
+        'Causa anterior':gcText(previous?.[COL.causa]),
+        'Busca Execução anterior':gcEorderObs(previous),
+        'Data Busca Execução anterior':gcEorderDate(previous),
+
+        'Incidência atual':formatNumero(current?.[COL.numero]),
+        'Data atual':gcDate(current?.__dataFim),
+        'Equipe atual':gcText(current?.[COL.equipeDesl]),
+        'Grupo atual':currGroups.join(' | '),
+        'Causa atual':gcText(current?.[COL.causa]),
+        'Busca Execução atual':gcEorderObs(current),
+        'Data Busca Execução atual':gcEorderDate(current),
+
+        'Grupo posterior':String(change.posteriorGroup||''),
+        'Causa posterior':String(change.posteriorCause||''),
+        'Dias entre atendimentos':Number.isFinite(ev.diasDesdeAnterior)?ev.diasDesdeAnterior:'',
+        'Processo atual':gcText(current?.[COL.processo]),
+        'AL atual':gcText(current?.[COL.al]),
+        'Ponto Elétrico atual':gcPontoEletricoShort(current?.[COL.pontoEletrico]),
+        'Ação':'Sim',
+        'Registrado em':String(change.savedAt||'')
+      });
+    }
+
+    if(!exported.length){
+      alert('Não há trocas de causa salvas para exportar.');
+      return;
+    }
+
+    if(typeof exportRowsXlsx!=='function'){
+      throw new Error('Função de exportação XLSX não encontrada.');
+    }
+
+    exportRowsXlsx(
+      exported,
+      `analise_causa_trocas_${stamp()}.xlsx`,
+      'Trocas de causa'
+    );
+  }catch(error){
+    console.error('Erro ao exportar trocas da Análise Causa:',error);
+    alert('Não foi possível exportar a base de trocas de causa. '+(error?.message||String(error)));
   }
-  if(!exported.length){
-    alert('Não há trocas de causa salvas para exportar.');
-    return;
-  }
-  exportRowsXlsx(exported,`analise_causa_trocas_${stamp()}.xlsx`,'Trocas de causa');
 }
 
 function gcClientTable(clients,kind,model){
@@ -12640,7 +12661,10 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   });
 
   const exportChanges=document.getElementById('gcExportCauseChanges');
-  if(exportChanges)exportChanges.onclick=()=>gcExportCauseChanges(model);
+  if(exportChanges)exportChanges.onclick=()=>{
+    const exportModel=gcBuildModel();
+    gcExportCauseChanges(exportModel);
+  };
   }catch(error){
     console.error('Erro ao renderizar Análise Causa:',error);
     el.innerHTML=`<div class="gc-page"><div class="gc-card"><div class="gc-empty">
