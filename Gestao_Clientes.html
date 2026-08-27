@@ -1277,6 +1277,21 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 #panel-analiseGrupoCausa select[data-gc-inc-group]{min-width:170px}
 #panel-analiseGrupoCausa select[data-gc-inc-cause]{min-width:320px}
 
+
+#panel-analiseGrupoCausa .gc-undo-change{
+  width:100%;
+  min-height:36px;
+  border:1px solid #c8d2cd;
+  border-radius:8px;
+  background:#fff;
+  color:#4f5e57;
+  font-size:9px;
+  font-weight:900;
+  cursor:pointer;
+  margin-top:7px;
+}
+#panel-analiseGrupoCausa .gc-undo-change:hover{background:#f1f4f2}
+
 #panel-analiseGrupoCausa .gc-save-change{height:32px;border:0;border-radius:8px;background:#008556;color:#fff;font-size:9px;font-weight:900;padding:0 12px;cursor:pointer}
 #panel-analiseGrupoCausa .gc-saved-change{margin-top:7px;font-size:8.5px;font-weight:800;color:#00744d}
 #panel-analiseGrupoCausa .gc-cycle-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fbfdfc;border-top:1px solid #edf2ef;font-size:9px;color:#66766f}
@@ -12150,7 +12165,8 @@ function gcGroupLogosContext(allGroups,activeGroups){
   if(!all.length)return '<span class="gc-muted">—</span>';
   return all.map(g=>gcGroupLogo(g,active.has(g))).join('');
 }
-function gcCorrectionGroupOptions(selected=''){
+function gcCorrectionGroupOptions(selected='',excludedCodes=[]){
+  const excluded=new Set([...(excludedCodes||[])].filter(Boolean));
   const opts=[
     ['TODOS','Todos',''],
     ['G1','G1 · RAMAL',gcGroupCodeColor('RAMAL')],
@@ -12160,10 +12176,12 @@ function gcCorrectionGroupOptions(selected=''){
     ['G5','G5 · OUTROS','#687781']
   ];
   return '<option value="" style="background:#fff;color:#172b23">Selecionar grupo</option>'+
-    opts.map(([v,l,bg])=>{
-      const style=bg?`background:${bg};color:#fff;font-weight:700`:'background:#f3f5f4;color:#172b23;font-weight:700';
-      return `<option value="${v}" ${v===selected?'selected':''} style="${style}">${l}</option>`;
-    }).join('');
+    opts
+      .filter(([v])=>v==='TODOS'||!excluded.has(v)||v===selected)
+      .map(([v,l,bg])=>{
+        const style=bg?`background:${bg};color:#fff;font-weight:700`:'background:#f3f5f4;color:#172b23;font-weight:700';
+        return `<option value="${v}" ${v===selected?'selected':''} style="${style}">${l}</option>`;
+      }).join('');
 }
 function gcActualGroupFromCategory(code,cause){
   const groups=[...causeGroups(cause)];
@@ -12173,12 +12191,14 @@ function gcActualGroupFromCategory(code,cause){
   if(code==='G4')return 'ANIMAIS';
   return groups.find(g=>!['RAMAL','MEDIDOR','VEGETAÇÃO','ANIMAIS'].includes(g))||groups[0]||'OUTROS';
 }
-function gcCauseOptionsForCategory(code,selectedCause=''){
+function gcCauseOptionsForCategory(code,selectedCause='',excludedCodes=[]){
+  const excluded=new Set([...(excludedCodes||[])].filter(Boolean));
   const rows=[];
   const seen=new Set();
   for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
     const cat=gcGroupCode(group);
     if(code!=='TODOS' && cat!==code)continue;
+    if(excluded.has(cat))continue;
     const k=normalizeHeaderKey(cause)+'|'+group;
     if(seen.has(k))continue;
     seen.add(k);
@@ -12564,6 +12584,9 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
   const correction=st.correcao||'Sem Ação';
   const feedback=st.feedback||'Sem Feedback';
   const currentCategory=st.posteriorGroup?gcGroupCode(st.posteriorGroup):'';
+  const activeCategoryCodes=[...new Set((activeGroups||[]).map(gcGroupCode).filter(Boolean))];
+  const hasSavedCorrection=!!(st.posteriorGroup||st.posteriorCause||correction==='Sim');
+  const canShowCorrection=!!(recurrent||gcHasLaterRecurrent(row,model)||hasSavedCorrection);
   const process=row?.[COL.processo];
 
   let cardClass='',badge='';
@@ -12614,7 +12637,7 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
       <div class="gc-exec-date">${esc(gcEorderDate(row))}</div>
     </div>
 
-    ${(recurrent||gcHasLaterRecurrent(row,model))?`<div class="gc-action-box">
+    ${canShowCorrection?`<div class="gc-action-box">
       <div class="gc-action-row">
         <div class="gc-action-control">
           <label>Correção</label>
@@ -12639,16 +12662,18 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
         <div class="gc-change-grid">
           <div class="gc-change-field">
             <label>Grupo posterior</label>
-            <select data-gc-inc-group="${esc(gcIncKey(row))}">${gcCorrectionGroupOptions(currentCategory)}</select>
+            <select data-gc-inc-group="${esc(gcIncKey(row))}">${gcCorrectionGroupOptions(currentCategory,activeCategoryCodes)}</select>
           </div>
           <div class="gc-change-field">
             <label>Causa posterior</label>
-            <select data-gc-inc-cause="${esc(gcIncKey(row))}">${gcCauseOptionsForCategory(currentCategory,st.posteriorCause||'')}</select>
+            <select data-gc-inc-cause="${esc(gcIncKey(row))}">${gcCauseOptionsForCategory(currentCategory,st.posteriorCause||'',activeCategoryCodes)}</select>
           </div>
           <button type="button" class="gc-save-change" data-gc-inc-save="${esc(gcIncKey(row))}">Salvar correção</button>
         </div>
         ${st.posteriorGroup&&st.posteriorCause?`<div class="gc-saved-change">Correção registrada: ${gcGroupLogo(st.posteriorGroup,true)} ${esc(st.posteriorCause)}</div>`:''}
+        ${hasSavedCorrection?`<button type="button" class="gc-undo-change" data-gc-inc-undo="${esc(gcIncKey(row))}">Desfazer correção</button>`:''}
       </div>`:''}
+      ${correction!=='Sim'&&hasSavedCorrection?`<button type="button" class="gc-undo-change" data-gc-inc-undo="${esc(gcIncKey(row))}">Desfazer correção</button>`:''}
     </div>`:''}
   </article>`;
 }
@@ -12903,7 +12928,10 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     event.stopPropagation();
     const inc=select.dataset.gcIncGroup;
     const causeSelect=el.querySelector(`[data-gc-inc-cause="${CSS.escape(inc)}"]`);
-    if(causeSelect)causeSelect.innerHTML=gcCauseOptionsForCategory(select.value,'');
+    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    const meta=model.rowMeta.get(normalizeNumero(inc));
+    const excludedCodes=[...new Set((meta?.activeGroups||[]).map(gcGroupCode).filter(Boolean))];
+    if(causeSelect)causeSelect.innerHTML=gcCauseOptionsForCategory(select.value,'',excludedCodes);
   });
 
   el.querySelectorAll('[data-gc-inc-save]').forEach(button=>button.onclick=async(event)=>{
@@ -12921,6 +12949,20 @@ function renderAnaliseGrupoCausa(fromAsync=false){
       correcao:'Sim',
       posteriorGroup:actualGroup||gcActualGroupFromCategory(groupSelect.value,actualCause),
       posteriorCause:actualCause
+    });
+    S.renderKeys.analiseGrupoCausa='';
+    renderAnaliseGrupoCausa(true);
+  });
+
+  el.querySelectorAll('[data-gc-inc-undo]').forEach(button=>button.onclick=async(event)=>{
+    event.stopPropagation();
+    const inc=button.dataset.gcIncUndo;
+    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    if(!row)return;
+    await gcSaveIncState(row,{
+      correcao:'Sem Ação',
+      posteriorGroup:'',
+      posteriorCause:''
     });
     S.renderKeys.analiseGrupoCausa='';
     renderAnaliseGrupoCausa(true);
