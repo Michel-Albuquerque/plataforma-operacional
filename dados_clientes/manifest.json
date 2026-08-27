@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-08-27T14:03:11",
+  "gerado_em": "2026-08-27T14:14:13",
   "versao": 11,
   "arquivos": {
     "callback": {
@@ -12,7 +12,7 @@
     "validacao": {
       "arquivo": "validacao.json.gz",
       "linhas": 47562,
-      "tamanho_bytes": 8583883,
+      "tamanho_bytes": 8583886,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
       "fonte_modificada_em": "2026-08-27T12:56:52"
     },
@@ -41,7 +41,7 @@
     "analise_grupo_causa": {
       "arquivo": "analise_grupo_causa.json.gz",
       "linhas": 25107,
-      "tamanho_bytes": 1905390,
+      "tamanho_bytes": 1905391,
       "metodologia": "grupo_causa_contextual_v4_consulta_incidencia_mestre",
       "fonte_mestre": "Base_Final_Incidencia / Consulta Incidência",
       "janela_reincidencia_dias": 30,
