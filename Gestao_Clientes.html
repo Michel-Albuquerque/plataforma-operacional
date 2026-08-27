@@ -1277,6 +1277,26 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 #panel-analiseGrupoCausa .gc-export-changes{border:0;border-radius:9px;background:#008556;color:#fff;font-size:10px;font-weight:900;padding:9px 12px;cursor:pointer;white-space:nowrap}
 #panel-analiseGrupoCausa .gc-export-changes:hover{filter:brightness(.95)}
 
+#panel-analiseGrupoCausa .gc-inc-copy{border:0;background:transparent;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:5px}
+#panel-analiseGrupoCausa .gc-inc-copy:hover{background:#edf2f0}
+#panel-analiseGrupoCausa .gc-client-inside{font-size:9px;color:#65756e;font-weight:800;margin-top:3px}
+#panel-analiseGrupoCausa .gc-group-logo{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:20px;padding:0 6px;border-radius:6px;color:#fff;font-size:8px;font-weight:950;letter-spacing:.3px;margin-right:4px;vertical-align:middle}
+#panel-analiseGrupoCausa .gc-group-logo.inactive{background:#cfd5d2 !important;color:#707b76 !important;border:1px solid #bcc5c0}
+#panel-analiseGrupoCausa .gc-action-row{align-items:flex-end}
+#panel-analiseGrupoCausa .gc-action-control{display:flex;flex-direction:column;gap:3px}
+#panel-analiseGrupoCausa .gc-action-control>label{font-size:7.5px;font-weight:900;text-transform:uppercase;color:#65756e}
+#panel-analiseGrupoCausa .gc-action-control select{min-width:120px;padding:6px 8px;border:1px solid #cbd9d3;border-radius:8px;background:#fff;font-size:9px}
+#panel-analiseGrupoCausa .gc-geo-box{margin-top:8px;padding-top:8px;border-top:1px dashed #d5e0db}
+#panel-analiseGrupoCausa .gc-geo-box label{display:block;font-size:7.5px;text-transform:uppercase;letter-spacing:.35px;font-weight:900;color:#84918b;margin-bottom:4px}
+#panel-analiseGrupoCausa .gc-cause-ref{margin-top:16px}
+#panel-analiseGrupoCausa .gc-cause-ref table{width:100%;border-collapse:collapse;font-size:9px}
+#panel-analiseGrupoCausa .gc-cause-ref th,#panel-analiseGrupoCausa .gc-cause-ref td{padding:8px 10px;border-bottom:1px solid #e6ece9;text-align:center;vertical-align:middle}
+#panel-analiseGrupoCausa .gc-cause-ref th{font-size:8px;text-transform:uppercase;letter-spacing:.3px;background:#f5f8f7}
+#panel-analiseGrupoCausa .gc-cause-ref td.cause{text-align:left}
+#panel-analiseGrupoCausa .gc-main-table th,#panel-analiseGrupoCausa .gc-main-table td{text-align:center !important;vertical-align:middle}
+#panel-analiseGrupoCausa .gc-main-table td:first-child,#panel-analiseGrupoCausa .gc-main-table th:first-child{text-align:center !important}
+
+
 #panel-analiseGrupoCausa .gc-att-card{overflow:hidden}
 #panel-analiseGrupoCausa .gc-att-card *{min-width:0}
 #panel-analiseGrupoCausa .gc-exec-box,
@@ -1355,7 +1375,7 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
       <button class="reincidente-tab" data-inner-tab="visaoEquipe" role="tab">Visão Equipe</button>
       <button class="reincidente-tab" data-inner-tab="diagnostico" role="tab">Diagnóstico de Causas</button>
       <button class="reincidente-tab" data-inner-tab="analiseCausa" role="tab">Análise por Causa</button>
-      <button class="reincidente-tab" data-inner-tab="analiseGrupoCausa" role="tab">Análise Causa</button>
+      <button class="reincidente-tab" data-inner-tab="analiseGrupoCausa" role="tab">Correção</button>
       <button class="reincidente-tab" data-inner-tab="acao" role="tab">Ação</button>
     </div>
 
@@ -4398,7 +4418,7 @@ const TAB_META = {
   visaoEquipe:{title:'Reincidente', sub:'Visão Equipe — equipes geradoras, ofensores e retornos em até 24 horas'},
   diagnostico:{title:'Reincidente', sub:'Diagnóstico de Causas — alertas automáticos, gargalos e impacto temporal'},
   analiseCausa:{title:'Reincidente', sub:'Análise por Causa — comparativo anual, tendências e diagnóstico automático'},
-  analiseGrupoCausa:{title:'Reincidente', sub:'Análise Causa — impacto da nova metodologia de reincidência por Grupo Causa'},
+  analiseGrupoCausa:{title:'Reincidente', sub:'Correção — reincidência por Grupo Causa'},
   acao:{title:'Reincidente', sub:'Ação — registro, acompanhamento, evidências e resultados das iniciativas'},
   validacaoPos:{title:'Validação Pós-Atendimento',sub:'Registro de contatos, percepção do cliente e efetividade dos serviços'},
   callbackContingencia:{title:'Callback Contingência',sub:'Central operacional para confirmação do fornecimento e redução de deslocamentos desnecessários'}
@@ -11770,6 +11790,87 @@ document.addEventListener('DOMContentLoaded',()=>{
    ============================================================ */
 const GC_CORRECTION_STORAGE_KEY='analise_causa_correcoes_v1';
 
+
+const GC_INC_STATE_STORAGE_KEY='analise_causa_incidencias_v1';
+let GC_INC_STATE={};
+let GC_INC_STATE_SERVER_LOADED=false;
+let GC_INC_STATE_SERVER_LOADING=false;
+
+function gcIncKey(row){return normalizeNumero(row?.[COL.numero])}
+function gcIncState(row){
+  const key=gcIncKey(row);
+  return GC_INC_STATE[key]||{correcao:'Sem Ação',feedback:'Sem Feedback',posteriorGroup:'',posteriorCause:'',savedAt:''};
+}
+function gcLoadIncStateLocal(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(GC_INC_STATE_STORAGE_KEY)||'{}');
+    GC_INC_STATE=saved&&typeof saved==='object'?saved:{};
+  }catch(_){GC_INC_STATE={}}
+}
+function gcSaveIncStateLocal(){
+  try{localStorage.setItem(GC_INC_STATE_STORAGE_KEY,JSON.stringify(GC_INC_STATE||{}))}catch(_){}
+}
+async function gcLoadIncStateServer(){
+  if(GC_INC_STATE_SERVER_LOADED||GC_INC_STATE_SERVER_LOADING)return;
+  GC_INC_STATE_SERVER_LOADING=true;
+  gcLoadIncStateLocal();
+  try{
+    const result=await callbackSupabaseRpc('analise_causa_incidencias_listar',{});
+    const rows=Array.isArray(result)?result:(Array.isArray(result?.registros)?result.registros:[]);
+    for(const item of rows){
+      const key=normalizeNumero(item.incidencia||'');
+      if(!key)continue;
+      GC_INC_STATE[key]={
+        correcao:String(item.correcao||'Sem Ação'),
+        feedback:String(item.feedback_operador||'Sem Feedback'),
+        posteriorGroup:String(item.grupo_posterior||''),
+        posteriorCause:String(item.causa_posterior||''),
+        savedAt:item.updated_at||item.created_at||''
+      };
+    }
+    gcSaveIncStateLocal();
+  }catch(error){
+    console.warn('Registros de Correção: Supabase ainda não configurado; usando armazenamento local.',error);
+  }finally{
+    GC_INC_STATE_SERVER_LOADED=true;
+    GC_INC_STATE_SERVER_LOADING=false;
+    if(S.currentTab==='analiseGrupoCausa'){
+      S.renderKeys.analiseGrupoCausa='';
+      renderAnaliseGrupoCausa(true);
+    }
+  }
+}
+async function gcSaveIncState(row,patch={}){
+  const key=gcIncKey(row);
+  if(!key)return;
+  const current=gcIncState(row);
+  const next={...current,...patch,savedAt:new Date().toISOString()};
+  GC_INC_STATE[key]=next;
+  gcSaveIncStateLocal();
+  try{
+    await callbackSupabaseRpc('analise_causa_incidencia_salvar',{
+      p_incidencia:key,
+      p_cliente:String(row?.[COL.nCliente]||''),
+      p_correcao:String(next.correcao||'Sem Ação'),
+      p_feedback_operador:String(next.feedback||'Sem Feedback'),
+      p_grupo_posterior:String(next.posteriorGroup||''),
+      p_causa_posterior:String(next.posteriorCause||'')
+    });
+  }catch(error){
+    console.warn('Correção/Feedback salvo somente neste navegador:',error);
+  }
+}
+function gcRowGroups(row){
+  const st=gcIncState(row);
+  if(st.correcao==='Sim'&&st.posteriorGroup)return new Set([st.posteriorGroup]);
+  return causeGroups(row?.[COL.causa]);
+}
+function gcRowCause(row){
+  const st=gcIncState(row);
+  return st.correcao==='Sim'&&st.posteriorCause?st.posteriorCause:row?.[COL.causa];
+}
+gcLoadIncStateLocal();
+
 const GC_CAUSE_CHANGE_STORAGE_KEY='analise_causa_trocas_v1';
 let GC_CAUSE_CHANGES={};
 function gcLoadCauseChanges(){
@@ -11961,6 +12062,85 @@ function gcGroupBadgesContext(allGroups,activeGroups){
   return all.map(group=>active.has(group)?gcGroupBadge(group):gcGroupBadgeInactive(group)).join('');
 }
 
+const GC_GROUP_CATEGORY={
+  RAMAL:'G1',
+  MEDIDOR:'G2',
+  'VEGETAÇÃO':'G3',
+  ANIMAIS:'G4'
+};
+function gcGroupCode(group){return GC_GROUP_CATEGORY[String(group||'').toUpperCase()]||'G5'}
+function gcGroupCodeColor(group){
+  const code=gcGroupCode(group);
+  if(code==='G1')return gcGroupColor('RAMAL');
+  if(code==='G2')return gcGroupColor('MEDIDOR');
+  if(code==='G3')return gcGroupColor('VEGETAÇÃO');
+  if(code==='G4')return gcGroupColor('ANIMAIS');
+  return '#687781';
+}
+function gcGroupLogo(group,active=true){
+  const code=gcGroupCode(group);
+  return `<span class="gc-group-logo ${active?'':'inactive'}" style="${active?`background:${gcGroupCodeColor(group)}`:''}" title="${esc(group)}">${code}</span>`;
+}
+function gcGroupLogosContext(allGroups,activeGroups){
+  const all=[...new Set([...(allGroups||[])])];
+  const active=new Set([...(activeGroups||[])]);
+  if(!all.length)return '<span class="gc-muted">—</span>';
+  return all.map(g=>gcGroupLogo(g,active.has(g))).join('');
+}
+function gcCorrectionGroupOptions(selected=''){
+  const opts=[
+    ['G1','G1 · RAMAL'],
+    ['G2','G2 · MEDIDOR'],
+    ['G3','G3 · VEGETAÇÃO'],
+    ['G4','G4 · ANIMAIS'],
+    ['G5','G5 · OUTROS']
+  ];
+  return '<option value="">Selecionar grupo</option>'+opts.map(([v,l])=>`<option value="${v}" ${v===selected?'selected':''}>${l}</option>`).join('');
+}
+function gcActualGroupFromCategory(code,cause){
+  const groups=[...causeGroups(cause)];
+  if(code==='G1')return 'RAMAL';
+  if(code==='G2')return 'MEDIDOR';
+  if(code==='G3')return 'VEGETAÇÃO';
+  if(code==='G4')return 'ANIMAIS';
+  return groups.find(g=>!['RAMAL','MEDIDOR','VEGETAÇÃO','ANIMAIS'].includes(g))||groups[0]||'OUTROS';
+}
+function gcCauseOptionsForCategory(code,selectedCause=''){
+  const rows=[];
+  const seen=new Set();
+  for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
+    const cat=gcGroupCode(group);
+    if(cat!==code)continue;
+    const k=normalizeHeaderKey(cause)+'|'+group;
+    if(seen.has(k))continue;
+    seen.add(k);
+    rows.push({cause,group});
+  }
+  rows.sort((a,b)=>a.cause.localeCompare(b.cause,'pt-BR')||a.group.localeCompare(b.group,'pt-BR'));
+  return '<option value="">Selecionar causa</option>'+rows.map(x=>{
+    const value=encodeURIComponent(x.group)+'|||'+encodeURIComponent(x.cause);
+    const sel=x.cause===selectedCause?'selected':'';
+    return `<option value="${value}" ${sel}>${gcGroupCode(x.group)} · ${esc(x.cause)}</option>`;
+  }).join('');
+}
+function gcCauseReferenceTable(){
+  const byCause=new Map();
+  for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
+    const key=normalizeHeaderKey(cause);
+    if(!byCause.has(key))byCause.set(key,{cause,groups:[]});
+    if(!byCause.get(key).groups.includes(group))byCause.get(key).groups.push(group);
+  }
+  const rows=[...byCause.values()].sort((a,b)=>a.cause.localeCompare(b.cause,'pt-BR'));
+  return `<section class="gc-card gc-cause-ref">
+    <div class="gc-head"><div><div class="gc-title">Tabela de referência das causas</div>
+    <div class="gc-sub">Código da causa ainda não disponível. G1 a G5 representam os grupos utilizados na Correção.</div></div></div>
+    <div class="gc-table-wrap"><table class="gc-main-table"><thead><tr><th>Código</th><th>Grupo</th><th>Causa</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td>—</td><td>${r.groups.map(g=>gcGroupLogo(g,true)).join('')}</td><td class="cause">${esc(r.cause)}</td></tr>`).join('')}
+    </tbody></table></div>
+  </section>`;
+}
+
+
 function gcEorderObs(row){return gcText(row&&row.__obsEorder)}
 function gcEorderDate(row){return gcDate(row&&row.__dataFimExecucao)}
 function gcExpandableText(value,empty='—'){
@@ -12015,7 +12195,7 @@ function gcBuildParallelGroupEvaluations(sourceRows){
         rowMeta.set(key,{
           client:gcClientKey(client),
           row,
-          possibleGroups:[...causeGroups(row?.[COL.causa])],
+          possibleGroups:[...gcRowGroups(row)],
           activeGroups:[],
           status:'ORIGEM',
           recurrent:false,
@@ -12028,7 +12208,7 @@ function gcBuildParallelGroupEvaluations(sourceRows){
     for(let i=0;i<rows.length;i++){
       const current=rows[i];
       const currentKey=rowKey(current);
-      const possible=[...causeGroups(current?.[COL.causa])];
+      const possible=[...gcRowGroups(current)];
       const currentMeta=ensureMeta(current);
 
       // Descarta referências vencidas apenas para a incidência atual.
@@ -12066,7 +12246,7 @@ function gcBuildParallelGroupEvaluations(sourceRows){
           }
         }
 
-        const previousPossible=[...causeGroups(previous?.[COL.causa])];
+        const previousPossible=[...gcRowGroups(previous)];
         const diffMs=chosen.diffMs;
         const diasDesdeAnterior=Math.floor(diffMs/86400000);
 
@@ -12294,16 +12474,13 @@ async function gcSetCorrection(event,value){
 function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
   const recurrent=!!meta?.recurrent;
   const ev=meta?.event||null;
-  const allGroups=meta?.possibleGroups?.length?meta.possibleGroups:[...causeGroups(row?.[COL.causa])];
+  const allGroups=[...gcRowGroups(row)];
   const activeGroups=meta?.activeGroups||[];
-  const change=ev?gcCauseChangeValue(ev):{};
-  const correction=ev?gcCorrectionValue(ev):'Sem Ação';
-  const pair=ev?gcPairKey(ev):'';
-  const groupSelected=String(change.posteriorGroup||'');
-  const causeSelected=String(change.posteriorCause||'');
+  const st=gcIncState(row);
+  const correction=st.correcao||'Sem Ação';
+  const feedback=st.feedback||'Sem Feedback';
+  const currentCategory=st.posteriorGroup?gcGroupCode(st.posteriorGroup):'';
   const process=row?.[COL.processo];
-  const al=row?.[COL.al];
-  const ponto=row?.[COL.pontoEletrico];
 
   let cardClass='',badge='';
   if(recurrent){
@@ -12316,18 +12493,12 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
     badge='<span class="gc-origin-badge">ORIGEM DE GRUPO</span>';
   }
 
-  const originText=!recurrent&&!isFirst
-    ? (
-        activeGroups.length
-          ? `Inicia/reinicia a referência de ${activeGroups.join(' / ')}. Outras sequências de grupo permanecem independentes.`
-          : 'Causa com mais de um grupo possível ainda sem grupo definido pelo contexto posterior.'
-      )
-    :'';
-
-  return `<article class="gc-att-card ${cardClass}" ${pair?`data-gc-pair="${esc(pair)}"`:''}>
+  const inc=formatNumero(row?.[COL.numero]);
+  return `<article class="gc-att-card ${cardClass}" data-gc-inc="${esc(gcIncKey(row))}">
     <div class="gc-att-top">
       <div>
-        <div class="gc-att-order">${esc(formatNumero(row?.[COL.numero]))}</div>
+        <div class="gc-att-order">${esc(inc)} <button class="gc-inc-copy" type="button" data-copy-inc="${esc(inc)}" title="Copiar incidência">⧉</button></div>
+        <div class="gc-client-inside">Cliente ${esc(gcClientKey(row?.[COL.nCliente]))}</div>
         <div class="gc-att-date">${esc(gcDate(row?.__dataFim))}</div>
       </div>
       ${badge}
@@ -12338,16 +12509,19 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
       <div class="gc-att-field"><label>Processo</label><div class="value">${esc(gcText(process))}</div></div>
 
       <div class="gc-att-field full ${(recurrent||!isFirst)?'gc-cause-highlight':''}">
-        <label>Causa</label><div class="value">${gcExpandableText(row?.[COL.causa])}</div>
+        <label>Causa</label>
+        <div class="value">${gcGroupLogosContext(allGroups,activeGroups)} ${gcExpandableText(gcRowCause(row))}</div>
       </div>
 
       <div class="gc-att-field full">
         <label>Grupo causa</label>
         <div class="value">${gcGroupBadgesContext(allGroups,activeGroups)}</div>
       </div>
+    </div>
 
-      <div class="gc-att-field"><label>AL</label><div class="value">${esc(gcText(al))}</div></div>
-      <div class="gc-att-field"><label>Ponto elétrico</label><div class="value">${esc(gcPontoEletricoShort(ponto))}</div></div>
+    <div class="gc-geo-box">
+      <label>Observação Geonline</label>
+      <div class="value">${gcExpandableText(row?.[COL.observacao])}</div>
     </div>
 
     <div class="gc-exec-box">
@@ -12356,34 +12530,42 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
       <div class="gc-exec-date">${esc(gcEorderDate(row))}</div>
     </div>
 
-    ${originText?`<div class="gc-origin-note">${esc(originText)}</div>`:''}
-
-    ${recurrent&&ev?`<div class="gc-action-box">
+    <div class="gc-action-box">
       <div class="gc-action-row">
-        <label>Ação</label>
-        <select class="gc-correction ${correction==='Sim'?'sim':correction==='Não'?'nao':''}" data-gc-correction="${esc(pair)}">
-          <option ${correction==='Sem Ação'?'selected':''}>Sem Ação</option>
-          <option ${correction==='Sim'?'selected':''}>Sim</option>
-          <option ${correction==='Não'?'selected':''}>Não</option>
-        </select>
-        <span class="gc-muted">${fmtNum(ev.diasDesdeAnterior)} dia(s) desde o último atendimento de ${esc(ev.group)}</span>
+        <div class="gc-action-control">
+          <label>Correção</label>
+          <select data-gc-inc-correction="${esc(gcIncKey(row))}">
+            <option ${correction==='Sem Ação'?'selected':''}>Sem Ação</option>
+            <option ${correction==='Sim'?'selected':''}>Sim</option>
+            <option ${correction==='Não'?'selected':''}>Não</option>
+          </select>
+        </div>
+        <div class="gc-action-control">
+          <label>Feedback Operador</label>
+          <select data-gc-feedback="${esc(gcIncKey(row))}">
+            <option ${feedback==='Sem Feedback'?'selected':''}>Sem Feedback</option>
+            <option ${feedback==='Sim'?'selected':''}>Sim</option>
+            <option ${feedback==='Não'?'selected':''}>Não</option>
+          </select>
+        </div>
+        ${recurrent&&ev?`<span class="gc-muted">${fmtNum(ev.diasDesdeAnterior)} dia(s) desde o último atendimento de ${esc(ev.group)}</span>`:''}
       </div>
 
       ${correction==='Sim'?`<div class="gc-change-editor">
         <div class="gc-change-grid">
           <div class="gc-change-field">
             <label>Grupo posterior</label>
-            <select data-gc-change-group="${esc(pair)}">${gcOtherGroupOptions(ev,groupSelected)}</select>
+            <select data-gc-inc-group="${esc(gcIncKey(row))}">${gcCorrectionGroupOptions(currentCategory)}</select>
           </div>
           <div class="gc-change-field">
             <label>Causa posterior</label>
-            <select data-gc-change-cause="${esc(pair)}">${gcCauseOptionsForGroup(groupSelected,causeSelected)}</select>
+            <select data-gc-inc-cause="${esc(gcIncKey(row))}">${gcCauseOptionsForCategory(currentCategory,st.posteriorCause||'')}</select>
           </div>
-          <button type="button" class="gc-save-change" data-gc-save-change="${esc(pair)}">Salvar troca</button>
+          <button type="button" class="gc-save-change" data-gc-inc-save="${esc(gcIncKey(row))}">Salvar correção</button>
         </div>
-        ${groupSelected&&causeSelected?`<div class="gc-saved-change">Troca registrada: ${esc(groupSelected)} · ${esc(causeSelected)}</div>`:''}
+        ${st.posteriorGroup&&st.posteriorCause?`<div class="gc-saved-change">Correção registrada: ${gcGroupLogo(st.posteriorGroup,true)} ${esc(st.posteriorCause)}</div>`:''}
       </div>`:''}
-    </div>`:''}
+    </div>
   </article>`;
 }
 
@@ -12444,67 +12626,33 @@ function gcDetailTable(client,model){
 function gcExportCauseChanges(model){
   try{
     const exported=[];
-    const confirmed=Array.isArray(model?.confirmed)?model.confirmed:[];
-    for(const ev of confirmed){
-      if(gcCorrectionValue(ev)!=='Sim')continue;
-
-      const change=gcCauseChangeValue(ev);
-      if(!change?.posteriorGroup||!change?.posteriorCause)continue;
-
-      const previous=ev.previous,current=ev.current;
-      const prevGroups=ev.previousEffectiveGroups?.length
-        ?ev.previousEffectiveGroups
-        :(ev.previousGroups?.length?ev.previousGroups:[...causeGroups(previous?.[COL.causa])]);
-      const currGroups=ev.currentEffectiveGroups?.length
-        ?ev.currentEffectiveGroups
-        :(ev.groups?.length?ev.groups:(ev.currentGroups?.length?ev.currentGroups:[...causeGroups(current?.[COL.causa])]));
-
+    for(const [inc,st] of Object.entries(GC_INC_STATE||{})){
+      if(st?.correcao!=='Sim'||!st.posteriorGroup||!st.posteriorCause)continue;
+      const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+      if(!row)continue;
       exported.push({
-        'Cliente':String(ev.client||''),
-        'Incidência anterior':formatNumero(previous?.[COL.numero]),
-        'Data anterior':gcDate(previous?.__dataFim),
-        'Equipe anterior':gcText(previous?.[COL.equipeDesl]),
-        'Grupo anterior':prevGroups.join(' | '),
-        'Causa anterior':gcText(previous?.[COL.causa]),
-        'Busca Execução anterior':gcEorderObs(previous),
-        'Data Busca Execução anterior':gcEorderDate(previous),
-
-        'Incidência atual':formatNumero(current?.[COL.numero]),
-        'Data atual':gcDate(current?.__dataFim),
-        'Equipe atual':gcText(current?.[COL.equipeDesl]),
-        'Grupo atual':currGroups.join(' | '),
-        'Causa atual':gcText(current?.[COL.causa]),
-        'Busca Execução atual':gcEorderObs(current),
-        'Data Busca Execução atual':gcEorderDate(current),
-
-        'Grupo posterior':String(change.posteriorGroup||''),
-        'Causa posterior':String(change.posteriorCause||''),
-        'Dias entre atendimentos':Number.isFinite(ev.diasDesdeAnterior)?ev.diasDesdeAnterior:'',
-        'Processo atual':gcText(current?.[COL.processo]),
-        'AL atual':gcText(current?.[COL.al]),
-        'Ponto Elétrico atual':gcPontoEletricoShort(current?.[COL.pontoEletrico]),
-        'Ação':'Sim',
-        'Registrado em':String(change.savedAt||'')
+        'Cliente':gcClientKey(row?.[COL.nCliente]),
+        'Incidência':formatNumero(row?.[COL.numero]),
+        'Data':gcDate(row?.__dataFim),
+        'Equipe':gcText(row?.[COL.equipeDesl]),
+        'Processo':gcText(row?.[COL.processo]),
+        'Causa original':gcText(row?.[COL.causa]),
+        'Grupo original':[...causeGroups(row?.[COL.causa])].join(' | '),
+        'Observação Geonline':gcText(row?.[COL.observacao]),
+        'Busca Execução':gcEorderObs(row),
+        'Data Busca Execução':gcEorderDate(row),
+        'Grupo posterior':st.posteriorGroup,
+        'Causa posterior':st.posteriorCause,
+        'Correção':st.correcao,
+        'Feedback Operador':st.feedback||'Sem Feedback',
+        'Registrado em':st.savedAt||''
       });
     }
-
-    if(!exported.length){
-      alert('Não há trocas de causa salvas para exportar.');
-      return;
-    }
-
-    if(typeof exportRowsXlsx!=='function'){
-      throw new Error('Função de exportação XLSX não encontrada.');
-    }
-
-    exportRowsXlsx(
-      exported,
-      `analise_causa_trocas_${stamp()}.xlsx`,
-      'Trocas de causa'
-    );
+    if(!exported.length){alert('Não há correções de causa salvas para exportar.');return}
+    exportRowsXlsx(exported,`correcao_causas_${stamp()}.xlsx`,'Correções');
   }catch(error){
-    console.error('Erro ao exportar trocas da Análise Causa:',error);
-    alert('Não foi possível exportar a base de trocas de causa. '+(error?.message||String(error)));
+    console.error('Erro ao exportar Correção:',error);
+    alert('Não foi possível exportar a base de correções. '+(error?.message||String(error)));
   }
 }
 
@@ -12536,6 +12684,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   try{
   if(!S.analiseGrupoCausaCorrectionsLoaded&&!S.analiseGrupoCausaCorrectionsLoading)gcLoadCorrectionsServer();
   if(!GC_CAUSE_CHANGES_SERVER_LOADED&&!GC_CAUSE_CHANGES_SERVER_LOADING)gcLoadCauseChangesServer();
+  if(!GC_INC_STATE_SERVER_LOADED&&!GC_INC_STATE_SERVER_LOADING)gcLoadIncStateServer();
   if(!S.baseCompleta.length){
     el.innerHTML='<div class="gc-page"><div class="gc-card"><div class="gc-empty">Aguardando a Base de Incidências.</div></div></div>';
     return;
@@ -12569,36 +12718,25 @@ function renderAnaliseGrupoCausa(fromAsync=false){
       <span class="gc-save-mode ${S.analiseGrupoCausaCorrectionsMode==='cloud'?'cloud':''}">${S.analiseGrupoCausaCorrectionsMode==='cloud'?'● Correções sincronizadas no Supabase':'● Correções salvas neste navegador'}</span>
     </div>
 
-    <div class="gc-kpis">
-      <div class="gc-kpi" style="--gc:#7b8580"><div class="l">Reincidência Geral</div><div class="v">${fmtNum(totalGeneral)}</div><div class="s">mesmo cliente + retorno em até 30 dias</div></div>
-      <div class="gc-kpi" style="--gc:#008556"><div class="l">Reincidência por Grupo</div><div class="v">${fmtNum(totalGroup)}</div><div class="s">último atendimento do mesmo grupo em até 30 dias</div></div>
-      <div class="gc-kpi" style="--gc:#ca463f"><div class="l">Redução pela metodologia</div><div class="v">${fmtPct(reduction)}</div><div class="s">${fmtNum(Math.max(0,totalGeneral-totalGroup))} reincidência(s) deixam de ser confirmadas</div></div>
-      <div class="gc-kpi corrected"><div class="l">Causas corrigidas</div><div class="v">${fmtNum(correctedPairs.size)}</div><div class="s">reincidentes marcados como Correção = Sim</div></div>
-      <div class="gc-kpi" style="--gc:#147d64"><div class="l">Ramal</div><div class="v">${fmtNum(groupCounts.RAMAL)}</div><div class="s">vínculos confirmados</div></div>
-      <div class="gc-kpi" style="--gc:#d17a24"><div class="l">Medidor</div><div class="v">${fmtNum(groupCounts.MEDIDOR)}</div><div class="s">vínculos confirmados</div></div>
-      <div class="gc-kpi" style="--gc:#4f8c3f"><div class="l">Vegetação</div><div class="v">${fmtNum(groupCounts['VEGETAÇÃO'])}</div><div class="s">vínculos confirmados</div></div>
-      <div class="gc-kpi" style="--gc:#7556a3"><div class="l">Animais</div><div class="v">${fmtNum(groupCounts.ANIMAIS)}</div><div class="s">vínculos confirmados</div></div>
-      <div class="gc-kpi" style="--gc:#687781"><div class="l">Outros grupos</div><div class="v">${fmtNum(groupCounts.OUTROS)}</div><div class="s">vínculos confirmados em grupos exclusivos</div></div>
-    </div>
-
     <div class="gc-note">
       <b>Reincidência por Grupo usa memória independente para cada grupo:</b> RAMAL, MEDIDOR e os demais grupos mantêm sua própria última incidência válida por até 30 dias.
       Por isso, atendimentos de outro grupo no meio da linha do tempo <b>não apagam</b> a referência anterior.
-      Causas que pertencem a mais de um grupo mostram todas as possibilidades; o grupo usado naquele vínculo fica colorido e os demais ficam em cinza.
+      Causas que pertencem a mais de um grupo mostram todas as possibilidades; o grupo usado fica colorido e os demais ficam em cinza. As correções podem ser feitas tanto no reincidente quanto na incidência de origem.
       Ao expandir um cliente, todas as incidências do ciclo são exibidas em ordem cronológica.
     </div>
 
     <section class="gc-card">
       <div class="gc-head"><div>
-        <div class="gc-title">Reincidentes por Grupo — somente continuidades</div>
+        <div class="gc-title">Correção de reincidências por Grupo</div>
         <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · ao abrir um cliente, o anterior é fechado</div>
       </div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button type="button" class="gc-export-changes" id="gcExportCauseChanges">Exportar trocas de causa</button>
+        <button type="button" class="gc-export-changes" id="gcExportCauseChanges">Exportar correções</button>
         <input class="gc-search" id="gcSearch" value="${esc(S.analiseGrupoCausaSearch||'')}" placeholder="Buscar número do cliente">
       </div></div>
       ${gcClientTable(ativos,'ativo',model)}
     </section>
 
+    ${gcCauseReferenceTable()}
   </div>`;
 
   const search=document.getElementById('gcSearch');
@@ -12629,33 +12767,59 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     });
   });
 
-  el.querySelectorAll('[data-gc-correction]').forEach(select=>select.onchange=(event)=>{
+  el.querySelectorAll('[data-copy-inc]').forEach(button=>button.onclick=async(event)=>{
     event.stopPropagation();
-    const pair=select.dataset.gcCorrection;
-    const ev=model.confirmed.find(item=>gcPairKey(item)===pair);
-    if(ev)gcSetCorrection(ev,select.value);
-  });
-
-  el.querySelectorAll('[data-gc-change-group]').forEach(select=>select.onchange=(event)=>{
-    event.stopPropagation();
-    const pair=select.dataset.gcChangeGroup;
-    const ev=model.confirmed.find(item=>gcPairKey(item)===pair);
-    const causeSelect=el.querySelector(`[data-gc-change-cause="${CSS.escape(pair)}"]`);
-    if(ev&&causeSelect)causeSelect.innerHTML=gcCauseOptionsForGroup(select.value,'');
-  });
-
-  el.querySelectorAll('[data-gc-save-change]').forEach(button=>button.onclick=async(event)=>{
-    event.stopPropagation();
-    const pair=button.dataset.gcSaveChange;
-    const ev=model.confirmed.find(item=>gcPairKey(item)===pair);
-    const groupSelect=el.querySelector(`[data-gc-change-group="${CSS.escape(pair)}"]`);
-    const causeSelect=el.querySelector(`[data-gc-change-cause="${CSS.escape(pair)}"]`);
-    if(!ev||!groupSelect||!causeSelect)return;
-    if(!groupSelect.value||!causeSelect.value){
-      alert('Selecione o grupo posterior e a causa posterior.');
-      return;
+    const value=button.dataset.copyInc||'';
+    try{
+      await navigator.clipboard.writeText(value);
+      const old=button.textContent;button.textContent='✓';
+      setTimeout(()=>button.textContent=old,900);
+    }catch(_){
+      const ta=document.createElement('textarea');ta.value=value;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
     }
-    await gcSaveCauseChange(ev,groupSelect.value,causeSelect.value);
+  });
+
+  el.querySelectorAll('[data-gc-inc-correction]').forEach(select=>select.onchange=async(event)=>{
+    event.stopPropagation();
+    const inc=select.dataset.gcIncCorrection;
+    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    if(!row)return;
+    await gcSaveIncState(row,{correcao:select.value});
+    S.renderKeys.analiseGrupoCausa='';
+    renderAnaliseGrupoCausa(true);
+  });
+
+  el.querySelectorAll('[data-gc-feedback]').forEach(select=>select.onchange=async(event)=>{
+    event.stopPropagation();
+    const inc=select.dataset.gcFeedback;
+    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    if(!row)return;
+    await gcSaveIncState(row,{feedback:select.value});
+  });
+
+  el.querySelectorAll('[data-gc-inc-group]').forEach(select=>select.onchange=(event)=>{
+    event.stopPropagation();
+    const inc=select.dataset.gcIncGroup;
+    const causeSelect=el.querySelector(`[data-gc-inc-cause="${CSS.escape(inc)}"]`);
+    if(causeSelect)causeSelect.innerHTML=gcCauseOptionsForCategory(select.value,'');
+  });
+
+  el.querySelectorAll('[data-gc-inc-save]').forEach(button=>button.onclick=async(event)=>{
+    event.stopPropagation();
+    const inc=button.dataset.gcIncSave;
+    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    const groupSelect=el.querySelector(`[data-gc-inc-group="${CSS.escape(inc)}"]`);
+    const causeSelect=el.querySelector(`[data-gc-inc-cause="${CSS.escape(inc)}"]`);
+    if(!row||!groupSelect||!causeSelect)return;
+    if(!groupSelect.value||!causeSelect.value){alert('Selecione o grupo e a causa posterior.');return}
+    const [encodedGroup,encodedCause]=String(causeSelect.value).split('|||');
+    const actualGroup=decodeURIComponent(encodedGroup||'');
+    const actualCause=decodeURIComponent(encodedCause||'');
+    await gcSaveIncState(row,{
+      correcao:'Sim',
+      posteriorGroup:actualGroup||gcActualGroupFromCategory(groupSelect.value,actualCause),
+      posteriorCause:actualCause
+    });
     S.renderKeys.analiseGrupoCausa='';
     renderAnaliseGrupoCausa(true);
   });
@@ -12666,9 +12830,9 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     gcExportCauseChanges(exportModel);
   };
   }catch(error){
-    console.error('Erro ao renderizar Análise Causa:',error);
+    console.error('Erro ao renderizar Correção:',error);
     el.innerHTML=`<div class="gc-page"><div class="gc-card"><div class="gc-empty">
-      <b>Não foi possível montar a Análise Causa.</b><br>
+      <b>Não foi possível montar a página Correção.</b><br>
       <span style="font-size:11px">${esc(error?.message||String(error))}</span>
     </div></div></div>`;
   }
