@@ -12008,7 +12008,6 @@ function gcBuildParallelGroupEvaluations(sourceRows){
     // Cada grupo mantém sua própria "memória".
     // Assim RAMALs no meio não apagam a última referência de MEDIDOR, e vice-versa.
     const anchors=new Map(); // grupo -> {row, time, pending}
-    const activeByRow=new Map();
 
     const ensureMeta=row=>{
       const key=rowKey(row);
@@ -12059,7 +12058,6 @@ function gcBuildParallelGroupEvaluations(sourceRows){
           const prevMeta=ensureMeta(previous);
           prevMeta.activeGroups=[group];
           prevMeta.status='ORIGEM';
-          activeByRow.set(previousKey,new Set([group]));
 
           // A causa ambígua passa a pertencer à sequência escolhida;
           // os outros grupos continuam visíveis no cartão, porém em cinza.
@@ -12102,7 +12100,6 @@ function gcBuildParallelGroupEvaluations(sourceRows){
         currentMeta.status='REINCIDENTE';
         currentMeta.recurrent=true;
         currentMeta.event=ev;
-        activeByRow.set(currentKey,new Set([group]));
 
         // Atualiza apenas a memória do grupo efetivamente usado.
         // As memórias dos outros grupos seguem vivas em paralelo.
@@ -12116,25 +12113,17 @@ function gcBuildParallelGroupEvaluations(sourceRows){
         if(possible.length===1){
           const group=possible[0];
           currentMeta.activeGroups=[group];
-          activeByRow.set(currentKey,new Set([group]));
           anchors.set(group,{row:current,time:current.__dataFim,pending:false});
         }else{
           // Uma causa multigrupo sem contexto anterior fica "em aberto".
           // Ela pode ser resolvida pelo primeiro atendimento posterior compatível.
           currentMeta.activeGroups=[];
-          activeByRow.set(currentKey,new Set());
           for(const group of possible){
             anchors.set(group,{row:current,time:current.__dataFim,pending:true});
           }
         }
       }
     }
-  }
-
-  // Garante que os metadados reflitam resoluções retroativas de origens multigrupo.
-  for(const [key,set] of activeByRow){
-    const meta=rowMeta.get(key);
-    if(meta)meta.activeGroups=[...set];
   }
 
   return {evaluations,rowMeta,rowsByClient};
