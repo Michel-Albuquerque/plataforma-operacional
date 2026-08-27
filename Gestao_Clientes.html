@@ -1271,6 +1271,12 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 #panel-analiseGrupoCausa .gc-change-grid{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
 #panel-analiseGrupoCausa .gc-change-field label{display:block;font-size:7.5px;text-transform:uppercase;font-weight:900;color:#6d7b75;margin-bottom:4px}
 #panel-analiseGrupoCausa .gc-change-field select{width:100%;min-width:0;padding:7px 8px;border:1px solid #cbd9d3;border-radius:8px;background:#fff;font-size:9px}
+
+#panel-analiseGrupoCausa .gc-change-field select{min-height:38px;line-height:1.2;overflow:visible}
+#panel-analiseGrupoCausa .gc-change-grid{grid-template-columns:minmax(170px,.7fr) minmax(320px,1.5fr) auto}
+#panel-analiseGrupoCausa select[data-gc-inc-group]{min-width:170px}
+#panel-analiseGrupoCausa select[data-gc-inc-cause]{min-width:320px}
+
 #panel-analiseGrupoCausa .gc-save-change{height:32px;border:0;border-radius:8px;background:#008556;color:#fff;font-size:9px;font-weight:900;padding:0 12px;cursor:pointer}
 #panel-analiseGrupoCausa .gc-saved-change{margin-top:7px;font-size:8.5px;font-weight:800;color:#00744d}
 #panel-analiseGrupoCausa .gc-cycle-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fbfdfc;border-top:1px solid #edf2ef;font-size:9px;color:#66766f}
@@ -1295,6 +1301,11 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 #panel-analiseGrupoCausa .gc-cause-ref td.cause{text-align:left}
 #panel-analiseGrupoCausa .gc-main-table th,#panel-analiseGrupoCausa .gc-main-table td{text-align:center !important;vertical-align:middle}
 #panel-analiseGrupoCausa .gc-main-table td:first-child,#panel-analiseGrupoCausa .gc-main-table th:first-child{text-align:center !important}
+
+#panel-analiseGrupoCausa .gc-main-table{table-layout:fixed}
+#panel-analiseGrupoCausa .gc-main-table th,
+#panel-analiseGrupoCausa .gc-main-table td{justify-content:center;text-align:center !important}
+
 
 
 #panel-analiseGrupoCausa .gc-att-card{overflow:hidden}
@@ -12089,6 +12100,7 @@ function gcGroupLogosContext(allGroups,activeGroups){
 }
 function gcCorrectionGroupOptions(selected=''){
   const opts=[
+    ['TODOS','Todos'],
     ['G1','G1 · RAMAL'],
     ['G2','G2 · MEDIDOR'],
     ['G3','G3 · VEGETAÇÃO'],
@@ -12110,17 +12122,19 @@ function gcCauseOptionsForCategory(code,selectedCause=''){
   const seen=new Set();
   for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
     const cat=gcGroupCode(group);
-    if(cat!==code)continue;
+    if(code!=='TODOS' && cat!==code)continue;
     const k=normalizeHeaderKey(cause)+'|'+group;
     if(seen.has(k))continue;
     seen.add(k);
-    rows.push({cause,group});
+    rows.push({cause,group,cat});
   }
-  rows.sort((a,b)=>a.cause.localeCompare(b.cause,'pt-BR')||a.group.localeCompare(b.group,'pt-BR'));
+  const rank={G1:1,G2:2,G3:3,G4:4,G5:5};
+  rows.sort((a,b)=>(rank[a.cat]-rank[b.cat])||a.group.localeCompare(b.group,'pt-BR')||a.cause.localeCompare(b.cause,'pt-BR'));
   return '<option value="">Selecionar causa</option>'+rows.map(x=>{
     const value=encodeURIComponent(x.group)+'|||'+encodeURIComponent(x.cause);
     const sel=x.cause===selectedCause?'selected':'';
-    return `<option value="${value}" ${sel}>${gcGroupCode(x.group)} · ${esc(x.cause)}</option>`;
+    const bg=gcGroupCodeColor(x.group);
+    return `<option value="${value}" ${sel} style="background:${bg};color:#fff">${x.cat} · ${esc(x.cause)}</option>`;
   }).join('');
 }
 function gcCauseReferenceTable(){
@@ -12130,7 +12144,12 @@ function gcCauseReferenceTable(){
     if(!byCause.has(key))byCause.set(key,{cause,groups:[]});
     if(!byCause.get(key).groups.includes(group))byCause.get(key).groups.push(group);
   }
-  const rows=[...byCause.values()].sort((a,b)=>a.cause.localeCompare(b.cause,'pt-BR'));
+  const rank={G1:1,G2:2,G3:3,G4:4,G5:5};
+  const rows=[...byCause.values()].sort((a,b)=>{
+    const ac=Math.min(...a.groups.map(g=>rank[gcGroupCode(g)]||9));
+    const bc=Math.min(...b.groups.map(g=>rank[gcGroupCode(g)]||9));
+    return ac-bc||a.cause.localeCompare(b.cause,'pt-BR');
+  });
   return `<section class="gc-card gc-cause-ref">
     <div class="gc-head"><div><div class="gc-title">Tabela de referência das causas</div>
     <div class="gc-sub">Código da causa ainda não disponível. G1 a G5 representam os grupos utilizados na Correção.</div></div></div>
@@ -12214,11 +12233,14 @@ function gcBuildParallelGroupEvaluations(sourceRows){
       // Descarta referências vencidas apenas para a incidência atual.
       const candidates=[];
       for(const group of possible){
-        const anchor=anchors.get(group);
+        const anchorKey=(gcGroupCode(group)==='G5')
+          ? group+'||'+normalizeHeaderKey(gcRowCause(current))
+          : group;
+        const anchor=anchors.get(anchorKey);
         if(!anchor)continue;
         const diffMs=current.__dataFim-anchor.time;
         if(diffMs>=0&&diffMs<=GROUP_REINCIDENCE_MAX_MS){
-          candidates.push({group,anchor,diffMs});
+          candidates.push({group,anchor,diffMs,anchorKey});
         }
       }
 
@@ -12283,7 +12305,7 @@ function gcBuildParallelGroupEvaluations(sourceRows){
 
         // Atualiza apenas a memória do grupo efetivamente usado.
         // As memórias dos outros grupos seguem vivas em paralelo.
-        anchors.set(group,{row:current,time:current.__dataFim,pending:false});
+        anchors.set(gcGroupCode(group)==='G5'?group+'||'+normalizeHeaderKey(gcRowCause(current)):group,{row:current,time:current.__dataFim,pending:false});
       }else{
         // Não existe incidência anterior compatível em até 30 dias:
         // esta incidência passa a ser origem de uma nova cadeia de grupo.
@@ -12293,13 +12315,13 @@ function gcBuildParallelGroupEvaluations(sourceRows){
         if(possible.length===1){
           const group=possible[0];
           currentMeta.activeGroups=[group];
-          anchors.set(group,{row:current,time:current.__dataFim,pending:false});
+          anchors.set(gcGroupCode(group)==='G5'?group+'||'+normalizeHeaderKey(gcRowCause(current)):group,{row:current,time:current.__dataFim,pending:false});
         }else{
           // Uma causa multigrupo sem contexto anterior fica "em aberto".
           // Ela pode ser resolvida pelo primeiro atendimento posterior compatível.
           currentMeta.activeGroups=[];
           for(const group of possible){
-            anchors.set(group,{row:current,time:current.__dataFim,pending:true});
+            anchors.set(gcGroupCode(group)==='G5'?group+'||'+normalizeHeaderKey(gcRowCause(current)):group,{row:current,time:current.__dataFim,pending:true});
           }
         }
       }
@@ -12471,6 +12493,12 @@ async function gcSetCorrection(event,value){
 
 /* ---------- tabela detalhada ---------- */
 
+
+function gcHasLaterRecurrent(row,model){
+  const inc=normalizeNumero(row?.[COL.numero]);
+  return (model?.confirmed||[]).some(ev=>normalizeNumero(ev?.previous?.[COL.numero])===inc);
+}
+
 function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
   const recurrent=!!meta?.recurrent;
   const ev=meta?.event||null;
@@ -12530,7 +12558,7 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
       <div class="gc-exec-date">${esc(gcEorderDate(row))}</div>
     </div>
 
-    <div class="gc-action-box">
+    ${(recurrent||gcHasLaterRecurrent(row,model))?`<div class="gc-action-box">
       <div class="gc-action-row">
         <div class="gc-action-control">
           <label>Correção</label>
@@ -12565,7 +12593,7 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
         </div>
         ${st.posteriorGroup&&st.posteriorCause?`<div class="gc-saved-change">Correção registrada: ${gcGroupLogo(st.posteriorGroup,true)} ${esc(st.posteriorCause)}</div>`:''}
       </div>`:''}
-    </div>
+    </div>`:''}
   </article>`;
 }
 
@@ -12637,8 +12665,7 @@ function gcExportCauseChanges(model){
         'Equipe':gcText(row?.[COL.equipeDesl]),
         'Processo':gcText(row?.[COL.processo]),
         'Causa original':gcText(row?.[COL.causa]),
-        'Grupo original':[...causeGroups(row?.[COL.causa])].join(' | '),
-        'Observação Geonline':gcText(row?.[COL.observacao]),
+                'Observação Geonline':gcText(row?.[COL.observacao]),
         'Busca Execução':gcEorderObs(row),
         'Data Busca Execução':gcEorderDate(row),
         'Grupo posterior':st.posteriorGroup,
@@ -12649,7 +12676,25 @@ function gcExportCauseChanges(model){
       });
     }
     if(!exported.length){alert('Não há correções de causa salvas para exportar.');return}
-    exportRowsXlsx(exported,`correcao_causas_${stamp()}.xlsx`,'Correções');
+    if(typeof XLSX!=='undefined' && typeof exportRowsXlsx==='function'){
+      exportRowsXlsx(exported,`correcao_causas_${stamp()}.xlsx`,'Correções');
+    }else{
+      const headers=Object.keys(exported[0]||{});
+      const escCsv=v=>{
+        const s=String(v??'');
+        return /[;"\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+      };
+      const csv='\ufeff'+[
+        headers.map(escCsv).join(';'),
+        ...exported.map(row=>headers.map(h=>escCsv(row[h])).join(';'))
+      ].join('\r\n');
+      const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=`correcao_causas_${stamp()}.csv`;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    }
   }catch(error){
     console.error('Erro ao exportar Correção:',error);
     alert('Não foi possível exportar a base de correções. '+(error?.message||String(error)));
@@ -12668,7 +12713,7 @@ function gcClientTable(clients,kind,model){
     const detail=open?`<tr class="gc-detail"><td colspan="9">${gcDetailTable(c,model)}</td></tr>`:'';
     return `<tr class="gc-row" data-gc-client="${encodeURIComponent(c.cliente)}" data-gc-kind="${kind}">
       <td><b>${open?'▾':'▸'} ${esc(c.cliente)}</b></td>
-      <td class="gc-num">${fmtNum(c.general.length)}</td>
+      
       <td class="gc-num">${fmtNum(c.group.length)}</td>
       <td class="gc-num">${fmtNum(c.ramal)}</td>
       <td class="gc-num">${fmtNum(c.medidor)}</td>
