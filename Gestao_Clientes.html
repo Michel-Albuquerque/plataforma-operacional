@@ -4804,43 +4804,12 @@ function applyPrincipalFilterChange(options={}){
 }
 
 function forceRefreshFilteredView(){
-  if(S.currentTab==='visaoCliente')S.filtersByTab.visaoCliente=S.filters;
-  else if(S.filtersByTab[S.currentTab])S.filtersByTab[S.currentTab]=S.filters;
-
+  // Mantém o estado correto da aba e deixa o próprio rerenderActiveTab
+  // reconstruir a tela. Evita renderização manual duplicada.
+  if(S.filtersByTab?.[S.currentTab])S.filtersByTab[S.currentTab]=S.filters;
   invalidateCache(true);
   updateResultCount();
-
-  const tab=S.currentTab;
-  try{
-    console.debug('[Filtros]',tab,{
-      indicador:S.filters.parametro,
-      anos:[...S.filters.anos],
-      meses:[...S.filters.meses],
-      equipes:[...S.filters.equipes],
-      causas:[...S.filters.causas],
-      processos:[...S.filters.processos],
-      clienteAfetado:S.filters.clienteAfetado
-    });
-    if(tab==='dashboard')renderDashboard();
-    else if(tab==='visaoCliente')renderVisaoCliente();
-    else if(tab==='visaoEquipe')renderVisaoEquipe();
-    else if(tab==='diagnostico')renderDiagnostico();
-    else if(tab==='analiseCausa')renderAnaliseCausa();
-    else if(tab==='analiseGrupoCausa')renderAnaliseGrupoCausa();
-    else if(tab==='acao')renderActions();
-    else rerenderActiveTab(true);
-
-    S.renderKeys[tab]=activeRenderKey();
-  }catch(error){
-    console.error('Erro ao atualizar filtros da aba '+tab+':',error);
-    const panel=document.getElementById('panel-'+tab);
-    if(panel){
-      panel.innerHTML=`<div class="empty-state">
-        <div class="t1">Não foi possível atualizar os filtros</div>
-        <div class="t2">${esc(error?.message||String(error))}</div>
-      </div>`;
-    }
-  }
+  rerenderActiveTab(true);
 }
 
 function wireFilterPanels(){
@@ -7680,6 +7649,34 @@ async function exportClientBehaviorPptx(){
 }
 
 
+
+function diagnosticoFiltrosVisaoClienteV2(){
+  try{
+    const {base,baseIndicador}=getFiltered();
+    const reinc=isConnectionBasedIndicator()
+      ? getFilteredReincidenciaConexao()
+      : S.filters.parametro==='grupo'
+        ? getFilteredGroupRecurrences()
+        : [];
+    const ranking=computeRanking(base,baseIndicador);
+    return {
+      indicador:recurrenceIndicatorLabel(),
+      anos:[...S.filters.anos],
+      meses:[...S.filters.meses],
+      equipes:[...S.filters.equipes],
+      causas:[...S.filters.causas],
+      processos:[...S.filters.processos],
+      clienteAfetado:S.filters.clienteAfetado,
+      base:base.length,
+      baseIndicador:baseIndicador.length,
+      reincidencias:reinc.length,
+      ranking:ranking.length
+    };
+  }catch(error){
+    return {erro:error?.message||String(error),stack:error?.stack||''};
+  }
+}
+
 function diagnosticoFiltrosVisaoCliente(){
   const f=S.filters;
   const ranking=getClientRanking();
@@ -7744,10 +7741,6 @@ function clientGroupLegendHtml(){
 
 function renderVisaoCliente(){
   if(!S.baseCompleta.length) return;
-  // Garantia: a Visão Cliente sempre usa o objeto de filtros próprio da aba.
-  if(S.filtersByTab?.visaoCliente && S.currentTab==='visaoCliente'){
-    S.filters=S.filtersByTab.visaoCliente;
-  }
   const {base, baseIndicador} = getFiltered();
   const totalIncid = baseIndicador.length;
   const ranking = getClientRanking();
