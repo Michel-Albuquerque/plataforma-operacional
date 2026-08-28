@@ -4804,12 +4804,18 @@ function applyPrincipalFilterChange(options={}){
 }
 
 function forceRefreshFilteredView(){
-  // Mantém o estado correto da aba e deixa o próprio rerenderActiveTab
-  // reconstruir a tela. Evita renderização manual duplicada.
-  if(S.filtersByTab?.[S.currentTab])S.filtersByTab[S.currentTab]=S.filters;
+  const tab=S.currentTab;
+
+  // O filtro visível e o filtro da aba precisam ser exatamente o mesmo objeto.
+  if(S.filtersByTab?.[tab]){
+    S.filtersByTab[tab]=S.filters;
+  }
+
   invalidateCache(true);
-  updateResultCount();
-  rerenderActiveTab(true);
+
+  // Reentra na própria aba: switchTab religa S.filters ao filtersByTab[tab],
+  // redesenha a barra e chama rerenderActiveTab() com o estado correto.
+  switchTab(tab);
 }
 
 function wireFilterPanels(){
@@ -4958,7 +4964,9 @@ const TAB_META = {
 function switchTab(tab){
   if(tab!=='callbackContingencia')closeCallbackRegisterDrawer();
   S.currentTab = tab;
-  if(S.filtersByTab[tab]) S.filters = S.filtersByTab[tab];
+  if(S.filtersByTab[tab]){
+    S.filters = S.filtersByTab[tab];
+  }
   const reincTabs=['dashboard','visaoCliente','visaoEquipe','diagnostico','analiseCausa','analiseGrupoCausa','acao'];
   const inReincidente=reincTabs.includes(tab);
   const order2Tabs=['ordem2','ordem2Diagnostico'];
@@ -7650,6 +7658,25 @@ async function exportClientBehaviorPptx(){
 
 
 
+
+function diagnosticoSincroniaFiltros(){
+  const panel=document.getElementById('panel-visaoCliente');
+  return {
+    currentTab:S.currentTab,
+    mesmoObjeto:S.filters===S.filtersByTab?.[S.currentTab],
+    indicadorAtual:S.filters?.parametro,
+    indicadorRenderizado:panel?.dataset?.renderIndicator||null,
+    chaveAtual:filterCacheKey(),
+    chaveRenderizada:panel?.dataset?.renderFilterKey||null,
+    anos:[...(S.filters?.anos||[])],
+    meses:[...(S.filters?.meses||[])],
+    causas:[...(S.filters?.causas||[])],
+    equipes:[...(S.filters?.equipes||[])],
+    processos:[...(S.filters?.processos||[])],
+    clienteAfetado:S.filters?.clienteAfetado
+  };
+}
+
 function diagnosticoFiltrosVisaoClienteV2(){
   try{
     const {base,baseIndicador}=getFiltered();
@@ -7749,6 +7776,8 @@ function renderVisaoCliente(){
   const behavior=computeClientBehavior();
 
   const el = document.getElementById('panel-visaoCliente');
+  el.dataset.renderFilterKey=filterCacheKey();
+  el.dataset.renderIndicator=S.filters.parametro||'';
   el.innerHTML = `
     ${usandoConexaoSemBase() ? `<div class="tag-note" style="background:var(--danger-bg);color:var(--danger)">⚠ Parâmetro em "Reincidência Conexão", mas nenhuma base de reincidência foi carregada. Vá em Importar base e envie a planilha de reincidência, ou troque o Parâmetro para "Geral". Os números abaixo estão zerados.</div>` : ''}
     <div class="tag-note">Total de incidências = registros <b>COM EQUIPE</b>, com Data Fim válida e sem Atendimento Remoto. Indicador ativo: <b>${esc(recurrenceIndicatorLabel())}</b>${['grupo','conexao_grupo'].includes(S.filters.parametro)?' · regra: cada grupo mantém memória própria por até 30 dias; repetições do mesmo grupo contam mesmo com outros grupos entre elas.':' · janela de 30 dias conforme a regra vigente.'} · ${fmtNum(totalIncid)} incidências · ${fmtNum(totalReinc)} reincidências · ${fmtPct(pct)} de reincidência · ${fmtNum(ranking.length)} clientes reincidentes</div>
@@ -11894,7 +11923,13 @@ async function carregarReincidenciaLocalhost(mostrarMensagem=false){
 
     const abaAntes=S.currentTab;
     const filtrosAntes={
-      ...S.filters
+      ...S.filters,
+      anos:new Set(S.filters.anos||[]),
+      meses:new Set(S.filters.meses||[]),
+      polos:new Set(S.filters.polos||[]),
+      equipes:new Set(S.filters.equipes||[]),
+      causas:new Set(S.filters.causas||[]),
+      processos:new Set(S.filters.processos||[])
     };
 
     processRawRows(
@@ -11929,12 +11964,20 @@ async function carregarReincidenciaLocalhost(mostrarMensagem=false){
 
     reincidenciaAutoSignature=assinatura;
 
-    // Reaplica os filtros válidos para evitar que uma atualização silenciosa
-    // altere a seleção do usuário.
-    S.filters={
-      ...S.filters,
-      ...filtrosAntes
-    };
+    // Reaplica os filtros sem quebrar a referência entre S.filters e
+    // filtersByTab[aba]. Antes este trecho criava um objeto novo e deixava
+    // a barra de filtros e a página trabalhando com estados diferentes.
+    const filtroDestino =
+      (abaAntes && S.filtersByTab?.[abaAntes])
+        ? S.filtersByTab[abaAntes]
+        : S.filters;
+
+    Object.assign(filtroDestino,filtrosAntes);
+
+    if(abaAntes && S.filtersByTab?.[abaAntes]){
+      S.filtersByTab[abaAntes]=filtroDestino;
+    }
+    S.filters=filtroDestino;
 
     enrichValidationBase();
     enrichCallbackBase();
