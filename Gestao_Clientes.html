@@ -4117,7 +4117,12 @@ function vincularReincidenciaComBasePrincipal(statsOut){
   for(const r of S.baseReincidencia){
     const num = r[COL2.numero];
     const main = porNumero.get(normalizeNumero(num)) || null;
-    const nextMain = porNumero.get(normalizeNumero(r[COL2.numeroRein])) || null;
+    const numeroReincidente =
+      r[COL2.numeroRein] ??
+      r[COL2.numeroRein2] ??
+      r.__nextNumero ??
+      null;
+    const nextMain = porNumero.get(normalizeNumero(numeroReincidente)) || null;
     r.__prevMain=main;
     r.__nextMain=nextMain;
     if(main){
@@ -4152,7 +4157,7 @@ function vincularReincidenciaComBasePrincipal(statsOut){
       r.__nextLinked=true;
       reincidentesVinculadas++;
     }else{
-      r.__nextNumero=r[COL2.numeroRein]||null; r.__nextDataInicio=null; r.__nextDataFim=null;
+      r.__nextNumero=numeroReincidente||null; r.__nextDataInicio=null; r.__nextDataFim=null;
       r.__nextCausa=null; r.__nextEquipeDesl=null; r.__nextEquipeAtribuida=null;
       r.__nextProcesso=null; r.__nextPolo=null; r.__nextCliAf3min=null; r.__nextTipoInstalacao=null; r.__nextLinked=false;
     }
@@ -4171,8 +4176,19 @@ function conexaoGrupoCauseCodes(cause){
   return new Set(codes);
 }
 function isConexaoGrupoRecurrence(r){
-  const causaAnterior=r?.[COL2.causa];
-  const causaPosterior=r?.__nextCausa;
+  // A Base de Reincidência define o vínculo oficial.
+  // O critério de Grupo é aplicado sobre as causas das duas incidências
+  // vinculadas na Base Principal.
+  const causaAnterior =
+    r?.__prevMain?.[COL.causa] ??
+    r?.[COL2.causa] ??
+    '';
+
+  const causaPosterior =
+    r?.__nextMain?.[COL.causa] ??
+    r?.__nextCausa ??
+    '';
+
   if(!hasValidValue(causaAnterior)||!hasValidValue(causaPosterior))return false;
 
   const anterior=conexaoGrupoCauseCodes(causaAnterior);
@@ -4223,8 +4239,26 @@ function matchesFiltersReincidencia(r){
   }
   return true;
 }
+function diagnosticoConexaoGrupo(){
+  const total=S.baseReincidencia.length;
+  let comNumeroRein=0,vincAnterior=0,vincPosterior=0,duasCausas=0,mesmoGrupo=0;
+  for(const r of S.baseReincidencia){
+    const nr=r[COL2.numeroRein]??r[COL2.numeroRein2]??r.__nextNumero;
+    if(hasValidValue(nr))comNumeroRein++;
+    if(r.__prevMain)vincAnterior++;
+    if(r.__nextMain)vincPosterior++;
+    const ca=r.__prevMain?.[COL.causa]??r[COL2.causa];
+    const cp=r.__nextMain?.[COL.causa]??r.__nextCausa;
+    if(hasValidValue(ca)&&hasValidValue(cp))duasCausas++;
+    if(isConexaoGrupoRecurrence(r))mesmoGrupo++;
+  }
+  return {total,comNumeroRein,vincAnterior,vincPosterior,duasCausas,mesmoGrupo};
+}
+
 function getFilteredReincidenciaConexao(){
-  const key=filterCacheKey()+'|reinc:'+S.baseReincidencia.length;
+  const key=filterCacheKey()+'|reinc:'+S.baseReincidencia.length+
+    '|vinc:'+String(S.reincidenciaStats?.vinculadas||0)+
+    '|rvinc:'+String(S.reincidenciaStats?.reincidentesVinculadas||0);
   if(_filteredReincCache.has(key)) return _filteredReincCache.get(key);
   const result=S.baseReincidencia.filter(r=>
     matchesFiltersReincidencia(r) &&
