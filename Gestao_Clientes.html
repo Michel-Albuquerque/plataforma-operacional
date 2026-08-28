@@ -4804,18 +4804,44 @@ function applyPrincipalFilterChange(options={}){
 }
 
 function forceRefreshFilteredView(){
-  const tab=S.currentTab;
+  // Usa a aba que está realmente VISÍVEL no DOM como fonte da verdade.
+  const activePanel=document.querySelector('.panel.active');
+  const domTab=activePanel?.id?.startsWith('panel-')
+    ? activePanel.id.slice('panel-'.length)
+    : null;
+  const tab=domTab||S.currentTab;
 
-  // O filtro visível e o filtro da aba precisam ser exatamente o mesmo objeto.
+  S.currentTab=tab;
+
+  // O objeto da barra e o objeto da aba passam a ser exatamente o mesmo.
   if(S.filtersByTab?.[tab]){
     S.filtersByTab[tab]=S.filters;
   }
 
   invalidateCache(true);
+  updateResultCount();
 
-  // Reentra na própria aba: switchTab religa S.filters ao filtersByTab[tab],
-  // redesenha a barra e chama rerenderActiveTab() com o estado correto.
-  switchTab(tab);
+  try{
+    if(tab==='visaoCliente'){
+      // Renderização direta: não depende de switchTab nem da chave antiga.
+      renderVisaoCliente();
+      S.renderKeys[tab]=activeRenderKey();
+      const applyExpanders=()=>enableReincidenteExpanders(document.getElementById('panel-visaoCliente'));
+      window.requestAnimationFrame?requestAnimationFrame(applyExpanders):setTimeout(applyExpanders,0);
+      return;
+    }
+
+    rerenderActiveTab(true);
+  }catch(error){
+    console.error('Erro ao aplicar filtros em '+tab+':',error);
+    const panel=document.getElementById('panel-'+tab);
+    if(panel){
+      panel.innerHTML=`<div class="empty-state">
+        <div class="t1">Não foi possível aplicar os filtros</div>
+        <div class="t2">${esc(error?.message||String(error))}</div>
+      </div>`;
+    }
+  }
 }
 
 function wireFilterPanels(){
@@ -7659,6 +7685,28 @@ async function exportClientBehaviorPptx(){
 
 
 
+
+function diagnosticoFiltrosV25(){
+  const activePanel=document.querySelector('.panel.active');
+  const domTab=activePanel?.id?.replace(/^panel-/,'')||null;
+  const panel=document.getElementById('panel-visaoCliente');
+  return {
+    domTab,
+    currentTab:S.currentTab,
+    mesmoObjeto:S.filters===S.filtersByTab?.visaoCliente,
+    indicador:S.filters?.parametro,
+    anos:[...(S.filters?.anos||[])],
+    meses:[...(S.filters?.meses||[])],
+    equipes:[...(S.filters?.equipes||[])],
+    causas:[...(S.filters?.causas||[])],
+    processos:[...(S.filters?.processos||[])],
+    clienteAfetado:S.filters?.clienteAfetado,
+    cacheKeyAtual:filterCacheKey(),
+    cacheKeyRenderizado:panel?.dataset?.renderFilterKey||null,
+    indicadorRenderizado:panel?.dataset?.renderIndicator||null
+  };
+}
+
 function diagnosticoSincroniaFiltros(){
   const panel=document.getElementById('panel-visaoCliente');
   return {
@@ -7780,7 +7828,15 @@ function renderVisaoCliente(){
   el.dataset.renderIndicator=S.filters.parametro||'';
   el.innerHTML = `
     ${usandoConexaoSemBase() ? `<div class="tag-note" style="background:var(--danger-bg);color:var(--danger)">⚠ Parâmetro em "Reincidência Conexão", mas nenhuma base de reincidência foi carregada. Vá em Importar base e envie a planilha de reincidência, ou troque o Parâmetro para "Geral". Os números abaixo estão zerados.</div>` : ''}
-    <div class="tag-note">Total de incidências = registros <b>COM EQUIPE</b>, com Data Fim válida e sem Atendimento Remoto. Indicador ativo: <b>${esc(recurrenceIndicatorLabel())}</b>${['grupo','conexao_grupo'].includes(S.filters.parametro)?' · regra: cada grupo mantém memória própria por até 30 dias; repetições do mesmo grupo contam mesmo com outros grupos entre elas.':' · janela de 30 dias conforme a regra vigente.'} · ${fmtNum(totalIncid)} incidências · ${fmtNum(totalReinc)} reincidências · ${fmtPct(pct)} de reincidência · ${fmtNum(ranking.length)} clientes reincidentes</div>
+    <div class="tag-note">
+      Total de incidências = registros <b>COM EQUIPE</b>, com Data Fim válida e sem Atendimento Remoto.
+      Indicador ativo: <b>${esc(recurrenceIndicatorLabel())}</b>
+      ${['grupo','conexao_grupo'].includes(S.filters.parametro)?' · regra: cada grupo mantém memória própria por até 30 dias; repetições do mesmo grupo contam mesmo com outros grupos entre elas.':' · janela de 30 dias conforme a regra vigente.'}
+      · ${fmtNum(totalIncid)} incidências · ${fmtNum(totalReinc)} reincidências · ${fmtPct(pct)} de reincidência · ${fmtNum(ranking.length)} clientes reincidentes
+      <span style="display:block;margin-top:4px;font-size:10px;color:var(--ink-faint)">
+        Filtros aplicados: ${esc(activeFilterSummaryText()||'Todos os dados')}
+      </span>
+    </div>
 
     ${clientGroupLegendHtml()}
     ${behaviorPanelHtml(behavior)}
