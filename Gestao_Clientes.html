@@ -12455,6 +12455,27 @@ function gcCauseReferenceTable(){
   </section>`;
 }
 
+
+function gcEorderObs(row){
+  const value =
+    row?.__obsEorder ??
+    row?.['Observação Busca Execução'] ??
+    row?.['Observacao Busca Execucao'] ??
+    row?.['Observação Execução'] ??
+    row?.['Observacao Execucao'] ??
+    '';
+  return value==null||String(value).trim()==='' ? '—' : String(value).trim();
+}
+function gcEorderDate(row){
+  const d=row?.__dataFimExecucao;
+  if(!d)return '—';
+  try{
+    return gcDate(d);
+  }catch(_){
+    return String(d||'—');
+  }
+}
+
 function gcExpandableText(value,empty='—'){
   const text=value==null||String(value).trim()===''?empty:String(value).trim();
   if(text===empty)return `<span class="gc-muted">${esc(empty)}</span>`;
