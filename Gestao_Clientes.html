@@ -4355,12 +4355,37 @@ function diagnosticoConexaoGrupo(){
 }
 
 
+
+function conexaoGrupoExtractNumbers(value){
+  if(value==null)return [];
+  if(typeof value==='number' && Number.isFinite(value)){
+    const n=normalizeNumero(value);
+    return n?[n]:[];
+  }
+
+  const text=String(value).trim();
+  if(!text)return [];
+
+  // A Base de Reincidência pode trazer mais de um número na mesma célula.
+  // Não podemos remover todos os separadores e transformar dois números
+  // em um único identificador.
+  const tokens=text.match(/\d{6,}/g)||[];
+  if(tokens.length){
+    return [...new Set(tokens.map(normalizeNumero).filter(Boolean))];
+  }
+
+  const single=normalizeNumero(text);
+  return single?[single]:[];
+}
+
 function conexaoGrupoOfficialRecurrentNumbers(row){
   const values=[
+    row?.__nextNumero,
     row?.[COL2.numeroRein],
-    row?.[COL2.numeroRein2]
+    row?.[COL2.numeroRein2],
+    row?.__nextMain?.[COL.numero]
   ];
-  return [...new Set(values.map(normalizeNumero).filter(Boolean))];
+  return [...new Set(values.flatMap(conexaoGrupoExtractNumbers).filter(Boolean))];
 }
 
 function conexaoGrupoParallelModel(){
@@ -4373,16 +4398,93 @@ function conexaoGrupoParallelModel(){
   if(!S.__conexaoGrupoParallelCache || S.__conexaoGrupoParallelCache.key!==cacheKey){
     const model=gcBuildParallelGroupEvaluations(S.baseCompleta||[]);
     const byCurrent=new Map();
+    const byClient=new Map();
 
     for(const ev of model.evaluations||[]){
       if(!ev.confirmada)continue;
-      const key=normalizeNumero(ev.current?.[COL.numero]);
-      if(key&&!byCurrent.has(key))byCurrent.set(key,ev);
+
+      const currentKey=normalizeNumero(ev.current?.[COL.numero]);
+      if(currentKey&&!byCurrent.has(currentKey))byCurrent.set(currentKey,ev);
+
+      const client=gcClientKey(ev.current?.[COL.nCliente]);
+      if(client){
+        if(!byClient.has(client))byClient.set(client,[]);
+        byClient.get(client).push(ev);
+      }
     }
 
-    S.__conexaoGrupoParallelCache={key:cacheKey,model,byCurrent};
+    for(const events of byClient.values()){
+      events.sort((a,b)=>{
+        const ad=a.current?.__dataFim||a.current?.__dataInicio||0;
+        const bd=b.current?.__dataFim||b.current?.__dataInicio||0;
+        return ad-bd;
+      });
+    }
+
+    S.__conexaoGrupoParallelCache={key:cacheKey,model,byCurrent,byClient};
   }
   return S.__conexaoGrupoParallelCache;
+}
+
+function conexaoGrupoResolveCurrent(official,parallel,mainByNumber){
+  // 1. Melhor cenário: vínculo já criado pela Base de Reincidência.
+  if(official?.__nextMain){
+    const key=normalizeNumero(official.__nextMain?.[COL.numero]);
+    const ev=parallel.byCurrent.get(key);
+    if(ev)return {current:official.__nextMain,event:ev,mode:'linked'};
+  }
+
+  // 2. Tenta todos os números de reincidente existentes na linha.
+  for(const key of conexaoGrupoOfficialRecurrentNumbers(official)){
+    const ev=parallel.byCurrent.get(key);
+    if(ev){
+      return {current:mainByNumber.get(key)||ev.current,event:ev,mode:'number'};
+    }
+  }
+
+  // 3. Fallback seguro por cliente + cronologia.
+  // A Base de Reincidência define que houve uma próxima incidência.
+  // Se o número não estiver vinculável, procuramos a primeira incidência
+  // posterior do MESMO cliente e verificamos se ela é reincidente por grupo.
+  const client=gcClientKey(official?.[COL2.nCliente]||official?.__prevMain?.[COL.nCliente]);
+  if(!client)return null;
+
+  const events=parallel.byClient.get(client)||[];
+  if(!events.length)return null;
+
+  const generator=
+    official?.__prevMain ||
+    mainByNumber.get(normalizeNumero(official?.[COL2.numero])) ||
+    null;
+
+  const baseDate=
+    generator?.__dataFim ||
+    generator?.__dataInicio ||
+    official?.__dataFim ||
+    parseDateVal(official?.[COL2.dataFim]) ||
+    parseDateVal(official?.[COL2.dataInicio]);
+
+  if(!(baseDate instanceof Date) || Number.isNaN(baseDate.getTime()))return null;
+
+  const baseTime=baseDate.getTime();
+  let best=null;
+
+  for(const ev of events){
+    const current=ev.current;
+    const d=current?.__dataInicio||current?.__dataFim||parseDateVal(current?.[COL.dataInicio])||parseDateVal(current?.[COL.dataFim]);
+    if(!(d instanceof Date)||Number.isNaN(d.getTime()))continue;
+
+    const diff=d.getTime()-baseTime;
+    if(diff<0 || diff>GROUP_REINCIDENCE_MAX_MS)continue;
+
+    // Se conhecemos o número gerador oficial, não aceitar a própria linha.
+    if(normalizeNumero(current?.[COL.numero])===normalizeNumero(official?.[COL2.numero]))continue;
+
+    if(!best || diff<best.diff){
+      best={current,event:ev,mode:'client_date',diff};
+    }
+  }
+  return best;
 }
 
 function buildConexaoGrupoUniverse(){
@@ -4398,103 +4500,105 @@ function buildConexaoGrupoUniverse(){
   const seen=new Set();
 
   for(const official of S.baseReincidencia||[]){
-    const recurrentNumbers=conexaoGrupoOfficialRecurrentNumbers(official);
+    const resolved=conexaoGrupoResolveCurrent(official,parallel,mainByNumber);
+    if(!resolved)continue;
 
-    for(const recurrentNumber of recurrentNumbers){
-      const groupEvent=parallel.byCurrent.get(recurrentNumber);
-      if(!groupEvent)continue;
+    const groupEvent=resolved.event;
+    const current=resolved.current||groupEvent.current||null;
+    const previous=groupEvent.previous||null;
+    if(!current||!previous)continue;
 
-      const current=mainByNumber.get(recurrentNumber)||groupEvent.current||null;
-      const previous=groupEvent.previous||null;
-      if(!current||!previous)continue;
+    const recurrentNumber=normalizeNumero(current[COL.numero]);
+    const dedupeKey=[
+      gcClientKey(current[COL.nCliente]||official?.[COL2.nCliente]),
+      recurrentNumber
+    ].join('|');
 
-      const dedupeKey=[
-        normalizeNumero(official?.[COL2.nCliente]),
-        normalizeNumero(official?.[COL2.numero]),
-        recurrentNumber
-      ].join('|');
-      if(seen.has(dedupeKey))continue;
-      seen.add(dedupeKey);
+    if(seen.has(dedupeKey))continue;
+    seen.add(dedupeKey);
 
-      // Clone the official recurrence row, but adapt its analytical pointers
-      // to the Group recurrence that actually generated this current incidence.
-      const row={...official};
-      row.__officialReincidenceRow=official;
-      row.__prevMain=previous;
-      row.__nextMain=current;
-      row.__nextNumero=current[COL.numero];
-      row[COL2.numeroRein]=current[COL.numero];
+    const row={...official};
+    row.__officialReincidenceRow=official;
+    row.__prevMain=previous;
+    row.__nextMain=current;
+    row.__nextNumero=current[COL.numero];
+    row[COL2.numeroRein]=current[COL.numero];
 
-      // Para filtros (Ano, Mês, período, causa, cliente e processo),
-      // a linha analítica representa a INCIDÊNCIA REINCIDENTE atual.
-      row[COL2.nCliente]=current[COL.nCliente];
-      row[COL2.causa]=current[COL.causa];
-      row[COL2.dataInicio]=current[COL.dataInicio];
-      row[COL2.dataFim]=current[COL.dataFim];
-      row[COL2.processo]=current[COL.processo];
-      row.__dataInicio=current.__dataInicio||parseDateVal(current[COL.dataInicio]);
-      row.__dataFim=current.__dataFim||parseDateVal(current[COL.dataFim]);
-      row.__ano=current.__ano||(row.__dataFim?row.__dataFim.getFullYear():null);
-      row.__mes=current.__mes||(row.__dataFim?row.__dataFim.getMonth()+1:null);
-      row.__nextDataInicio=current.__dataInicio||parseDateVal(current[COL.dataInicio]);
-      row.__nextDataFim=current.__dataFim||parseDateVal(current[COL.dataFim]);
-      row.__nextCausa=current[COL.causa];
-      row.__nextEquipeDesl=current[COL.equipeDesl];
-      row.__nextEquipeAtribuida=current[COL.equipe];
-      row.__nextProcesso=current[COL.processo];
-      row.__nextPolo=current[COL.polo];
-      row.__nextTipoInstalacao=current[COL.tipoInstalacao];
-      row.__nextLinked=true;
+    // A linha analítica passa a representar a incidência reincidente atual.
+    row[COL2.nCliente]=current[COL.nCliente];
+    row[COL2.causa]=current[COL.causa];
+    row[COL2.dataInicio]=current[COL.dataInicio];
+    row[COL2.dataFim]=current[COL.dataFim];
+    row[COL2.processo]=current[COL.processo];
 
-      // For the new "Cliente Afetado" filter, use Clts > 3 min of the
-      // recurrent incidence itself.
-      row.__cliAf3min=current[COL.cliAf3min];
-      row.__nextCliAf3min=current[COL.cliAf3min];
+    row.__dataInicio=current.__dataInicio||parseDateVal(current[COL.dataInicio]);
+    row.__dataFim=current.__dataFim||parseDateVal(current[COL.dataFim]);
+    row.__ano=current.__ano||(row.__dataFim?row.__dataFim.getFullYear():null);
+    row.__mes=current.__mes||(row.__dataFim?row.__dataFim.getMonth()+1:null);
 
-      // Keep the recurrence row date semantics based on its official source,
-      // but expose the actual recurrence date for ranking/timeline.
-      row.__grupoEvento=groupEvent;
-      row.__grupoAtivo=groupEvent.group||'';
-      row.__grupoDias=groupEvent.diasDesdeAnterior;
-      row.__processoReincidencia=centralReincidenceProcess(row);
+    row.__nextDataInicio=current.__dataInicio||parseDateVal(current[COL.dataInicio]);
+    row.__nextDataFim=current.__dataFim||parseDateVal(current[COL.dataFim]);
+    row.__nextCausa=current[COL.causa];
+    row.__nextEquipeDesl=current[COL.equipeDesl];
+    row.__nextEquipeAtribuida=current[COL.equipe];
+    row.__nextProcesso=current[COL.processo];
+    row.__nextPolo=current[COL.polo];
+    row.__nextTipoInstalacao=current[COL.tipoInstalacao];
+    row.__nextLinked=true;
 
-      out.push(row);
-    }
+    row.__cliAf3min=current[COL.cliAf3min];
+    row.__nextCliAf3min=current[COL.cliAf3min];
+
+    row.__grupoEvento=groupEvent;
+    row.__grupoAtivo=groupEvent.group||'';
+    row.__grupoDias=groupEvent.diasDesdeAnterior;
+    row.__conexaoGrupoMatchMode=resolved.mode;
+    row.__processoReincidencia=centralReincidenceProcess(row);
+
+    out.push(row);
   }
 
   return out;
 }
 
-
-/* Diagnóstico do novo indicador:
-   no console do navegador, executar diagnosticoConexaoGrupoV2()
-   para ver Base de Reincidência x reincidências por Grupo x interseção final. */
-
+/* Diagnóstico específico do cruzamento Conexão x Grupo. */
 function diagnosticoConexaoGrupoV2(){
   const official=S.baseReincidencia||[];
   const parallel=conexaoGrupoParallelModel();
-  let officialWithRecurrentNumber=0;
-  let officialRecurrentNumbers=0;
-  let matchedByGroup=0;
+  const mainByNumber=new Map(
+    (S.baseCompleta||[])
+      .map(r=>[normalizeNumero(r?.[COL.numero]),r])
+      .filter(([k])=>k)
+  );
+
+  let comNumeroReincidente=0;
+  let matchLinked=0;
+  let matchNumber=0;
+  let matchClientDate=0;
+  let semMatch=0;
 
   for(const row of official){
-    const nums=conexaoGrupoOfficialRecurrentNumbers(row);
-    if(nums.length)officialWithRecurrentNumber++;
-    officialRecurrentNumbers+=nums.length;
-    for(const num of nums)if(parallel.byCurrent.has(num))matchedByGroup++;
+    if(conexaoGrupoOfficialRecurrentNumbers(row).length)comNumeroReincidente++;
+    const resolved=conexaoGrupoResolveCurrent(row,parallel,mainByNumber);
+    if(!resolved){semMatch++;continue}
+    if(resolved.mode==='linked')matchLinked++;
+    else if(resolved.mode==='number')matchNumber++;
+    else if(resolved.mode==='client_date')matchClientDate++;
   }
 
   const universe=buildConexaoGrupoUniverse();
+
   return {
     linhasBaseReincidencia:official.length,
-    linhasComNumeroReincidente:officialWithRecurrentNumber,
-    numerosReincidentesOficiais:officialRecurrentNumbers,
-    reincidentesPorGrupoNaBasePrincipal:parallel.byCurrent.size,
-    intersecaoConexaoGrupo:matchedByGroup,
-    universoFinal:universe.length
+    linhasComNumeroReincidente:comNumeroReincidente,
+    reincidenciasGrupoBasePrincipal:parallel.byCurrent.size,
+    matchVinculoDireto:matchLinked,
+    matchPorNumero:matchNumber,
+    matchPorClienteData:matchClientDate,
+    semCorrespondencia:semMatch,
+    universoConexaoPorGrupo:universe.length
   };
 }
-
 
 function getFilteredReincidenciaConexao(){
   const isGrupoConexao=S.filters.parametro==='conexao_grupo';
@@ -4610,6 +4714,7 @@ function getFiltered(){
 }
 const _equipe30Cache = new Map();
 function invalidateCache(allTabs){
+  S.__conexaoGrupoParallelCache=null;
   if(allTabs) _filteredCache.clear();
   _filteredReincCache.clear();
   _clientRankingCache.clear();
