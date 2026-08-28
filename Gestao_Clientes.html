@@ -7277,7 +7277,7 @@ function renderRankingBody(ranking){
   document.getElementById('rankingBody').innerHTML = list.length ? list.map((c,i)=>`
     <tr>
       <td class="num">${i+1}</td>
-      <td class="strong" style="cursor:pointer;color:var(--brand-dark)" onclick="openClientTimeline('${esc(c.cliente)}')">${esc(c.cliente)}</td>
+      <td class="strong client-rank-link" style="cursor:pointer;color:var(--brand-dark)" data-client-rank="${encodeURIComponent(String(c.cliente||''))}">${esc(c.cliente)}</td>
       <td class="num">${fmtNum(c.reincidencias)}</td>
       <td class="num">${fmtNum(c.totalIncidencias)}</td>
       <td class="num">${fmtPct(c.pctReincidencia)}</td>
@@ -7288,6 +7288,14 @@ function renderRankingBody(ranking){
       <td>${fmtDate(c.ultimaIncidencia)}</td>
       <td>${esc(c.ultimaEquipe||'—')}</td>
     </tr>`).join('') : emptyRow(11);
+
+  document.querySelectorAll('#rankingBody [data-client-rank]').forEach(cell=>{
+    cell.onclick=(event)=>{
+      event.preventDefault();
+      event.stopPropagation();
+      openClientTimeline(decodeURIComponent(cell.dataset.clientRank||''));
+    };
+  });
 }
 
 /* ============================================================
@@ -7363,6 +7371,7 @@ function getClientReincidenceRows(cliente, elegiveis){
     .map(r=>porNumero.get(String(r[COL2.numero]||'').trim()) || r);
 }
 function openClientTimeline(cliente){
+  try{
   cliente = String(cliente||'').trim();
   if(!isValidClientId(cliente)) return;
   const allRows = S.baseCompleta.filter(r=>String(r[COL.nCliente]||'').trim()===cliente);
@@ -7388,8 +7397,47 @@ function openClientTimeline(cliente){
   const indicadorRows = rows.filter(isIndicatorRow);
   const elegiveis = rows.filter(isReincElegivel);
   if(S.filters.parametro==='grupo'){
-    elegiveis.forEach(row=>{row.__tlClassificacao='GERADORA';row.__tlIncGeradora=row[COL.numero];row.__tlEquipeGeradora=row[COL.equipeDesl];row.__tlDiasDesdeAnterior=null;row.__grupoMesId='grupo-'+normalizeNumero(row[COL.numero])});
-    for(const event of getFilteredGroupRecurrences().filter(item=>gcClientKey(item.client)===gcClientKey(cliente))){const row=event.row;row.__tlClassificacao='REINCIDENTE';row.__tlIncGeradora=event.previous[COL.numero];row.__tlEquipeGeradora=event.previous[COL.equipeDesl];row.__tlDiasDesdeAnterior=event.diasDesdeAnterior;row.__grupoMesId='grupo-'+normalizeNumero(event.previous[COL.numero])}
+    const clientEvents=getFilteredGroupRecurrences()
+      .filter(item=>gcClientKey(item.client)===gcClientKey(cliente))
+      .sort((a,b)=>(a.current?.__dataFim||0)-(b.current?.__dataFim||0));
+
+    const eventByCurrent=new Map(
+      clientEvents.map(ev=>[normalizeNumero(ev.current?.[COL.numero]),ev])
+    );
+
+    elegiveis.forEach((row,index)=>{
+      const key=normalizeNumero(row?.[COL.numero]);
+      const ev=eventByCurrent.get(key);
+
+      row.__tlPosicao=index;
+      row.__tlQtdCiclo=elegiveis.length;
+
+      if(ev){
+        row.__tlClassificacao='REINCIDENTE';
+        row.__tlIncGeradora=ev.previous?.[COL.numero]||row[COL.numero];
+        row.__tlEquipeGeradora=ev.previous?.[COL.equipeDesl]||row[COL.equipeDesl];
+        row.__tlDiasDesdeAnterior=ev.diasDesdeAnterior;
+        row.__grupoMesId='grupo-'+normalizeNumero(ev.previous?.[COL.numero]||row[COL.numero]);
+      }else{
+        row.__tlClassificacao='GERADORA';
+        row.__tlIncGeradora=row[COL.numero];
+        row.__tlEquipeGeradora=row[COL.equipeDesl];
+        row.__tlDiasDesdeAnterior=null;
+        row.__grupoMesId='grupo-'+key;
+      }
+    });
+
+    for(const ev of clientEvents){
+      const prevKey=normalizeNumero(ev.previous?.[COL.numero]);
+      const currKey=normalizeNumero(ev.current?.[COL.numero]);
+      const prevRow=elegiveis.find(r=>normalizeNumero(r?.[COL.numero])===prevKey);
+      const currRow=elegiveis.find(r=>normalizeNumero(r?.[COL.numero])===currKey);
+      if(prevRow&&currRow){
+        const gid='grupo-'+prevKey;
+        prevRow.__grupoMesId=gid;
+        currRow.__grupoMesId=gid;
+      }
+    }
   }else compute30DayChain(elegiveis);
   const reincRows = getClientReincidenceRows(cliente, elegiveis)
     .slice().sort((a,b)=>(b.__dataFim||0)-(a.__dataFim||0));
@@ -7491,6 +7539,14 @@ function openClientTimeline(cliente){
   document.getElementById('subtabBtnClienteGeral').onclick = ()=>switchClienteDetailSubtab('geral');
   document.getElementById('subtabBtnClienteReinc').onclick = ()=>switchClienteDetailSubtab('reinc');
   document.getElementById('btnExportClienteDetailXlsx').onclick = ()=>exportClienteDetailXlsx();
+  }catch(error){
+    console.error('Erro ao abrir detalhe do cliente:',error);
+    const modalBody=document.getElementById('modalBody');
+    const modalTitle=document.getElementById('modalTitle');
+    if(modalTitle)modalTitle.textContent='Cliente '+String(cliente||'');
+    if(modalBody)modalBody.innerHTML=`<div class="empty-state"><div class="t1">Não foi possível abrir o detalhe do cliente</div><div class="t2">${esc(error?.message||String(error))}</div></div>`;
+    document.getElementById('modalBg')?.classList.add('show');
+  }
 }
 
 function switchClienteDetailSubtab(tab){
@@ -12387,6 +12443,16 @@ function gcCauseReferenceTable(){
       </tr>`).join('')}
     </tbody></table></div>
   </section>`;
+}
+
+function gcExpandableText(value,empty='—'){
+  const text=value==null||String(value).trim()===''?empty:String(value).trim();
+  if(text===empty)return `<span class="gc-muted">${esc(empty)}</span>`;
+  if(text.length<=48)return `<span>${esc(text)}</span>`;
+  return `<details class="gc-text-expand">
+    <summary><span class="gc-text-preview">${esc(text)}</span></summary>
+    <div class="gc-text-full">${esc(text)}</div>
+  </details>`;
 }
 
 function gcBuildParallelGroupEvaluations(sourceRows){
