@@ -12897,10 +12897,25 @@ function gcBuildIndividualCauseGroupCatalog(){
   const uniqueCauses=[];
   const seen=new Set();
 
+  // Causas já classificadas explicitamente.
   for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
     if(core.has(String(group||'').toUpperCase()))continue;
     const key=normalizeHeaderKey(cause);
     if(!key||seen.has(key))continue;
+    seen.add(key);
+    uniqueCauses.push({cause:String(cause||'').trim(),key});
+  }
+
+  // Causas válidas que não possuem relação explícita também precisam
+  // ser grupos individuais. Isso inclui, por exemplo, CALAMIDADE PUBLICA.
+  for(const cause of CAUSAS_PERMITIDAS_GERAL||[]){
+    const key=normalizeHeaderKey(cause);
+    if(!key||seen.has(key))continue;
+
+    const groups=CAUSE_GROUP_MAP.get(key);
+    const hasCore=groups&&[...groups].some(g=>core.has(String(g||'').toUpperCase()));
+    if(hasCore)continue;
+
     seen.add(key);
     uniqueCauses.push({cause:String(cause||'').trim(),key});
   }
@@ -12954,15 +12969,27 @@ function gcGroupLabel(code){
 }
 function gcGroupCodeColor(groupOrCode,cause=''){
   const code=/^G\d+$/i.test(String(groupOrCode||''))?String(groupOrCode).toUpperCase():gcGroupCode(groupOrCode,cause);
-  if(code==='G1')return gcGroupColor('RAMAL');
-  if(code==='G2')return gcGroupColor('MEDIDOR');
-  if(code==='G3')return gcGroupColor('VEGETAÇÃO');
-  if(code==='G4')return gcGroupColor('ANIMAIS');
   const n=gcGroupNumber(code);
-  if(!Number.isFinite(n))return '#687781';
-  // Cores determinísticas para G5+.
-  const hue=(n*47)%360;
-  return `hsl(${hue} 58% 42%)`;
+
+  const distinct={
+    1:'#15835A',
+    2:'#C98A1D',
+    3:'#4A9E3E',
+    4:'#4F67B1',
+    5:'#A43C78',
+    6:'#7C4DB3'
+  };
+  if(distinct[n])return distinct[n];
+
+  // Do G7 em diante, usar apenas uma escala neutra de cinzas.
+  const neutral=[
+    '#46515B','#525D67','#5E6973','#6A757E','#76818A',
+    '#828C95','#8E989F','#9AA3AA','#A6AEB5','#B2BAC0',
+    '#BEC5CA','#CAD0D5','#D4D9DD','#DEE2E5'
+  ];
+  if(n>=7)return neutral[Math.min(n-7,neutral.length-1)];
+
+  return '#687781';
 }
 function gcGroupLogo(group,active=true,cause=''){
   const code=/^G\d+$/i.test(String(group||''))?String(group).toUpperCase():gcGroupCode(group,cause);
@@ -13421,33 +13448,62 @@ function gcRowPossibleCodes(row){
   const cause=gcRowCause(row);
   return [...new Set([...gcRowGroups(row)].map(g=>gcGroupCode(g,cause)).filter(Boolean))];
 }
+function gcCorrectionRowTime(row){
+  const candidates=[
+    row?.__dataFim,
+    row?.__dataInicio,
+    row?.[COL.dataFim],
+    row?.[COL.dataInicio]
+  ];
+  for(const value of candidates){
+    if(value instanceof Date && !Number.isNaN(value.getTime()))return value.getTime();
+    const parsed=parseDateVal(value);
+    if(parsed instanceof Date && !Number.isNaN(parsed.getTime()))return parsed.getTime();
+  }
+  return NaN;
+}
+
 function gcDangerousCorrectionCodes(row,model){
   const currentInc=normalizeNumero(row?.[COL.numero]);
   const client=gcClientKey(row?.[COL.nCliente]);
-  const t=row?.__dataFim instanceof Date?row.__dataFim.getTime():Number(row?.__dataFim||0);
+  const t=gcCorrectionRowTime(row);
   const out=new Set(gcRowPossibleCodes(row));
 
   for(const other of (model?.rowsByClient?.get(client)||[])){
     if(normalizeNumero(other?.[COL.numero])===currentInc)continue;
-    if(!gcInPagePeriod(other))continue;
 
-    const ot=other?.__dataFim instanceof Date?other.__dataFim.getTime():Number(other?.__dataFim||0);
-    if(!Number.isFinite(t)||!Number.isFinite(ot)||Math.abs(ot-t)>GROUP_REINCIDENCE_MAX_MS)continue;
+    const ot=gcCorrectionRowTime(other);
+    if(!Number.isFinite(t)||!Number.isFinite(ot))continue;
+    if(Math.abs(ot-t)>GROUP_REINCIDENCE_MAX_MS)continue;
 
+    // Qualquer grupo existente em outra incidência do mesmo cliente
+    // dentro de 30 dias torna esse grupo inseguro para a correção.
     for(const code of gcRowPossibleCodes(other))out.add(code);
+
+    // Se a outra incidência já foi corrigida, considerar também
+    // explicitamente o grupo posterior salvo.
+    const st=gcIncState(other);
+    if(st?.correcao==='Sim' && st?.posteriorGroup){
+      const correctedCode=/^G\d+$/i.test(String(st.posteriorGroup))
+        ? String(st.posteriorGroup).toUpperCase()
+        : gcGroupCode(st.posteriorGroup,st.posteriorCause||'');
+      if(correctedCode)out.add(correctedCode);
+    }
   }
   return out;
 }
+
 function gcSafeCorrectionCodes(row,model){
   const dangerous=gcDangerousCorrectionCodes(row,model);
   return gcAllCorrectionCodes()
     .filter(code=>!dangerous.has(code))
-    .sort((a,b)=>gcGroupNumber(b)-gcGroupNumber(a));
+    .sort((a,b)=>gcGroupNumber(a)-gcGroupNumber(b));
 }
+
 function gcSuggestionHtml(row,model){
   const safe=gcSafeCorrectionCodes(row,model);
   if(!safe.length)return '<div class="gc-suggestion"><b>Sugestão de Correção:</b> nenhuma opção segura encontrada na janela de 30 dias.</div>';
-  return `<div class="gc-suggestion"><b>Sugestão de Correção:</b> ${safe.map(code=>gcGroupLogo(code,true,gcGroupLabel(code))).join(' ')}</div>`;
+  return `<div class="gc-suggestion" title="Só são exibidos grupos que não aparecem em nenhuma outra incidência deste cliente dentro de ±30 dias."><b>Sugestão de Correção:</b> ${safe.map(code=>gcGroupLogo(code,true,gcGroupLabel(code))).join(' ')}</div>`;
 }
 function gcPreserveCorrectionViewport(callback){
   const y=window.scrollY;
