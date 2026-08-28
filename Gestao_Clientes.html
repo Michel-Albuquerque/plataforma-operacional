@@ -1628,7 +1628,7 @@ const PRINCIPAL_FIELD_ALIASES = [
   [COL.tipoReclamacao, ['Tipo Reclamação ','Tipo Reclamacao','Tipo de Reclamação','Tipo de Reclamacao']],
   [COL.avisos, ['Aviso']],
   [COL.observacao, ['Observacao','Observações','Observacoes']],
-  [COL.cliAf3min, ['Cli Af 3 Min','CLI AF 3MIN','Cliente Afetado 3 min','Clientes Afetados 3 min']],
+  [COL.cliAf3min, ['Cli Af 3 Min','CLI AF 3MIN','Clts > 3 min','CLTS > 3 MIN','Clts>3min','Cliente Afetado 3 min','Clientes Afetados 3 min']],
   [COL.al, ['A.L.']],
   [COL.pontoEletrico, ['Ponto Eletrico','Ponto Elétrico ']],
   [COL.turnoHoraFim, ['Turno Hora Fim','Turno hora fim ','Turno H. Fim','Turno do Encerramento']],
@@ -2075,9 +2075,19 @@ function getFilteredGroupRecurrences(){
     Number(event.row?.[COL.cliAf3min])===CLI_AF_3MIN_EXIGIDO
   );
 }
-function recurrenceIndicatorLabel(value){const mode=value||(S.filters&&S.filters.parametro)||'conexao';return mode==='grupo'?'Reincidência por Grupo':mode==='geral'?'Reincidência Geral':'Reincidência Conexão'}
+function recurrenceIndicatorLabel(value){
+  const mode=value||(S.filters&&S.filters.parametro)||'conexao';
+  if(mode==='conexao_grupo')return 'Reincidência Conexão por Grupo';
+  if(mode==='grupo')return 'Reincidência por Grupo';
+  if(mode==='geral')return 'Reincidência Geral';
+  return 'Reincidência Conexão';
+}
+function isConnectionBasedIndicator(value){
+  const mode=value||(S.filters&&S.filters.parametro)||'conexao';
+  return mode==='conexao'||mode==='conexao_grupo';
+}
 function causasPermitidasAtivas(){
-  return (S.filters && S.filters.parametro === 'conexao') ? CAUSAS_PERMITIDAS_CONEXAO : CAUSAS_PERMITIDAS_GERAL;
+  return (S.filters && isConnectionBasedIndicator()) ? CAUSAS_PERMITIDAS_CONEXAO : CAUSAS_PERMITIDAS_GERAL;
 }
 const SENTINEL_VALUES = new Set(['---','--','-','N/D','ND','NULL','N/A','NA','[]','','0']);
 function hasValidValue(v){
@@ -2099,6 +2109,7 @@ function makeDefaultFilters(){
     anos:new Set([2026]), meses:new Set(), dateFrom:null, dateTo:null,
     polos:new Set(), equipes:new Set(), causas:new Set(), processos:new Set(),
     clienteSearch:'', cliAf3minMin:null, cliAf3minMax:null,
+    clienteAfetado:'todos',
     parametro:'conexao', granularity:'diario'
   };
 }
@@ -4151,9 +4162,44 @@ function vincularReincidenciaComBasePrincipal(statsOut){
   if(statsOut){ statsOut.vinculadas=vinculadas; statsOut.reincidentesVinculadas=reincidentesVinculadas; }
   else if(S.reincidenciaStats){ S.reincidenciaStats.vinculadas=vinculadas; S.reincidenciaStats.reincidentesVinculadas=reincidentesVinculadas; }
 }
+function conexaoGrupoCauseCodes(cause){
+  const groups=[...causeGroups(cause)];
+  const codes=groups.map(group=>{
+    if(typeof gcGroupCode==='function')return gcGroupCode(group,cause)||group;
+    return group;
+  }).filter(Boolean);
+  return new Set(codes);
+}
+function isConexaoGrupoRecurrence(r){
+  const causaAnterior=r?.[COL2.causa];
+  const causaPosterior=r?.__nextCausa;
+  if(!hasValidValue(causaAnterior)||!hasValidValue(causaPosterior))return false;
+
+  const anterior=conexaoGrupoCauseCodes(causaAnterior);
+  const posterior=conexaoGrupoCauseCodes(causaPosterior);
+  if(!anterior.size||!posterior.size)return false;
+
+  for(const code of anterior){
+    if(posterior.has(code))return true;
+  }
+  return false;
+}
+function clienteAfetadoClassFromValue(value){
+  const n=Number(value);
+  if(!Number.isFinite(n))return '';
+  return n>=2?'coletivo':'individual';
+}
+function matchesClienteAfetadoFilterReincidencia(r){
+  if(S.filters.parametro!=='conexao_grupo')return true;
+  const selected=S.filters.clienteAfetado||'todos';
+  if(selected==='todos')return true;
+  return clienteAfetadoClassFromValue(r?.__cliAf3min)===selected;
+}
+
 function matchesFiltersReincidencia(r){
   const f = S.filters;
   if(isAtendimentoRemoto(r, COL2.causa)) return false;
+  if(!matchesClienteAfetadoFilterReincidencia(r)) return false;
   if(f.dateFrom || f.dateTo){
     if(!r.__dataFim) return false;
     if(f.dateFrom && r.__dataFim < f.dateFrom) return false;
@@ -4180,13 +4226,16 @@ function matchesFiltersReincidencia(r){
 function getFilteredReincidenciaConexao(){
   const key=filterCacheKey()+'|reinc:'+S.baseReincidencia.length;
   if(_filteredReincCache.has(key)) return _filteredReincCache.get(key);
-  const result=S.baseReincidencia.filter(matchesFiltersReincidencia);
+  const result=S.baseReincidencia.filter(r=>
+    matchesFiltersReincidencia(r) &&
+    (S.filters.parametro!=='conexao_grupo' || isConexaoGrupoRecurrence(r))
+  );
   _filteredReincCache.set(key,result);
   while(_filteredReincCache.size>6) _filteredReincCache.delete(_filteredReincCache.keys().next().value);
   return result;
 }
 function usandoConexaoSemBase(){
-  return S.filters.parametro==='conexao' && S.baseReincidencia.length===0;
+  return isConnectionBasedIndicator() && S.baseReincidencia.length===0;
 }
 
 /* ============================================================
@@ -4242,6 +4291,7 @@ function filterCacheKey(){
     po:[...S.filters.polos],
     cs:S.filters.clienteSearch,
     nmin:S.filters.cliAf3minMin, nmax:S.filters.cliAf3minMax,
+    ca:S.filters.clienteAfetado||'todos',
     gran:S.filters.granularity||'diario'
   });
 }
@@ -4300,7 +4350,7 @@ function renderFilterBar(){
     ${fchipMulti('causas','Causa', S.distinct.causas, S.filters.causas, null, true)}
     ${fchipMulti('processos','Processo', S.distinct.processos, S.filters.processos, null, true)}
     ${fchipCliente()}
-    ${fchipNumberRange('cliAf3min','Cli Af 3 min')}
+    ${S.filters.parametro==='conexao_grupo'?fchipClienteAfetado():fchipNumberRange('cliAf3min','Cli Af 3 min')}
     <button class="clearall" id="btnClearFilters">Limpar filtros</button>
     <span class="resultcount" id="resultCount"></span>
   `;
@@ -4309,7 +4359,7 @@ function renderFilterBar(){
     f.anos.clear(); f.meses.clear(); f.dateFrom=null; f.dateTo=null;
     f.polos.clear(); f.equipes.clear(); f.causas.clear(); f.processos.clear();
     f.clienteSearch=''; f.parametro='conexao'; f.granularity='diario';
-    f.cliAf3minMin=null; f.cliAf3minMax=null;
+    f.cliAf3minMin=null; f.cliAf3minMax=null; f.clienteAfetado='todos';
     invalidateCache(); renderFilterBar(); rerenderActiveTab();
   };
   wireFilterPanels();
@@ -4372,7 +4422,12 @@ function fchipDate(){
 }
 function toInputDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function fchipParametro(){
-  const opts = [['geral','Reincidência Geral'],['conexao','Reincidência Conexão'],['grupo','Reincidência por Grupo']];
+  const opts = [
+    ['geral','Reincidência Geral'],
+    ['conexao','Reincidência Conexão'],
+    ['grupo','Reincidência por Grupo'],
+    ['conexao_grupo','Reincidência Conexão por Grupo']
+  ];
   const atual = S.filters.parametro || 'geral';
   const label = opts.find(o=>o[0]===atual)[1];
   return `
@@ -4383,11 +4438,33 @@ function fchipParametro(){
         ${opts.map(([v,l])=>`<label><input type="radio" name="parametro" value="${v}" ${atual===v?'checked':''}><span class="lbl">${l}</span></label>`).join('')}
       </div>
       <div style="font-size:11px;color:var(--ink-faint);padding:6px 6px 2px;line-height:1.5">
-        Geral: 40 causas. Conexão: base oficial de reincidência. Grupo: calculado na BASE INCIDÊNCIA - REINCIDÊNCIA; mesmo cliente, retorno em até 30 dias e ao menos um grupo de causa em comum.
+        Geral: 40 causas. Conexão: base oficial de reincidência. Grupo: calculado na BASE INCIDÊNCIA - REINCIDÊNCIA. Conexão por Grupo: parte da Base de Reincidência e mantém somente os vínculos cujas causas anterior e posterior pertencem ao mesmo Grupo Causa.
       </div>
     </div>
   </div>`;
 }
+function fchipClienteAfetado(){
+  const atual=S.filters.clienteAfetado||'todos';
+  const opts=[
+    ['todos','Todos'],
+    ['individual','Individual'],
+    ['coletivo','Coletivo']
+  ];
+  const label=opts.find(o=>o[0]===atual)?.[1]||'Todos';
+  return `
+  <div class="fchip" data-fkey="clienteAfetado">
+    <button class="${atual!=='todos'?'active':''}" data-flabel="Cliente Afetado">${chipButtonInner('Cliente Afetado: '+label,0)}</button>
+    <div class="fpanel">
+      <div class="opts" data-fopts-radio="clienteAfetado">
+        ${opts.map(([v,l])=>`<label><input type="radio" name="clienteAfetado" value="${v}" ${atual===v?'checked':''}><span class="lbl">${l}</span></label>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--ink-faint);padding:6px 6px 2px;line-height:1.5">
+        Individual: Clts &gt; 3 min igual a 0 ou 1. Coletivo: Clts &gt; 3 min maior ou igual a 2.
+      </div>
+    </div>
+  </div>`;
+}
+
 function fchipGranularity(){
   const opts=[['diario','Diário'],['semanal','Semanal'],['mensal','Mensal'],['personalizado','Personalizado']];
   const atual=S.filters.granularity||'diario';
@@ -5117,7 +5194,7 @@ function computeRanking(filteredBaseRows, baseIndicadorRows){
   }
 
   const reincByClient = new Map();
-  if(S.filters.parametro === 'conexao'){
+  if(isConnectionBasedIndicator()){
     /* Fonte: base de reincidência (planilha de referência) — cada linha
        já É uma reincidência, não precisa recalcular cadeia/causa/equipe. */
     const linhas = getFilteredReincidenciaConexao();
@@ -5271,7 +5348,7 @@ function computeEquipe30DayRanking(filteredRows){
   }
   const daysByEquipe=new Map([...incidenceRowsByEquipe].map(([team,rows])=>[team,countTeamWorkedDays(rows)]));
 
-  if(S.filters.parametro === 'conexao') return computeEquipe30DayRankingConexao(totalsByEquipe,daysByEquipe);
+  if(isConnectionBasedIndicator()) return computeEquipe30DayRankingConexao(totalsByEquipe,daysByEquipe);
   if(S.filters.parametro === 'grupo') return computeEquipeGroupRanking(totalsByEquipe,daysByEquipe);
 
   const eligible = filteredRows.filter(isEquipeReincElegivel);
@@ -5360,7 +5437,7 @@ function computeMonthlyDashboard(filteredBase){
   }
 
   const reincPorMes = new Map(); // key 'YYYY-MM' -> qtd
-  if(S.filters.parametro === 'conexao'){
+  if(isConnectionBasedIndicator()){
     for(const r of getFilteredReincidenciaConexao()){
       if(r.__ano==null || r.__mes==null) continue;
       const key = r.__ano+'-'+String(r.__mes).padStart(2,'0');
@@ -5430,7 +5507,7 @@ function computeTurnoDashboard(filteredBase){
   }
 
   const reincRows = [];
-  if(S.filters.parametro==='conexao'){
+  if(isConnectionBasedIndicator()){
     for(const r of getFilteredReincidenciaConexao()){
       reincRows.push({row:r, turno:r.__turnoHoraFim, ano:r.__ano, mes:r.__mes});
     }
@@ -5476,7 +5553,7 @@ function installationTypeCode(value){
 }
 function computeInstallationTypeAnalysis(filteredBase){
   const records=[];
-  if(S.filters.parametro==='conexao'){
+  if(isConnectionBasedIndicator()){
     for(const official of getFilteredReincidenciaConexao()){
       const main=official.__prevMain||null;
       const raw=official.__tipoInstalacao;
@@ -5597,7 +5674,7 @@ function computeProcessRanking(filteredBase){
     if(!incidenceGroups.has(process))incidenceGroups.set(process,[]);
     incidenceGroups.get(process).push(row);
   }
-  if(S.filters.parametro==='conexao'){
+  if(isConnectionBasedIndicator()){
     for(const official of getFilteredReincidenciaConexao()){
       const main=official.__nextMain||null;
       const process=centralReincidenceProcess(official);
@@ -5755,7 +5832,7 @@ function computeAnnualComparison(){
     const periodBase=S.baseCompleta.filter(r=>r.__ano===year && r.__mes>=1 && r.__mes<=ref.endMonth && matchesNonPeriodBase(r));
     const incidencias=periodBase.filter(isIndicatorRow).length;
     let reincidencias=0;
-    if(S.filters.parametro==='conexao'){
+    if(isConnectionBasedIndicator()){
       reincidencias=S.baseReincidencia.filter(r=>r.__ano===year && r.__mes>=1 && r.__mes<=ref.endMonth && matchesNonPeriodReinc(r)).length;
     }else if(S.filters.parametro==='grupo'){
       reincidencias=allGroupRecurrenceEvents().filter(event=>{const r=event.row;return r.__ano===year&&r.__mes>=1&&r.__mes<=ref.endMonth&&matchesNonPeriodBase(r)}).length;
@@ -6019,7 +6096,7 @@ function executiveSummaryHtml(data){
 }
 function executiveRecurrenceRecords(){
   const {base}=getFiltered(),records=[];
-  if(S.filters.parametro==='conexao'){
+  if(isConnectionBasedIndicator()){
     for(const official of getFilteredReincidenciaConexao()){
       const main=official.__nextMain||null;
       records.push({
@@ -6094,7 +6171,7 @@ function renderDashboard(){
   }
 
   const causaCounts = new Map();
-  if(S.filters.parametro === 'conexao'){
+  if(isConnectionBasedIndicator()){
     for(const r of getFilteredReincidenciaConexao()){
       const c = r[COL2.causa];
       causaCounts.set(c, (causaCounts.get(c)||0)+1);
@@ -6822,7 +6899,7 @@ async function exportDashboardPptx(){
     const topEquipes=applyTeamAnalysisControls(getEquipe30Ranking()).slice(0,5);
     const dashboardTeamSort=teamSortConfig();
     const causaCounts=new Map();
-    if(S.filters.parametro==='conexao'){
+    if(isConnectionBasedIndicator()){
       getFilteredReincidenciaConexao().forEach(r=>causaCounts.set(r[COL2.causa],(causaCounts.get(r[COL2.causa])||0)+1));
     }else if(S.filters.parametro==='grupo'){
       getFilteredGroupRecurrences().forEach(event=>{const c=event.row[COL.causa];causaCounts.set(c,(causaCounts.get(c)||0)+1)});
@@ -6992,7 +7069,7 @@ function getIndicatorAttentionRows(){
   const cacheKey=filterCacheKey()+'|principal:'+S.baseCompleta.length+'|reinc:'+S.baseReincidencia.length;
   if(_indicatorAttentionRowsCache.has(cacheKey)) return _indicatorAttentionRowsCache.get(cacheKey);
   let result;
-  if(S.filters.parametro==='conexao'){
+  if(isConnectionBasedIndicator()){
     const mainByNumber=new Map();
     S.baseCompleta.forEach(r=>{if(r[COL.numero]!=null)mainByNumber.set(String(r[COL.numero]).trim(),r);});
     const seen=new Set(),rows=[];
@@ -7818,7 +7895,7 @@ function computeTeam24hAnalysis(){
   let identifiedCases=0;
   records.forEach(record=>{
     const source=record.reinc;
-    const team=S.filters.parametro==='conexao'?centralGeneratorTeam(source):String(source[COL.equipeDesl]||'').trim();
+    const team=isConnectionBasedIndicator()?centralGeneratorTeam(source):String(source[COL.equipeDesl]||'').trim();
     const cause=String(source[COL.causa]||source[COL2.causa]||'—').trim()||'—';
     allCauses.set(cause,(allCauses.get(cause)||0)+1);
     if(!hasValidValue(team)) return;
@@ -7957,7 +8034,7 @@ async function exportTeam24hPptx(){
 }
 function buildTeamRecurrenceRecords(){
   const records=[];
-  if(S.filters.parametro==='conexao'){
+  if(isConnectionBasedIndicator()){
     for(const official of getFilteredReincidenciaConexao()){
       const generator=official.__prevMain||null;
       const main=official.__nextMain||null;
@@ -8212,7 +8289,7 @@ function renderVisaoEquipe(){
   const el = document.getElementById('panel-visaoEquipe');
   el.innerHTML = `
     ${usandoConexaoSemBase() ? `<div class="tag-note" style="background:var(--danger-bg);color:var(--danger)">⚠ Parâmetro em "Reincidência Conexão", mas nenhuma base de reincidência foi carregada. Vá em Importar base e envie a planilha de reincidência, ou troque o Parâmetro para "Geral".</div>` : ''}
-    <div class="tag-note">${S.filters.parametro==='conexao'?'Cada reincidência da base oficial conta 1 vez para a Equipe Desl. responsável pelo atendimento anterior.':S.filters.parametro==='grupo'?'Cada nova incidência elegível conta 1 vez para a equipe da ocorrência anterior quando houver intervalo mínimo de 30 dias e grupo de causa em comum.':'Reincidência gerada na janela de 30 dias, com Cli Af 3 min = 1.'} <b>% Reincidência da equipe = Total de Reincidências ÷ Total de Incidências da equipe × 100.</b> O denominador considera somente COM EQUIPE, com Data Fim válida e sem Atendimento Remoto. Indicador ativo: <b>${esc(recurrenceIndicatorLabel())}</b> · ${fmtNum(totalReinc)} reincidências no total · ${fmtNum(ranking.length)} equipes com pelo menos 1 reincidência gerada</div>
+    <div class="tag-note">${isConnectionBasedIndicator()?'Cada reincidência da base oficial conta 1 vez para a Equipe Desl. responsável pelo atendimento anterior.':S.filters.parametro==='grupo'?'Cada nova incidência elegível conta 1 vez para a equipe da ocorrência anterior quando houver intervalo mínimo de 30 dias e grupo de causa em comum.':'Reincidência gerada na janela de 30 dias, com Cli Af 3 min = 1.'} <b>% Reincidência da equipe = Total de Reincidências ÷ Total de Incidências da equipe × 100.</b> O denominador considera somente COM EQUIPE, com Data Fim válida e sem Atendimento Remoto. Indicador ativo: <b>${esc(recurrenceIndicatorLabel())}</b> · ${fmtNum(totalReinc)} reincidências no total · ${fmtNum(ranking.length)} equipes com pelo menos 1 reincidência gerada</div>
 
     ${teamControlsHtml()}
     <div class="team-filter-active">${fmtNum(ranking.length)} equipe(s) elegível(is) · mínimo de ${fmtNum(S.teamUI.minIncidents||0)} incidência(s) · mínimo de ${fmtNum(S.teamUI.minDays||0)} dia(s) trabalhado(s) · ordenação: ${esc(teamSortConfig().label)}</div>
@@ -9074,7 +9151,7 @@ function wireDiagnosticFilters(){
   const df=document.getElementById('diagDateFrom'),dt=document.getElementById('diagDateTo'),ap=document.getElementById('diagApplyPeriod');
   if(df)df.onchange=applyDates;if(dt)dt.onchange=applyDates;if(ap)ap.onclick=applyDates;
   const cs=document.getElementById('diagClientSearch');if(cs){let timer;cs.oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>{S.filters.clienteSearch=cs.value.trim();rerender();},260);};}
-  const clear=document.getElementById('diagClearFilters');if(clear)clear.onclick=()=>{const f=S.filters;f.anos=new Set([2026]);f.meses.clear();f.dateFrom=null;f.dateTo=null;f.polos.clear();f.equipes.clear();f.causas.clear();f.processos.clear();f.clienteSearch='';f.cliAf3minMin=null;f.cliAf3minMax=null;f.parametro='conexao';f.granularity='diario';rerender();};
+  const clear=document.getElementById('diagClearFilters');if(clear)clear.onclick=()=>{const f=S.filters;f.anos=new Set([2026]);f.meses.clear();f.dateFrom=null;f.dateTo=null;f.polos.clear();f.equipes.clear();f.causas.clear();f.processos.clear();f.clienteSearch='';f.cliAf3minMin=null;f.cliAf3minMax=null;f.clienteAfetado='todos';f.parametro='conexao';f.granularity='diario';rerender();};
   const ex=document.getElementById('diagHeaderExport'),pp=document.getElementById('diagHeaderPptx');if(ex)ex.onclick=()=>exportAllDiagnosticCases();if(pp)pp.onclick=()=>exportDiagnosticPptx();
 }
 function wireDiagnosticClicks(){
