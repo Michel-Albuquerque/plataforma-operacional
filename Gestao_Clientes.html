@@ -4278,17 +4278,43 @@ function matchesFiltersReincidencia(r){
   const f = S.filters;
   if(isAtendimentoRemoto(r, COL2.causa)) return false;
   if(!matchesClienteAfetadoFilterReincidencia(r)) return false;
+
+  const current=r?.__nextMain||null;
+  const dataFim =
+    current?.__dataFim instanceof Date ? current.__dataFim :
+    parseDateVal(current?.__dataFim) ||
+    parseDateVal(current?.[COL.dataFim]) ||
+    (r?.__dataFim instanceof Date?r.__dataFim:parseDateVal(r?.__dataFim)) ||
+    parseDateVal(r?.[COL2.dataFim]);
+  const ano=dataFim?dataFim.getFullYear():Number(r?.__ano)||null;
+  const mes=dataFim?dataFim.getMonth()+1:Number(r?.__mes)||null;
+
   if(f.dateFrom || f.dateTo){
-    if(!r.__dataFim) return false;
-    if(f.dateFrom && r.__dataFim < f.dateFrom) return false;
-    if(f.dateTo && r.__dataFim > f.dateTo) return false;
+    if(!dataFim) return false;
+    if(f.dateFrom && dataFim < f.dateFrom) return false;
+    if(f.dateTo && dataFim > f.dateTo) return false;
   } else {
-    if(f.anos.size && !f.anos.has(r.__ano)) return false;
-    if(f.meses.size && !f.meses.has(r.__mes)) return false;
+    if(f.anos.size && !f.anos.has(ano)) return false;
+    if(f.meses.size && !f.meses.has(mes)) return false;
   }
-  if(f.equipes.size && !f.equipes.has(centralGeneratorTeam(r))) return false;
-  if(f.causas.size && !f.causas.has(r[COL2.causa])) return false;
-  if(f.processos.size && !f.processos.has(centralReincidenceProcess(r))) return false;
+  if(f.equipes.size){
+    const equipe=S.filters.parametro==='conexao_grupo'
+      ? String(r?.__nextMain?.[COL.equipeDesl]||r?.__nextEquipeDesl||'').trim()
+      : centralGeneratorTeam(r);
+    if(!f.equipes.has(equipe))return false;
+  }
+  if(f.causas.size){
+    const causa=S.filters.parametro==='conexao_grupo'
+      ? (r?.__nextMain?.[COL.causa]||r?.__nextCausa||r?.[COL2.causa])
+      : r[COL2.causa];
+    if(!f.causas.has(causa))return false;
+  }
+  if(f.processos.size){
+    const processo=S.filters.parametro==='conexao_grupo'
+      ? (r?.__nextMain?.[COL.processo]||r?.__nextProcesso||r?.[COL2.processo])
+      : centralReincidenceProcess(r);
+    if(!f.processos.has(processo))return false;
+  }
   if(f.clienteSearch){
     const c = String(r[COL2.nCliente]||'').toLowerCase();
     if(!c.includes(f.clienteSearch.toLowerCase())) return false;
@@ -4505,13 +4531,19 @@ function isReincElegivel(r){
 
 function matchesFilters(r){
   const f = S.filters;
+  const dataFim =
+    r?.__dataFim instanceof Date ? r.__dataFim :
+    parseDateVal(r?.__dataFim) || parseDateVal(r?.[COL.dataFim]);
+  const ano = dataFim ? dataFim.getFullYear() : Number(r?.__ano)||Number(r?.[COL.ano])||null;
+  const mes = dataFim ? dataFim.getMonth()+1 : Number(r?.__mes)||Number(r?.[COL.mes])||null;
+
   if(f.dateFrom || f.dateTo){
-    if(!r.__dataFim) return false;
-    if(f.dateFrom && r.__dataFim < f.dateFrom) return false;
-    if(f.dateTo && r.__dataFim > f.dateTo) return false;
+    if(!dataFim) return false;
+    if(f.dateFrom && dataFim < f.dateFrom) return false;
+    if(f.dateTo && dataFim > f.dateTo) return false;
   } else {
-    if(f.anos.size && !f.anos.has(r.__ano)) return false;
-    if(f.meses.size && !f.meses.has(r.__mes)) return false;
+    if(f.anos.size && !f.anos.has(ano)) return false;
+    if(f.meses.size && !f.meses.has(mes)) return false;
   }
   if(f.equipes.size && !f.equipes.has(String(r[COL.equipeDesl]||'').trim())) return false;
   if(f.causas.size && !f.causas.has(r[COL.causa])) return false;
@@ -4606,7 +4638,7 @@ function renderFilterBar(){
     f.polos.clear(); f.equipes.clear(); f.causas.clear(); f.processos.clear();
     f.clienteSearch=''; f.parametro='conexao'; f.granularity='diario';
     f.cliAf3minMin=null; f.cliAf3minMax=null; f.clienteAfetado='todos';
-    invalidateCache(); renderFilterBar(); rerenderActiveTab();
+    invalidateCache(true); renderFilterBar(); rerenderActiveTab(true);
   };
   wireFilterPanels();
   updateResultCount();
@@ -4645,7 +4677,7 @@ function mountFilterOptions(key){
       let val=cb.value;
       if(key==='anos'||key==='meses') val=Number(val);
       if(cb.checked) set.add(val); else set.delete(val);
-      invalidateCache(); refreshChipButton(key); updateResultCount(); rerenderActiveTab();
+      invalidateCache(true); refreshChipButton(key); updateResultCount(); rerenderActiveTab(true);
     };
   });
 }
@@ -4764,6 +4796,13 @@ function syncCheckboxesFromState(key){
     cb.checked = S.filters[key].has(val);
   });
 }
+function applyPrincipalFilterChange(options={}){
+  invalidateCache(true);
+  if(options.renderBar)renderFilterBar();
+  updateResultCount();
+  rerenderActiveTab(true);
+}
+
 function wireFilterPanels(){
   document.querySelectorAll('.fchip').forEach(chip=>{
     const btn = chip.querySelector('button');
@@ -4787,9 +4826,9 @@ function wireFilterPanels(){
       rb.onchange = ()=>{
         if(!rb.checked) return;
         S.filters[key] = rb.value;
-        invalidateCache();
+        invalidateCache(true);
         document.querySelectorAll('.fpanel.open').forEach(p=>p.classList.remove('open'));
-        renderFilterBar(); rerenderActiveTab();
+        renderFilterBar(); rerenderActiveTab(true);
       };
     });
   });
@@ -4810,7 +4849,7 @@ function wireFilterPanels(){
       const opts = key==='anos'?S.distinct.anos:key==='meses'?S.distinct.meses:S.distinct[key];
       S.filters[key] = new Set(opts);
       syncCheckboxesFromState(key);
-      invalidateCache(); refreshChipButton(key); updateResultCount(); rerenderActiveTab();
+      invalidateCache(true); refreshChipButton(key); updateResultCount(); rerenderActiveTab(true);
     };
   });
   document.querySelectorAll('[data-fnone]').forEach(b=>{
@@ -4819,7 +4858,7 @@ function wireFilterPanels(){
       const key = b.dataset.fnone;
       S.filters[key].clear();
       syncCheckboxesFromState(key);
-      invalidateCache(); refreshChipButton(key); updateResultCount(); rerenderActiveTab();
+      invalidateCache(true); refreshChipButton(key); updateResultCount(); rerenderActiveTab(true);
     };
   });
   const ci = document.getElementById('clienteFilterInput');
@@ -4830,7 +4869,7 @@ function wireFilterPanels(){
       clearTimeout(t);
       t = setTimeout(()=>{
         S.filters.clienteSearch = ci.value.trim();
-        invalidateCache(); updateResultCount(); rerenderActiveTab();
+        invalidateCache(true); updateResultCount(); rerenderActiveTab(true);
       }, 280);
     };
   }
@@ -4842,7 +4881,7 @@ function wireFilterPanels(){
       const to = document.getElementById('dateToInput').value;
       S.filters.dateFrom = from ? new Date(from+'T00:00:00') : null;
       S.filters.dateTo = to ? new Date(to+'T23:59:59') : null;
-      invalidateCache(); renderFilterBar(); rerenderActiveTab();
+      invalidateCache(true); renderFilterBar(); rerenderActiveTab(true);
     };
   }
   const dc = document.getElementById('dateClear');
@@ -4850,7 +4889,7 @@ function wireFilterPanels(){
     dc.onclick = (e)=>{
       e.stopPropagation();
       S.filters.dateFrom = null; S.filters.dateTo = null;
-      invalidateCache(); renderFilterBar(); rerenderActiveTab();
+      invalidateCache(true); renderFilterBar(); rerenderActiveTab(true);
     };
   }
   const nra = document.getElementById('cliAf3minRangeApply');
@@ -4861,7 +4900,7 @@ function wireFilterPanels(){
       const maxVal = document.getElementById('cliAf3minMaxInput').value;
       S.filters.cliAf3minMin = minVal!=='' ? Number(minVal) : null;
       S.filters.cliAf3minMax = maxVal!=='' ? Number(maxVal) : null;
-      invalidateCache(); renderFilterBar(); rerenderActiveTab();
+      invalidateCache(true); renderFilterBar(); rerenderActiveTab(true);
     };
   }
   const nrc = document.getElementById('cliAf3minRangeClear');
@@ -4869,7 +4908,7 @@ function wireFilterPanels(){
     nrc.onclick = (e)=>{
       e.stopPropagation();
       S.filters.cliAf3minMin = null; S.filters.cliAf3minMax = null;
-      invalidateCache(); renderFilterBar(); rerenderActiveTab();
+      invalidateCache(true); renderFilterBar(); rerenderActiveTab(true);
     };
   }
 }
@@ -5512,6 +5551,7 @@ function computeRanking(filteredBaseRows, baseIndicadorRows){
     for(const [causa,q] of r.causaCounts){
       if(q>causaTopQtd || (q===causaTopQtd && (causaTop===null || String(causa)<String(causaTop)))){ causaTop=causa; causaTopQtd=q; }
     }
+    if(!isValidClientId(cliente) || r.count<=0)continue;
     out.push({
       cliente, reincidencias:r.count, totalIncidencias:t.total,
       pctReincidencia: t.total>0 ? (r.count/t.total*100) : 0,
@@ -7599,6 +7639,34 @@ async function exportClientBehaviorPptx(){
   }catch(err){console.error('Erro ao exportar apresentação da Visão Cliente:',err);setLoading(false);alert('Não foi possível gerar a apresentação. Detalhe técnico: '+err.message);}
 }
 
+
+function diagnosticoFiltrosVisaoCliente(){
+  const f=S.filters;
+  const ranking=getClientRanking();
+  const base=getFiltered();
+  const reinc=isConnectionBasedIndicator()
+    ? getFilteredReincidenciaConexao()
+    : S.filters.parametro==='grupo'
+      ? getFilteredGroupRecurrences()
+      : [];
+  return {
+    indicador:recurrenceIndicatorLabel(),
+    anos:[...f.anos],
+    meses:[...f.meses],
+    periodo:[f.dateFrom,f.dateTo],
+    equipes:[...f.equipes],
+    causas:[...f.causas],
+    processos:[...f.processos],
+    cliente:f.clienteSearch,
+    clienteAfetado:f.clienteAfetado,
+    baseFiltrada:base.base.length,
+    incidenciasIndicador:base.baseIndicador.length,
+    reincidenciasFiltradas:reinc.length,
+    clientesRanking:ranking.length,
+    rankingTop5:ranking.slice(0,5)
+  };
+}
+
 function diagnosticoRankingGrupoAtual(){
   const ranking=getClientRanking();
   const events=S.filters.parametro==='grupo'
@@ -7762,7 +7830,7 @@ function getClientReincidenceRows(cliente, elegiveis){
   if(S.filters.parametro==='grupo'){
     return getFilteredGroupRecurrences().filter(event=>gcClientKey(event.client)===gcClientKey(cliente)).map(event=>event.row);
   }
-  if(S.filters.parametro!=='conexao'){
+  if(!isConnectionBasedIndicator()){
     return elegiveis.filter(r=>r.__tlClassificacao==='REINCIDENTE');
   }
   const porNumero = new Map();
