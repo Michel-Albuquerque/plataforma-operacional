@@ -2063,8 +2063,18 @@ function buildGroupRecurrenceEvents(sourceRows){return buildGroupRecurrenceEvalu
 function refreshGroupRecurrenceCache(){const key=[S.processedAt||'',S.baseCompleta.length].join('|');if(_groupRecurrenceCache.key!==key){const evaluations=buildGroupRecurrenceEvaluations(S.baseCompleta);_groupRecurrenceCache={key,evaluations,events:evaluations.filter(item=>item.confirmada)}}return _groupRecurrenceCache}
 function allGroupRecurrenceEvaluations(){return refreshGroupRecurrenceCache().evaluations}
 function allGroupRecurrenceEvents(){return refreshGroupRecurrenceCache().events}
-function getFilteredGroupEvaluations(){return allGroupRecurrenceEvaluations().filter(event=>matchesFilters(event.row)&&matchesClienteAfetadoValue(event.row[COL.cliAf3min]))}
-function getFilteredGroupRecurrences(){return allGroupRecurrenceEvents().filter(event=>matchesFilters(event.row)&&matchesClienteAfetadoValue(event.row[COL.cliAf3min]))}
+function getFilteredGroupEvaluations(){
+  return allGroupRecurrenceEvaluations().filter(event=>
+    matchesFilters(event.row) &&
+    Number(event.row?.[COL.cliAf3min])===CLI_AF_3MIN_EXIGIDO
+  );
+}
+function getFilteredGroupRecurrences(){
+  return allGroupRecurrenceEvents().filter(event=>
+    matchesFilters(event.row) &&
+    Number(event.row?.[COL.cliAf3min])===CLI_AF_3MIN_EXIGIDO
+  );
+}
 function recurrenceIndicatorLabel(value){const mode=value||(S.filters&&S.filters.parametro)||'conexao';return mode==='grupo'?'Reincidência por Grupo':mode==='geral'?'Reincidência Geral':'Reincidência Conexão'}
 function causasPermitidasAtivas(){
   return (S.filters && S.filters.parametro === 'conexao') ? CAUSAS_PERMITIDAS_CONEXAO : CAUSAS_PERMITIDAS_GERAL;
