@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-08-28T10:26:06",
+  "gerado_em": "2026-08-28T10:30:05",
   "versao": 1,
   "callback_disponivel": false,
   "arquivos": {
@@ -12,14 +12,14 @@
     "tma": {
       "arquivo": "tma.json.gz",
       "linhas": 86990,
-      "tamanho_bytes": 4803431,
+      "tamanho_bytes": 4803428,
       "modificado_em": "2026-08-28T10:15:03"
     },
     "modal": {
       "arquivo": "modal.json.gz",
-      "linhas": 36,
-      "tamanho_bytes": 3167,
-      "modificado_em": "2026-08-28T10:28:48"
+      "linhas": 35,
+      "tamanho_bytes": 3099,
+      "modificado_em": "2026-08-28T10:31:52"
     }
   }
 }
