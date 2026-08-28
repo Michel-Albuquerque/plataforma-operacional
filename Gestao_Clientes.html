@@ -4638,7 +4638,7 @@ function renderFilterBar(){
     f.polos.clear(); f.equipes.clear(); f.causas.clear(); f.processos.clear();
     f.clienteSearch=''; f.parametro='conexao'; f.granularity='diario';
     f.cliAf3minMin=null; f.cliAf3minMax=null; f.clienteAfetado='todos';
-    invalidateCache(true); renderFilterBar(); rerenderActiveTab(true);
+    invalidateCache(true); renderFilterBar(); forceRefreshFilteredView();
   };
   wireFilterPanels();
   updateResultCount();
@@ -4677,7 +4677,7 @@ function mountFilterOptions(key){
       let val=cb.value;
       if(key==='anos'||key==='meses') val=Number(val);
       if(cb.checked) set.add(val); else set.delete(val);
-      invalidateCache(true); refreshChipButton(key); updateResultCount(); rerenderActiveTab(true);
+      invalidateCache(true); refreshChipButton(key); forceRefreshFilteredView();
     };
   });
 }
@@ -4803,6 +4803,46 @@ function applyPrincipalFilterChange(options={}){
   rerenderActiveTab(true);
 }
 
+function forceRefreshFilteredView(){
+  if(S.currentTab==='visaoCliente')S.filtersByTab.visaoCliente=S.filters;
+  else if(S.filtersByTab[S.currentTab])S.filtersByTab[S.currentTab]=S.filters;
+
+  invalidateCache(true);
+  updateResultCount();
+
+  const tab=S.currentTab;
+  try{
+    console.debug('[Filtros]',tab,{
+      indicador:S.filters.parametro,
+      anos:[...S.filters.anos],
+      meses:[...S.filters.meses],
+      equipes:[...S.filters.equipes],
+      causas:[...S.filters.causas],
+      processos:[...S.filters.processos],
+      clienteAfetado:S.filters.clienteAfetado
+    });
+    if(tab==='dashboard')renderDashboard();
+    else if(tab==='visaoCliente')renderVisaoCliente();
+    else if(tab==='visaoEquipe')renderVisaoEquipe();
+    else if(tab==='diagnostico')renderDiagnostico();
+    else if(tab==='analiseCausa')renderAnaliseCausa();
+    else if(tab==='analiseGrupoCausa')renderAnaliseGrupoCausa();
+    else if(tab==='acao')renderActions();
+    else rerenderActiveTab(true);
+
+    S.renderKeys[tab]=activeRenderKey();
+  }catch(error){
+    console.error('Erro ao atualizar filtros da aba '+tab+':',error);
+    const panel=document.getElementById('panel-'+tab);
+    if(panel){
+      panel.innerHTML=`<div class="empty-state">
+        <div class="t1">Não foi possível atualizar os filtros</div>
+        <div class="t2">${esc(error?.message||String(error))}</div>
+      </div>`;
+    }
+  }
+}
+
 function wireFilterPanels(){
   document.querySelectorAll('.fchip').forEach(chip=>{
     const btn = chip.querySelector('button');
@@ -4828,7 +4868,7 @@ function wireFilterPanels(){
         S.filters[key] = rb.value;
         invalidateCache(true);
         document.querySelectorAll('.fpanel.open').forEach(p=>p.classList.remove('open'));
-        renderFilterBar(); rerenderActiveTab(true);
+        renderFilterBar(); forceRefreshFilteredView();
       };
     });
   });
@@ -4849,7 +4889,7 @@ function wireFilterPanels(){
       const opts = key==='anos'?S.distinct.anos:key==='meses'?S.distinct.meses:S.distinct[key];
       S.filters[key] = new Set(opts);
       syncCheckboxesFromState(key);
-      invalidateCache(true); refreshChipButton(key); updateResultCount(); rerenderActiveTab(true);
+      invalidateCache(true); refreshChipButton(key); forceRefreshFilteredView();
     };
   });
   document.querySelectorAll('[data-fnone]').forEach(b=>{
@@ -4858,7 +4898,7 @@ function wireFilterPanels(){
       const key = b.dataset.fnone;
       S.filters[key].clear();
       syncCheckboxesFromState(key);
-      invalidateCache(true); refreshChipButton(key); updateResultCount(); rerenderActiveTab(true);
+      invalidateCache(true); refreshChipButton(key); forceRefreshFilteredView();
     };
   });
   const ci = document.getElementById('clienteFilterInput');
@@ -4869,7 +4909,7 @@ function wireFilterPanels(){
       clearTimeout(t);
       t = setTimeout(()=>{
         S.filters.clienteSearch = ci.value.trim();
-        invalidateCache(true); updateResultCount(); rerenderActiveTab(true);
+        invalidateCache(true); forceRefreshFilteredView();
       }, 280);
     };
   }
@@ -4881,7 +4921,7 @@ function wireFilterPanels(){
       const to = document.getElementById('dateToInput').value;
       S.filters.dateFrom = from ? new Date(from+'T00:00:00') : null;
       S.filters.dateTo = to ? new Date(to+'T23:59:59') : null;
-      invalidateCache(true); renderFilterBar(); rerenderActiveTab(true);
+      invalidateCache(true); renderFilterBar(); forceRefreshFilteredView();
     };
   }
   const dc = document.getElementById('dateClear');
@@ -4889,7 +4929,7 @@ function wireFilterPanels(){
     dc.onclick = (e)=>{
       e.stopPropagation();
       S.filters.dateFrom = null; S.filters.dateTo = null;
-      invalidateCache(true); renderFilterBar(); rerenderActiveTab(true);
+      invalidateCache(true); renderFilterBar(); forceRefreshFilteredView();
     };
   }
   const nra = document.getElementById('cliAf3minRangeApply');
@@ -4900,7 +4940,7 @@ function wireFilterPanels(){
       const maxVal = document.getElementById('cliAf3minMaxInput').value;
       S.filters.cliAf3minMin = minVal!=='' ? Number(minVal) : null;
       S.filters.cliAf3minMax = maxVal!=='' ? Number(maxVal) : null;
-      invalidateCache(true); renderFilterBar(); rerenderActiveTab(true);
+      invalidateCache(true); renderFilterBar(); forceRefreshFilteredView();
     };
   }
   const nrc = document.getElementById('cliAf3minRangeClear');
@@ -4908,7 +4948,7 @@ function wireFilterPanels(){
     nrc.onclick = (e)=>{
       e.stopPropagation();
       S.filters.cliAf3minMin = null; S.filters.cliAf3minMax = null;
-      invalidateCache(true); renderFilterBar(); rerenderActiveTab(true);
+      invalidateCache(true); renderFilterBar(); forceRefreshFilteredView();
     };
   }
 }
@@ -7704,6 +7744,10 @@ function clientGroupLegendHtml(){
 
 function renderVisaoCliente(){
   if(!S.baseCompleta.length) return;
+  // Garantia: a Visão Cliente sempre usa o objeto de filtros próprio da aba.
+  if(S.filtersByTab?.visaoCliente && S.currentTab==='visaoCliente'){
+    S.filters=S.filtersByTab.visaoCliente;
+  }
   const {base, baseIndicador} = getFiltered();
   const totalIncid = baseIndicador.length;
   const ranking = getClientRanking();
