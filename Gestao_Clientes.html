@@ -4209,7 +4209,14 @@ function matchesClienteAfetadoFilterReincidencia(r){
   if(S.filters.parametro!=='conexao_grupo')return true;
   const selected=S.filters.clienteAfetado||'todos';
   if(selected==='todos')return true;
-  return clienteAfetadoClassFromValue(r?.__cliAf3min)===selected;
+
+  const value=
+    r?.__nextMain?.[COL.cliAf3min] ??
+    r?.__cliAf3min ??
+    r?.__nextCliAf3min ??
+    null;
+
+  return clienteAfetadoClassFromValue(value)===selected;
 }
 
 function matchesFiltersReincidencia(r){
@@ -4255,17 +4262,155 @@ function diagnosticoConexaoGrupo(){
   return {total,comNumeroRein,vincAnterior,vincPosterior,duasCausas,mesmoGrupo};
 }
 
+
+function conexaoGrupoOfficialRecurrentNumbers(row){
+  const values=[
+    row?.[COL2.numeroRein],
+    row?.[COL2.numeroRein2]
+  ];
+  return [...new Set(values.map(normalizeNumero).filter(Boolean))];
+}
+
+function conexaoGrupoParallelModel(){
+  const cacheKey=[
+    S.processedAt||'',
+    S.baseCompleta.length,
+    Object.keys(GC_INC_STATE||{}).length
+  ].join('|');
+
+  if(!S.__conexaoGrupoParallelCache || S.__conexaoGrupoParallelCache.key!==cacheKey){
+    const model=gcBuildParallelGroupEvaluations(S.baseCompleta||[]);
+    const byCurrent=new Map();
+
+    for(const ev of model.evaluations||[]){
+      if(!ev.confirmada)continue;
+      const key=normalizeNumero(ev.current?.[COL.numero]);
+      if(key&&!byCurrent.has(key))byCurrent.set(key,ev);
+    }
+
+    S.__conexaoGrupoParallelCache={key,model,byCurrent};
+  }
+  return S.__conexaoGrupoParallelCache;
+}
+
+function buildConexaoGrupoUniverse(){
+  const parallel=conexaoGrupoParallelModel();
+  const mainByNumber=new Map();
+
+  for(const row of S.baseCompleta||[]){
+    const key=normalizeNumero(row?.[COL.numero]);
+    if(key&&!mainByNumber.has(key))mainByNumber.set(key,row);
+  }
+
+  const out=[];
+  const seen=new Set();
+
+  for(const official of S.baseReincidencia||[]){
+    const recurrentNumbers=conexaoGrupoOfficialRecurrentNumbers(official);
+
+    for(const recurrentNumber of recurrentNumbers){
+      const groupEvent=parallel.byCurrent.get(recurrentNumber);
+      if(!groupEvent)continue;
+
+      const current=mainByNumber.get(recurrentNumber)||groupEvent.current||null;
+      const previous=groupEvent.previous||null;
+      if(!current||!previous)continue;
+
+      const dedupeKey=[
+        normalizeNumero(official?.[COL2.nCliente]),
+        normalizeNumero(official?.[COL2.numero]),
+        recurrentNumber
+      ].join('|');
+      if(seen.has(dedupeKey))continue;
+      seen.add(dedupeKey);
+
+      // Clone the official recurrence row, but adapt its analytical pointers
+      // to the Group recurrence that actually generated this current incidence.
+      const row={...official};
+      row.__officialReincidenceRow=official;
+      row.__prevMain=previous;
+      row.__nextMain=current;
+      row.__nextNumero=current[COL.numero];
+      row[COL2.numeroRein]=current[COL.numero];
+      row.__nextDataInicio=current.__dataInicio||parseDateVal(current[COL.dataInicio]);
+      row.__nextDataFim=current.__dataFim||parseDateVal(current[COL.dataFim]);
+      row.__nextCausa=current[COL.causa];
+      row.__nextEquipeDesl=current[COL.equipeDesl];
+      row.__nextEquipeAtribuida=current[COL.equipe];
+      row.__nextProcesso=current[COL.processo];
+      row.__nextPolo=current[COL.polo];
+      row.__nextTipoInstalacao=current[COL.tipoInstalacao];
+      row.__nextLinked=true;
+
+      // For the new "Cliente Afetado" filter, use Clts > 3 min of the
+      // recurrent incidence itself.
+      row.__cliAf3min=current[COL.cliAf3min];
+      row.__nextCliAf3min=current[COL.cliAf3min];
+
+      // Keep the recurrence row date semantics based on its official source,
+      // but expose the actual recurrence date for ranking/timeline.
+      row.__grupoEvento=groupEvent;
+      row.__grupoAtivo=groupEvent.group||'';
+      row.__grupoDias=groupEvent.diasDesdeAnterior;
+      row.__processoReincidencia=centralReincidenceProcess(row);
+
+      out.push(row);
+    }
+  }
+
+  return out;
+}
+
+
+/* Diagnóstico do novo indicador:
+   no console do navegador, executar diagnosticoConexaoGrupoV2()
+   para ver Base de Reincidência x reincidências por Grupo x interseção final. */
+
+function diagnosticoConexaoGrupoV2(){
+  const official=S.baseReincidencia||[];
+  const parallel=conexaoGrupoParallelModel();
+  let officialWithRecurrentNumber=0;
+  let officialRecurrentNumbers=0;
+  let matchedByGroup=0;
+
+  for(const row of official){
+    const nums=conexaoGrupoOfficialRecurrentNumbers(row);
+    if(nums.length)officialWithRecurrentNumber++;
+    officialRecurrentNumbers+=nums.length;
+    for(const num of nums)if(parallel.byCurrent.has(num))matchedByGroup++;
+  }
+
+  const universe=buildConexaoGrupoUniverse();
+  return {
+    linhasBaseReincidencia:official.length,
+    linhasComNumeroReincidente:officialWithRecurrentNumber,
+    numerosReincidentesOficiais:officialRecurrentNumbers,
+    reincidentesPorGrupoNaBasePrincipal:parallel.byCurrent.size,
+    intersecaoConexaoGrupo:matchedByGroup,
+    universoFinal:universe.length
+  };
+}
+
+
 function getFilteredReincidenciaConexao(){
-  const key=filterCacheKey()+'|reinc:'+S.baseReincidencia.length+
+  const isGrupoConexao=S.filters.parametro==='conexao_grupo';
+  const source=isGrupoConexao ? buildConexaoGrupoUniverse() : S.baseReincidencia;
+
+  const key=filterCacheKey()+
+    '|reinc:'+S.baseReincidencia.length+
+    '|source:'+source.length+
+    '|mode:'+(isGrupoConexao?'cg':'c')+
     '|vinc:'+String(S.reincidenciaStats?.vinculadas||0)+
     '|rvinc:'+String(S.reincidenciaStats?.reincidentesVinculadas||0);
+
   if(_filteredReincCache.has(key)) return _filteredReincCache.get(key);
-  const result=S.baseReincidencia.filter(r=>
-    matchesFiltersReincidencia(r) &&
-    (S.filters.parametro!=='conexao_grupo' || isConexaoGrupoRecurrence(r))
-  );
+
+  const result=source.filter(matchesFiltersReincidencia);
+
   _filteredReincCache.set(key,result);
-  while(_filteredReincCache.size>6) _filteredReincCache.delete(_filteredReincCache.keys().next().value);
+  while(_filteredReincCache.size>6){
+    _filteredReincCache.delete(_filteredReincCache.keys().next().value);
+  }
   return result;
 }
 function usandoConexaoSemBase(){
