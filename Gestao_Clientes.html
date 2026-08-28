@@ -1398,6 +1398,77 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
   white-space:normal;
 }
 
+
+/* V13 · Correção */
+#panel-analiseGrupoCausa .gc-correction-table-wrap{
+  height:calc(100vh - 300px);
+  min-height:600px;
+  max-height:800px;
+  overflow:auto !important;
+  overscroll-behavior:contain;
+  scroll-behavior:auto !important;
+  overflow-anchor:none;
+}
+#panel-analiseGrupoCausa .gc-correction-summary th,
+#panel-analiseGrupoCausa .gc-correction-summary td{
+  text-align:center !important;
+  vertical-align:middle !important;
+}
+#panel-analiseGrupoCausa .gc-sort-head{
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  font-weight:900;
+  text-transform:uppercase;
+  cursor:pointer;
+  width:100%;
+  padding:0;
+  text-align:center;
+}
+#panel-analiseGrupoCausa .gc-corrections-cell{
+  background:#fee2e2 !important;
+  color:#b42318 !important;
+  font-weight:950;
+}
+#panel-analiseGrupoCausa .gc-att-card.validated{
+  border:2px solid #d92d20 !important;
+  background:#fff5f4 !important;
+  box-shadow:0 0 0 3px rgba(217,45,32,.08) !important;
+}
+#panel-analiseGrupoCausa .gc-validated-badge{
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  background:#d92d20;
+  color:#fff;
+  font-size:8px;
+  font-weight:950;
+  padding:4px 7px;
+  margin-left:5px;
+}
+#panel-analiseGrupoCausa .gc-validated-lock{
+  display:inline-flex;
+  align-items:center;
+  min-height:30px;
+  padding:5px 8px;
+  border-radius:7px;
+  background:#fee4e2;
+  color:#b42318;
+  font-size:8px;
+  font-weight:900;
+}
+#panel-analiseGrupoCausa .gc-suggestion{
+  margin-bottom:9px;
+  padding:8px 10px;
+  border-radius:8px;
+  background:#f3f7f5;
+  border:1px solid #dbe7e1;
+  font-size:9px;
+  color:#465750;
+}
+#panel-analiseGrupoCausa .gc-suggestion b{margin-right:6px}
+
 </style>
 </head>
 <body>
@@ -7278,7 +7349,7 @@ function compute30DayChain(rows){
 let _clienteDetailCtx = null;
 function getClientReincidenceRows(cliente, elegiveis){
   if(S.filters.parametro==='grupo'){
-    return getFilteredGroupRecurrences().filter(event=>event.client===cliente).map(event=>event.row);
+    return getFilteredGroupRecurrences().filter(event=>gcClientKey(event.client)===gcClientKey(cliente)).map(event=>event.row);
   }
   if(S.filters.parametro!=='conexao'){
     return elegiveis.filter(r=>r.__tlClassificacao==='REINCIDENTE');
@@ -7318,7 +7389,7 @@ function openClientTimeline(cliente){
   const elegiveis = rows.filter(isReincElegivel);
   if(S.filters.parametro==='grupo'){
     elegiveis.forEach(row=>{row.__tlClassificacao='GERADORA';row.__tlIncGeradora=row[COL.numero];row.__tlEquipeGeradora=row[COL.equipeDesl];row.__tlDiasDesdeAnterior=null;row.__grupoMesId='grupo-'+normalizeNumero(row[COL.numero])});
-    for(const event of getFilteredGroupRecurrences().filter(item=>item.client===cliente)){const row=event.row;row.__tlClassificacao='REINCIDENTE';row.__tlIncGeradora=event.previous[COL.numero];row.__tlEquipeGeradora=event.previous[COL.equipeDesl];row.__tlDiasDesdeAnterior=event.diasDesdeAnterior;row.__grupoMesId='grupo-'+normalizeNumero(event.previous[COL.numero])}
+    for(const event of getFilteredGroupRecurrences().filter(item=>gcClientKey(item.client)===gcClientKey(cliente))){const row=event.row;row.__tlClassificacao='REINCIDENTE';row.__tlIncGeradora=event.previous[COL.numero];row.__tlEquipeGeradora=event.previous[COL.equipeDesl];row.__tlDiasDesdeAnterior=event.diasDesdeAnterior;row.__grupoMesId='grupo-'+normalizeNumero(event.previous[COL.numero])}
   }else compute30DayChain(elegiveis);
   const reincRows = getClientReincidenceRows(cliente, elegiveis)
     .slice().sort((a,b)=>(b.__dataFim||0)-(a.__dataFim||0));
@@ -12146,73 +12217,146 @@ const GC_GROUP_CATEGORY={
   'VEGETAÇÃO':'G3',
   ANIMAIS:'G4'
 };
-function gcGroupCode(group){return GC_GROUP_CATEGORY[String(group||'').toUpperCase()]||'G5'}
-function gcGroupCodeColor(group){
-  const code=gcGroupCode(group);
+
+function gcBuildIndividualCauseGroupCatalog(){
+  const core=new Set(['RAMAL','MEDIDOR','VEGETAÇÃO','ANIMAIS']);
+  const uniqueCauses=[];
+  const seen=new Set();
+
+  for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
+    if(core.has(String(group||'').toUpperCase()))continue;
+    const key=normalizeHeaderKey(cause);
+    if(!key||seen.has(key))continue;
+    seen.add(key);
+    uniqueCauses.push({cause:String(cause||'').trim(),key});
+  }
+
+  uniqueCauses.sort((a,b)=>a.cause.localeCompare(b.cause,'pt-BR'));
+
+  const causeToCode=new Map();
+  const codeToCause=new Map();
+
+  const fixed=[
+    ['DEF INT COM CORREÇÃO COELCE','G5'],
+    ['PADRAO QUEBRADO','G7']
+  ];
+
+  for(const [cause,code] of fixed){
+    const key=normalizeHeaderKey(cause);
+    causeToCode.set(key,code);
+    codeToCause.set(code,cause);
+  }
+
+  let next=6;
+  for(const item of uniqueCauses){
+    if(causeToCode.has(item.key))continue;
+    while(next===7 || codeToCause.has('G'+next))next++;
+    const code='G'+next++;
+    causeToCode.set(item.key,code);
+    codeToCause.set(code,item.cause);
+  }
+
+  return {causeToCode,codeToCause};
+}
+const GC_INDIVIDUAL_GROUP_CATALOG=gcBuildIndividualCauseGroupCatalog();
+
+function gcGroupCode(group,cause=''){
+  const g=String(group||'').toUpperCase();
+  if(GC_GROUP_CATEGORY[g])return GC_GROUP_CATEGORY[g];
+
+  const causeKey=normalizeHeaderKey(cause||group);
+  return GC_INDIVIDUAL_GROUP_CATALOG.causeToCode.get(causeKey)||'';
+}
+function gcGroupNumber(code){
+  const m=String(code||'').match(/^G(\d+)$/i);
+  return m?Number(m[1]):9999;
+}
+function gcGroupLabel(code){
+  if(code==='G1')return 'RAMAL';
+  if(code==='G2')return 'MEDIDOR';
+  if(code==='G3')return 'VEGETAÇÃO';
+  if(code==='G4')return 'ANIMAIS';
+  return GC_INDIVIDUAL_GROUP_CATALOG.codeToCause.get(code)||code;
+}
+function gcGroupCodeColor(groupOrCode,cause=''){
+  const code=/^G\d+$/i.test(String(groupOrCode||''))?String(groupOrCode).toUpperCase():gcGroupCode(groupOrCode,cause);
   if(code==='G1')return gcGroupColor('RAMAL');
   if(code==='G2')return gcGroupColor('MEDIDOR');
   if(code==='G3')return gcGroupColor('VEGETAÇÃO');
   if(code==='G4')return gcGroupColor('ANIMAIS');
-  return '#687781';
+  const n=gcGroupNumber(code);
+  if(!Number.isFinite(n))return '#687781';
+  // Cores determinísticas para G5+.
+  const hue=(n*47)%360;
+  return `hsl(${hue} 58% 42%)`;
 }
-function gcGroupLogo(group,active=true){
-  const code=gcGroupCode(group);
-  return `<span class="gc-group-logo ${active?'':'inactive'}" style="${active?`background:${gcGroupCodeColor(group)}`:''}" title="${esc(group)}">${code}</span>`;
+function gcGroupLogo(group,active=true,cause=''){
+  const code=/^G\d+$/i.test(String(group||''))?String(group).toUpperCase():gcGroupCode(group,cause);
+  if(!code)return '';
+  return `<span class="gc-group-logo ${active?'':'inactive'}" style="${active?`background:${gcGroupCodeColor(code)}`:''}" title="${esc(gcGroupLabel(code))}">${code}</span>`;
 }
-function gcGroupLogosContext(allGroups,activeGroups){
-  const all=[...new Set([...(allGroups||[])])];
-  const active=new Set([...(activeGroups||[])]);
-  if(!all.length)return '<span class="gc-muted">—</span>';
-  return all.map(g=>gcGroupLogo(g,active.has(g))).join('');
+function gcGroupLogosContext(allGroups,activeGroups,cause=''){
+  const allCodes=[...new Set([...(allGroups||[])].map(g=>gcGroupCode(g,cause)).filter(Boolean))];
+  const activeCodes=new Set([...(activeGroups||[])].map(g=>gcGroupCode(g,cause)).filter(Boolean));
+  if(!allCodes.length)return '<span class="gc-muted">—</span>';
+  return allCodes.map(code=>gcGroupLogo(code,activeCodes.has(code),cause)).join('');
+}
+function gcAllCorrectionCodes(){
+  const codes=['G1','G2','G3','G4',...GC_INDIVIDUAL_GROUP_CATALOG.codeToCause.keys()];
+  return [...new Set(codes)].sort((a,b)=>gcGroupNumber(a)-gcGroupNumber(b));
 }
 function gcCorrectionGroupOptions(selected='',excludedCodes=[]){
   const excluded=new Set([...(excludedCodes||[])].filter(Boolean));
-  const opts=[
-    ['TODOS','Todos',''],
-    ['G1','G1 · RAMAL',gcGroupCodeColor('RAMAL')],
-    ['G2','G2 · MEDIDOR',gcGroupCodeColor('MEDIDOR')],
-    ['G3','G3 · VEGETAÇÃO',gcGroupCodeColor('VEGETAÇÃO')],
-    ['G4','G4 · ANIMAIS',gcGroupCodeColor('ANIMAIS')],
-    ['G5','G5 · OUTROS','#687781']
-  ];
+  const opts=[['TODOS','Todos',''],...gcAllCorrectionCodes().map(code=>[
+    code,
+    `${code} · ${gcGroupLabel(code)}`,
+    gcGroupCodeColor(code)
+  ])];
+
   return '<option value="" style="background:#fff;color:#172b23">Selecionar grupo</option>'+
     opts
       .filter(([v])=>v==='TODOS'||!excluded.has(v)||v===selected)
       .map(([v,l,bg])=>{
         const style=bg?`background:${bg};color:#fff;font-weight:700`:'background:#f3f5f4;color:#172b23;font-weight:700';
-        return `<option value="${v}" ${v===selected?'selected':''} style="${style}">${l}</option>`;
+        return `<option value="${v}" ${v===selected?'selected':''} style="${style}">${esc(l)}</option>`;
       }).join('');
 }
 function gcActualGroupFromCategory(code,cause){
-  const groups=[...causeGroups(cause)];
   if(code==='G1')return 'RAMAL';
   if(code==='G2')return 'MEDIDOR';
   if(code==='G3')return 'VEGETAÇÃO';
   if(code==='G4')return 'ANIMAIS';
-  return groups.find(g=>!['RAMAL','MEDIDOR','VEGETAÇÃO','ANIMAIS'].includes(g))||groups[0]||'OUTROS';
+  // G5+ são grupos individuais; o próprio nome da causa é a identidade.
+  return String(cause||'').trim()||gcGroupLabel(code);
 }
 function gcCauseOptionsForCategory(code,selectedCause='',excludedCodes=[]){
   const excluded=new Set([...(excludedCodes||[])].filter(Boolean));
   const rows=[];
   const seen=new Set();
+
   for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
-    const cat=gcGroupCode(group);
+    const cat=gcGroupCode(group,cause);
+    if(!cat)continue;
     if(code!=='TODOS' && cat!==code)continue;
     if(excluded.has(cat))continue;
-    const k=normalizeHeaderKey(cause)+'|'+group;
+
+    const k=normalizeHeaderKey(cause)+'|'+cat;
     if(seen.has(k))continue;
     seen.add(k);
     rows.push({cause,group,cat});
   }
-  const rank={G1:1,G2:2,G3:3,G4:4,G5:5};
-  rows.sort((a,b)=>(rank[a.cat]-rank[b.cat])||a.group.localeCompare(b.group,'pt-BR')||a.cause.localeCompare(b.cause,'pt-BR'));
+
+  rows.sort((a,b)=>gcGroupNumber(a.cat)-gcGroupNumber(b.cat)||a.cause.localeCompare(b.cause,'pt-BR'));
+
   return '<option value="">Selecionar causa</option>'+rows.map(x=>{
-    const value=encodeURIComponent(x.group)+'|||'+encodeURIComponent(x.cause);
-    const sel=x.cause===selectedCause?'selected':'';
-    const bg=gcGroupCodeColor(x.group);
+    const actualGroup=gcActualGroupFromCategory(x.cat,x.cause);
+    const value=encodeURIComponent(actualGroup)+'|||'+encodeURIComponent(x.cause);
+    const sel=normalizeHeaderKey(x.cause)===normalizeHeaderKey(selectedCause)?'selected':'';
+    const bg=gcGroupCodeColor(x.cat);
     return `<option value="${value}" ${sel} style="background:${bg};color:#fff">${x.cat} · ${esc(x.cause)}</option>`;
   }).join('');
 }
+
 function gcCauseReferenceTable(){
   const byCause=new Map();
   for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
@@ -12220,44 +12364,29 @@ function gcCauseReferenceTable(){
     if(!byCause.has(key))byCause.set(key,{cause,groups:[]});
     if(!byCause.get(key).groups.includes(group))byCause.get(key).groups.push(group);
   }
-  const rank={G1:1,G2:2,G3:3,G4:4,G5:5};
-  const rows=[...byCause.values()].sort((a,b)=>{
-    const ac=Math.min(...a.groups.map(g=>rank[gcGroupCode(g)]||9));
-    const bc=Math.min(...b.groups.map(g=>rank[gcGroupCode(g)]||9));
+
+  const rows=[...byCause.values()].map(r=>{
+    const codes=[...new Set(r.groups.map(g=>gcGroupCode(g,r.cause)).filter(Boolean))];
+    return {...r,codes};
+  }).sort((a,b)=>{
+    const ac=Math.min(...a.codes.map(gcGroupNumber));
+    const bc=Math.min(...b.codes.map(gcGroupNumber));
     return ac-bc||a.cause.localeCompare(b.cause,'pt-BR');
   });
+
   return `<section class="gc-card gc-cause-ref">
-    <div class="gc-head"><div><div class="gc-title">Tabela de referência das causas</div>
-    <div class="gc-sub">Código da causa ainda não disponível. G1 a G5 representam os grupos utilizados na Correção.</div></div></div>
-    <div class="gc-table-wrap"><table class="gc-main-table"><thead><tr><th>Código</th><th>Grupo</th><th>Causa</th></tr></thead><tbody>
-    ${rows.map(r=>`<tr><td>—</td><td>${r.groups.map(g=>gcGroupLogo(g,true)).join('')}</td><td class="cause">${esc(r.cause)}</td></tr>`).join('')}
+    <div class="gc-head"><div>
+      <div class="gc-title">Tabela de referência das causas</div>
+      <div class="gc-sub">G1 a G4 são grupos compartilhados. De G5 em diante, cada causa possui seu próprio grupo e só reincide com a mesma causa.</div>
+    </div></div>
+    <div class="gc-table-wrap"><table><thead><tr><th>Código da causa</th><th>Grupo</th><th>Causa</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr>
+        <td>—</td>
+        <td>${r.codes.map(code=>gcGroupLogo(code,true,r.cause)).join('')}</td>
+        <td class="cause">${esc(r.cause)}</td>
+      </tr>`).join('')}
     </tbody></table></div>
   </section>`;
-}
-
-
-function gcEorderObs(row){return gcText(row&&row.__obsEorder)}
-function gcEorderDate(row){return gcDate(row&&row.__dataFimExecucao)}
-function gcExpandableText(value,empty='—'){
-  const text=value==null||String(value).trim()===''?empty:String(value).trim();
-  if(text===empty)return `<span class="gc-muted">${esc(empty)}</span>`;
-  if(text.length<=48)return `<span>${esc(text)}</span>`;
-  return `<details class="gc-text-expand"><summary><span class="gc-text-preview">${esc(text)}</span></summary><div class="gc-text-full">${esc(text)}</div></details>`;
-}
-function gcEffectiveGroup(ev,e){
-  if(ev&&ev.confirmada&&ev.groups&&ev.groups.length)return ev.groups[0];
-  const current=ev&&ev.currentGroups&&ev.currentGroups.length?ev.currentGroups:[...causeGroups(e.current[COL.causa])];
-  return current[0]||normCausa(e.current[COL.causa])||'SEM GRUPO';
-}
-function gcAssignCycles(rows){
-  const sorted=rows.slice().sort((a,b)=>a.current.__dataFim-b.current.__dataFim);
-  let cycle=0,lastCurrent='',cycleStart=null;
-  return sorted.map((e,index)=>{
-    const prev=normalizeNumero(e.previous[COL.numero]),cur=normalizeNumero(e.current[COL.numero]);
-    if(index===0||prev!==lastCurrent){cycle++;cycleStart=e.previous.__dataFim}
-    lastCurrent=cur;
-    return {...e,__gcCycle:cycle,__gcCycleStart:cycleStart};
-  });
 }
 
 function gcBuildParallelGroupEvaluations(sourceRows){
@@ -12309,14 +12438,13 @@ function gcBuildParallelGroupEvaluations(sourceRows){
       // Descarta referências vencidas apenas para a incidência atual.
       const candidates=[];
       for(const group of possible){
-        const anchorKey=(gcGroupCode(group)==='G5')
-          ? group+'||'+normalizeHeaderKey(gcRowCause(current))
-          : group;
+        const groupCode=gcGroupCode(group,gcRowCause(current));
+        const anchorKey=groupCode||group;
         const anchor=anchors.get(anchorKey);
         if(!anchor)continue;
         const diffMs=current.__dataFim-anchor.time;
         if(diffMs>=0&&diffMs<=GROUP_REINCIDENCE_MAX_MS){
-          candidates.push({group,anchor,diffMs,anchorKey});
+          candidates.push({group,groupCode,anchor,diffMs,anchorKey});
         }
       }
 
@@ -12340,7 +12468,7 @@ function gcBuildParallelGroupEvaluations(sourceRows){
           // A causa ambígua passa a pertencer à sequência escolhida;
           // os outros grupos continuam visíveis no cartão, porém em cinza.
           for(const [g,a] of [...anchors.entries()]){
-            if(g!==group && a.row===previous && a.pending)anchors.delete(g);
+            if(g!==(chosen.anchorKey||group) && a.row===previous && a.pending)anchors.delete(g);
           }
         }
 
@@ -12381,7 +12509,7 @@ function gcBuildParallelGroupEvaluations(sourceRows){
 
         // Atualiza apenas a memória do grupo efetivamente usado.
         // As memórias dos outros grupos seguem vivas em paralelo.
-        anchors.set(gcGroupCode(group)==='G5'?group+'||'+normalizeHeaderKey(gcRowCause(current)):group,{row:current,time:current.__dataFim,pending:false});
+        anchors.set(gcGroupCode(group,gcRowCause(current))||group,{row:current,time:current.__dataFim,pending:false});
       }else{
         // Não existe incidência anterior compatível em até 30 dias:
         // esta incidência passa a ser origem de uma nova cadeia de grupo.
@@ -12391,13 +12519,13 @@ function gcBuildParallelGroupEvaluations(sourceRows){
         if(possible.length===1){
           const group=possible[0];
           currentMeta.activeGroups=[group];
-          anchors.set(gcGroupCode(group)==='G5'?group+'||'+normalizeHeaderKey(gcRowCause(current)):group,{row:current,time:current.__dataFim,pending:false});
+          anchors.set(gcGroupCode(group,gcRowCause(current))||group,{row:current,time:current.__dataFim,pending:false});
         }else{
           // Uma causa multigrupo sem contexto anterior fica "em aberto".
           // Ela pode ser resolvida pelo primeiro atendimento posterior compatível.
           currentMeta.activeGroups=[];
           for(const group of possible){
-            anchors.set(gcGroupCode(group)==='G5'?group+'||'+normalizeHeaderKey(gcRowCause(current)):group,{row:current,time:current.__dataFim,pending:true});
+            anchors.set(gcGroupCode(group,gcRowCause(current))||group,{row:current,time:current.__dataFim,pending:true});
           }
         }
       }
@@ -12570,6 +12698,65 @@ async function gcSetCorrection(event,value){
 /* ---------- tabela detalhada ---------- */
 
 
+
+function gcIsValidated(row){
+  return normalizeHeaderKey(row?.[COL.estado])==='VALIDADO';
+}
+function gcCorrectionCountForClient(client){
+  const key=gcClientKey(client);
+  let n=0;
+  for(const [inc,st] of Object.entries(GC_INC_STATE||{})){
+    if(st?.correcao!=='Sim'||!st.posteriorCause)continue;
+    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    if(row&&gcClientKey(row?.[COL.nCliente])===key)n++;
+  }
+  return n;
+}
+function gcRowPossibleCodes(row){
+  const cause=gcRowCause(row);
+  return [...new Set([...gcRowGroups(row)].map(g=>gcGroupCode(g,cause)).filter(Boolean))];
+}
+function gcDangerousCorrectionCodes(row,model){
+  const currentInc=normalizeNumero(row?.[COL.numero]);
+  const client=gcClientKey(row?.[COL.nCliente]);
+  const t=row?.__dataFim instanceof Date?row.__dataFim.getTime():Number(row?.__dataFim||0);
+  const out=new Set(gcRowPossibleCodes(row));
+
+  for(const other of (model?.rowsByClient?.get(client)||[])){
+    if(normalizeNumero(other?.[COL.numero])===currentInc)continue;
+    if(!gcInPagePeriod(other))continue;
+
+    const ot=other?.__dataFim instanceof Date?other.__dataFim.getTime():Number(other?.__dataFim||0);
+    if(!Number.isFinite(t)||!Number.isFinite(ot)||Math.abs(ot-t)>GROUP_REINCIDENCE_MAX_MS)continue;
+
+    for(const code of gcRowPossibleCodes(other))out.add(code);
+  }
+  return out;
+}
+function gcSafeCorrectionCodes(row,model){
+  const dangerous=gcDangerousCorrectionCodes(row,model);
+  return gcAllCorrectionCodes()
+    .filter(code=>!dangerous.has(code))
+    .sort((a,b)=>gcGroupNumber(b)-gcGroupNumber(a));
+}
+function gcSuggestionHtml(row,model){
+  const safe=gcSafeCorrectionCodes(row,model).slice(0,4);
+  if(!safe.length)return '<div class="gc-suggestion"><b>Sugestão de Correção:</b> nenhuma opção segura encontrada na janela de 30 dias.</div>';
+  return `<div class="gc-suggestion"><b>Sugestão de Correção:</b> ${safe.map(code=>gcGroupLogo(code,true,gcGroupLabel(code))).join(' ')}</div>`;
+}
+function gcPreserveCorrectionViewport(callback){
+  const y=window.scrollY;
+  const panel=document.getElementById('panel-analiseGrupoCausa');
+  const wrap=panel?.querySelector('.gc-correction-table-wrap');
+  const state=wrap?{top:wrap.scrollTop,left:wrap.scrollLeft}:null;
+  callback();
+  requestAnimationFrame(()=>{
+    window.scrollTo(window.scrollX,y);
+    const next=document.querySelector('#panel-analiseGrupoCausa .gc-correction-table-wrap');
+    if(next&&state){next.scrollTop=state.top;next.scrollLeft=state.left}
+  });
+}
+
 function gcHasLaterRecurrent(row,model){
   const inc=normalizeNumero(row?.[COL.numero]);
   return (model?.confirmed||[]).some(ev=>normalizeNumero(ev?.previous?.[COL.numero])===inc);
@@ -12579,14 +12766,17 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
   const recurrent=!!meta?.recurrent;
   const ev=meta?.event||null;
   const allGroups=[...gcRowGroups(row)];
+  const validated=gcIsValidated(row);
   const activeGroups=meta?.activeGroups||[];
   const st=gcIncState(row);
   const correction=st.correcao||'Sem Ação';
   const feedback=st.feedback||'Sem Feedback';
   const currentCategory=st.posteriorGroup?gcGroupCode(st.posteriorGroup):'';
-  const activeCategoryCodes=[...new Set((activeGroups||[]).map(gcGroupCode).filter(Boolean))];
+  const activeCategoryCodes=[...new Set((activeGroups||[]).map(g=>gcGroupCode(g,gcRowCause(row))).filter(Boolean))];
+  const excludedCategoryCodes=[...gcDangerousCorrectionCodes(row,model)];
   const hasSavedCorrection=!!(st.posteriorGroup||st.posteriorCause||correction==='Sim');
-  const canShowCorrection=!!(recurrent||gcHasLaterRecurrent(row,model)||hasSavedCorrection);
+  const canShowCorrection=!validated&&!!(recurrent||gcHasLaterRecurrent(row,model)||hasSavedCorrection);
+  const canShowFeedback=!!(recurrent||gcHasLaterRecurrent(row,model)||hasSavedCorrection||validated);
   const process=row?.[COL.processo];
 
   let cardClass='',badge='';
@@ -12601,14 +12791,14 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
   }
 
   const inc=formatNumero(row?.[COL.numero]);
-  return `<article class="gc-att-card ${cardClass}" data-gc-inc="${esc(gcIncKey(row))}">
+  return `<article class="gc-att-card ${cardClass} ${validated?'validated':''}" data-gc-inc="${esc(gcIncKey(row))}">
     <div class="gc-att-top">
       <div>
         <div class="gc-att-order">${esc(inc)} <button class="gc-inc-copy" type="button" data-copy-inc="${esc(inc)}" title="Copiar incidência">⧉</button></div>
         <div class="gc-client-inside">Cliente ${esc(gcClientKey(row?.[COL.nCliente]))}</div>
         <div class="gc-att-date">${esc(gcDate(row?.__dataFim))}</div>
       </div>
-      ${badge}
+      ${badge}${validated?'<span class="gc-validated-badge">VALIDADO</span>':''}
     </div>
 
     <div class="gc-att-grid">
@@ -12617,7 +12807,7 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
 
       <div class="gc-att-field full ${(recurrent||!isFirst)?'gc-cause-highlight':''}">
         <label>Causa</label>
-        <div class="value">${gcGroupLogosContext(allGroups,activeGroups)} ${gcExpandableText(gcRowCause(row))}</div>
+        <div class="value">${gcGroupLogosContext(allGroups,activeGroups,gcRowCause(row))} ${gcExpandableText(gcRowCause(row))}</div>
       </div>
 
       <div class="gc-att-field full">
@@ -12637,16 +12827,17 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
       <div class="gc-exec-date">${esc(gcEorderDate(row))}</div>
     </div>
 
-    ${canShowCorrection?`<div class="gc-action-box">
+    ${canShowFeedback?`<div class="gc-action-box">
+      ${canShowCorrection?gcSuggestionHtml(row,model):''}
       <div class="gc-action-row">
-        <div class="gc-action-control">
+        ${canShowCorrection?`<div class="gc-action-control">
           <label>Correção</label>
           <select data-gc-inc-correction="${esc(gcIncKey(row))}">
             <option ${correction==='Sem Ação'?'selected':''}>Sem Ação</option>
             <option ${correction==='Sim'?'selected':''}>Sim</option>
             <option ${correction==='Não'?'selected':''}>Não</option>
           </select>
-        </div>
+        </div>`:''}
         <div class="gc-action-control">
           <label>Feedback Operador</label>
           <select data-gc-feedback="${esc(gcIncKey(row))}">
@@ -12655,25 +12846,26 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
             <option ${feedback==='Não'?'selected':''}>Não</option>
           </select>
         </div>
+        ${validated?'<span class="gc-validated-lock">Causa validada — alteração bloqueada</span>':''}
         ${recurrent&&ev?`<span class="gc-muted">${fmtNum(ev.diasDesdeAnterior)} dia(s) desde o último atendimento de ${esc(ev.group)}</span>`:''}
       </div>
 
-      ${correction==='Sim'?`<div class="gc-change-editor">
+      ${canShowCorrection&&correction==='Sim'?`<div class="gc-change-editor">
         <div class="gc-change-grid">
           <div class="gc-change-field">
             <label>Grupo posterior</label>
-            <select data-gc-inc-group="${esc(gcIncKey(row))}">${gcCorrectionGroupOptions(currentCategory,activeCategoryCodes)}</select>
+            <select data-gc-inc-group="${esc(gcIncKey(row))}">${gcCorrectionGroupOptions(currentCategory,excludedCategoryCodes)}</select>
           </div>
           <div class="gc-change-field">
             <label>Causa posterior</label>
-            <select data-gc-inc-cause="${esc(gcIncKey(row))}">${gcCauseOptionsForCategory(currentCategory,st.posteriorCause||'',activeCategoryCodes)}</select>
+            <select data-gc-inc-cause="${esc(gcIncKey(row))}">${gcCauseOptionsForCategory(currentCategory,st.posteriorCause||'',excludedCategoryCodes)}</select>
           </div>
           <button type="button" class="gc-save-change" data-gc-inc-save="${esc(gcIncKey(row))}">Salvar correção</button>
         </div>
-        ${st.posteriorGroup&&st.posteriorCause?`<div class="gc-saved-change">Correção registrada: ${gcGroupLogo(st.posteriorGroup,true)} ${esc(st.posteriorCause)}</div>`:''}
+        ${st.posteriorGroup&&st.posteriorCause?`<div class="gc-saved-change">Correção registrada: ${gcGroupLogo(gcGroupCode(st.posteriorGroup,st.posteriorCause),true,st.posteriorCause)} ${esc(st.posteriorCause)}</div>`:''}
         ${hasSavedCorrection?`<button type="button" class="gc-undo-change" data-gc-inc-undo="${esc(gcIncKey(row))}">Desfazer correção</button>`:''}
       </div>`:''}
-      ${correction!=='Sim'&&hasSavedCorrection?`<button type="button" class="gc-undo-change" data-gc-inc-undo="${esc(gcIncKey(row))}">Desfazer correção</button>`:''}
+      ${canShowCorrection&&correction!=='Sim'&&hasSavedCorrection?`<button type="button" class="gc-undo-change" data-gc-inc-undo="${esc(gcIncKey(row))}">Desfazer correção</button>`:''}
     </div>`:''}
   </article>`;
 }
@@ -12782,19 +12974,50 @@ function gcExportCauseChanges(model){
   }
 }
 
+function gcClientSortState(){
+  if(!S.analiseGrupoCausaSort)S.analiseGrupoCausaSort={key:'group',dir:1};
+  return S.analiseGrupoCausaSort;
+}
+function gcClientMetric(c,key){
+  if(key==='cliente')return String(c.cliente||'');
+  if(key==='group')return c.group.length;
+  if(key==='ramal')return c.ramal;
+  if(key==='medidor')return c.medidor;
+  if(key==='vegetacao')return c.vegetacao;
+  if(key==='animais')return c.animais;
+  if(key==='outros')return c.outros;
+  if(key==='correcoes')return gcCorrectionCountForClient(c.cliente);
+  return 0;
+}
+function gcSortedClients(clients){
+  const s=gcClientSortState();
+  return [...clients].sort((a,b)=>{
+    const av=gcClientMetric(a,s.key),bv=gcClientMetric(b,s.key);
+    const cmp=typeof av==='string'?av.localeCompare(bv,'pt-BR',{numeric:true}):av-bv;
+    return cmp*s.dir || String(a.cliente).localeCompare(String(b.cliente),'pt-BR',{numeric:true});
+  });
+}
+function gcSortHeader(label,key){
+  const s=gcClientSortState();
+  const arrow=s.key===key?(s.dir>0?' ▲':' ▼'):'';
+  return `<button type="button" class="gc-sort-head" data-gc-sort="${key}">${label}${arrow}</button>`;
+}
 function gcClientTable(clients,kind,model){
   if(!clients.length)return '<div class="gc-empty">Nenhum cliente encontrado.</div>';
-  return `<div class="gc-table-wrap"><table class="gc-table gc-correction-summary"><thead><tr>
-    <th>Cliente</th>
-    <th>Reinc. Grupo</th>
-    <th>Ramal</th>
-    <th>Medidor</th>
-    <th>Vegetação</th>
-    <th>Animais</th>
-    <th>Outros</th>
-  </tr></thead><tbody>${clients.map(c=>{
+  const sorted=gcSortedClients(clients);
+  return `<div class="gc-table-wrap gc-correction-table-wrap"><table class="gc-table gc-correction-summary"><thead><tr>
+    <th>${gcSortHeader('Cliente','cliente')}</th>
+    <th>${gcSortHeader('Reinc. Grupo','group')}</th>
+    <th>${gcSortHeader('Ramal','ramal')}</th>
+    <th>${gcSortHeader('Medidor','medidor')}</th>
+    <th>${gcSortHeader('Vegetação','vegetacao')}</th>
+    <th>${gcSortHeader('Animais','animais')}</th>
+    <th>${gcSortHeader('Outros','outros')}</th>
+    <th>${gcSortHeader('Correções','correcoes')}</th>
+  </tr></thead><tbody>${sorted.map(c=>{
     const key=`${kind}:${c.cliente}`,open=S.analiseGrupoCausaExpanded.has(key);
-    const detail=open?`<tr class="gc-detail"><td colspan="7">${gcDetailTable(c,model)}</td></tr>`:'';
+    const corr=gcCorrectionCountForClient(c.cliente);
+    const detail=open?`<tr class="gc-detail"><td colspan="8">${gcDetailTable(c,model)}</td></tr>`:'';
     return `<tr class="gc-row" data-gc-client="${encodeURIComponent(c.cliente)}" data-gc-kind="${kind}">
       <td><b>${open?'▾':'▸'} ${esc(c.cliente)}</b></td>
       <td>${fmtNum(c.group.length)}</td>
@@ -12803,9 +13026,11 @@ function gcClientTable(clients,kind,model){
       <td>${fmtNum(c.vegetacao)}</td>
       <td>${fmtNum(c.animais)}</td>
       <td>${fmtNum(c.outros)}</td>
+      <td class="gc-corrections-cell">${fmtNum(corr)}</td>
     </tr>${detail}`;
   }).join('')}</tbody></table></div>`;
 }
+
 function renderAnaliseGrupoCausa(fromAsync=false){
   const el=document.getElementById('panel-analiseGrupoCausa');if(!el)return;
   try{
@@ -12878,19 +13103,39 @@ function renderAnaliseGrupoCausa(fromAsync=false){
 
   el.querySelectorAll('[data-gc-client]').forEach(tr=>tr.onclick=(event)=>{
     if(event.target.closest('select,button,details,summary,input,a'))return;
+    event.preventDefault();
     const cli=decodeURIComponent(tr.dataset.gcClient||''),key=`${tr.dataset.gcKind}:${cli}`;
-    const beforeTop=tr.getBoundingClientRect().top;
     const wasOpen=S.analiseGrupoCausaExpanded.has(key);
+    const y=window.scrollY;
+    const wrap=el.querySelector('.gc-correction-table-wrap');
+    const scrollTop=wrap?.scrollTop||0,scrollLeft=wrap?.scrollLeft||0;
+
     S.analiseGrupoCausaExpanded.clear();
     if(!wasOpen)S.analiseGrupoCausaExpanded.add(key);
     S.renderKeys.analiseGrupoCausa='';
     renderAnaliseGrupoCausa();
+
     requestAnimationFrame(()=>{
-      const novo=[...document.querySelectorAll('[data-gc-client]')].find(x=>decodeURIComponent(x.dataset.gcClient||'')===cli&&x.dataset.gcKind===tr.dataset.gcKind);
-      if(novo){
-        const afterTop=novo.getBoundingClientRect().top;
-        window.scrollBy(0,afterTop-beforeTop);
-      }
+      window.scrollTo(window.scrollX,y);
+      const next=document.querySelector('#panel-analiseGrupoCausa .gc-correction-table-wrap');
+      if(next){next.scrollTop=scrollTop;next.scrollLeft=scrollLeft}
+    });
+  });
+
+  el.querySelectorAll('[data-gc-sort]').forEach(button=>button.onclick=(event)=>{
+    event.stopPropagation();
+    const key=button.dataset.gcSort;
+    const s=gcClientSortState();
+    if(s.key===key)s.dir*=-1;else S.analiseGrupoCausaSort={key,dir:1};
+    const y=window.scrollY;
+    const wrap=el.querySelector('.gc-correction-table-wrap');
+    const top=wrap?.scrollTop||0,left=wrap?.scrollLeft||0;
+    S.renderKeys.analiseGrupoCausa='';
+    renderAnaliseGrupoCausa();
+    requestAnimationFrame(()=>{
+      window.scrollTo(window.scrollX,y);
+      const next=document.querySelector('#panel-analiseGrupoCausa .gc-correction-table-wrap');
+      if(next){next.scrollTop=top;next.scrollLeft=left}
     });
   });
 
@@ -12910,10 +13155,18 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     event.stopPropagation();
     const inc=select.dataset.gcIncCorrection;
     const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
-    if(!row)return;
+    if(!row||gcIsValidated(row))return;
+    const y=window.scrollY;
+    const wrap=el.querySelector('.gc-correction-table-wrap');
+    const top=wrap?.scrollTop||0,left=wrap?.scrollLeft||0;
     await gcSaveIncState(row,{correcao:select.value});
     S.renderKeys.analiseGrupoCausa='';
     renderAnaliseGrupoCausa(true);
+    requestAnimationFrame(()=>{
+      window.scrollTo(window.scrollX,y);
+      const next=document.querySelector('#panel-analiseGrupoCausa .gc-correction-table-wrap');
+      if(next){next.scrollTop=top;next.scrollLeft=left}
+    });
   });
 
   el.querySelectorAll('[data-gc-feedback]').forEach(select=>select.onchange=async(event)=>{
@@ -12929,8 +13182,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     const inc=select.dataset.gcIncGroup;
     const causeSelect=el.querySelector(`[data-gc-inc-cause="${CSS.escape(inc)}"]`);
     const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
-    const meta=model.rowMeta.get(normalizeNumero(inc));
-    const excludedCodes=[...new Set((meta?.activeGroups||[]).map(gcGroupCode).filter(Boolean))];
+    const excludedCodes=row?[...gcDangerousCorrectionCodes(row,model)]:[];
     if(causeSelect)causeSelect.innerHTML=gcCauseOptionsForCategory(select.value,'',excludedCodes);
   });
 
@@ -12940,11 +13192,14 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
     const groupSelect=el.querySelector(`[data-gc-inc-group="${CSS.escape(inc)}"]`);
     const causeSelect=el.querySelector(`[data-gc-inc-cause="${CSS.escape(inc)}"]`);
-    if(!row||!groupSelect||!causeSelect)return;
+    if(!row||!groupSelect||!causeSelect||gcIsValidated(row))return;
     if(!groupSelect.value||!causeSelect.value){alert('Selecione o grupo e a causa posterior.');return}
     const [encodedGroup,encodedCause]=String(causeSelect.value).split('|||');
     const actualGroup=decodeURIComponent(encodedGroup||'');
     const actualCause=decodeURIComponent(encodedCause||'');
+    const y=window.scrollY;
+    const wrap=el.querySelector('.gc-correction-table-wrap');
+    const top=wrap?.scrollTop||0,left=wrap?.scrollLeft||0;
     await gcSaveIncState(row,{
       correcao:'Sim',
       posteriorGroup:actualGroup||gcActualGroupFromCategory(groupSelect.value,actualCause),
@@ -12952,13 +13207,21 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     });
     S.renderKeys.analiseGrupoCausa='';
     renderAnaliseGrupoCausa(true);
+    requestAnimationFrame(()=>{
+      window.scrollTo(window.scrollX,y);
+      const next=document.querySelector('#panel-analiseGrupoCausa .gc-correction-table-wrap');
+      if(next){next.scrollTop=top;next.scrollLeft=left}
+    });
   });
 
   el.querySelectorAll('[data-gc-inc-undo]').forEach(button=>button.onclick=async(event)=>{
     event.stopPropagation();
     const inc=button.dataset.gcIncUndo;
     const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
-    if(!row)return;
+    if(!row||gcIsValidated(row))return;
+    const y=window.scrollY;
+    const wrap=el.querySelector('.gc-correction-table-wrap');
+    const top=wrap?.scrollTop||0,left=wrap?.scrollLeft||0;
     await gcSaveIncState(row,{
       correcao:'Sem Ação',
       posteriorGroup:'',
@@ -12966,6 +13229,11 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     });
     S.renderKeys.analiseGrupoCausa='';
     renderAnaliseGrupoCausa(true);
+    requestAnimationFrame(()=>{
+      window.scrollTo(window.scrollX,y);
+      const next=document.querySelector('#panel-analiseGrupoCausa .gc-correction-table-wrap');
+      if(next){next.scrollTop=top;next.scrollLeft=left}
+    });
   });
 
   const exportChanges=document.getElementById('gcExportCauseChanges');
