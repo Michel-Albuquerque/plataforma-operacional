@@ -1502,6 +1502,17 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
   white-space:nowrap;
 }
 
+
+#panel-analiseGrupoCausa .gc-suggestion{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:5px;
+}
+#panel-analiseGrupoCausa .gc-suggestion b{
+  margin-right:4px;
+}
+
 </style>
 </head>
 <body>
@@ -13434,7 +13445,7 @@ function gcSafeCorrectionCodes(row,model){
     .sort((a,b)=>gcGroupNumber(b)-gcGroupNumber(a));
 }
 function gcSuggestionHtml(row,model){
-  const safe=gcSafeCorrectionCodes(row,model).slice(0,4);
+  const safe=gcSafeCorrectionCodes(row,model);
   if(!safe.length)return '<div class="gc-suggestion"><b>Sugestão de Correção:</b> nenhuma opção segura encontrada na janela de 30 dias.</div>';
   return `<div class="gc-suggestion"><b>Sugestão de Correção:</b> ${safe.map(code=>gcGroupLogo(code,true,gcGroupLabel(code))).join(' ')}</div>`;
 }
