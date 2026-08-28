@@ -4380,7 +4380,7 @@ function conexaoGrupoParallelModel(){
       if(key&&!byCurrent.has(key))byCurrent.set(key,ev);
     }
 
-    S.__conexaoGrupoParallelCache={key,model,byCurrent};
+    S.__conexaoGrupoParallelCache={key:cacheKey,model,byCurrent};
   }
   return S.__conexaoGrupoParallelCache;
 }
