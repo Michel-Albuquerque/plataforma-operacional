@@ -1469,6 +1469,39 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 }
 #panel-analiseGrupoCausa .gc-suggestion b{margin-right:6px}
 
+
+/* V20 · Visão Cliente — legenda de grupos */
+.client-group-legend{
+  margin:10px 0 14px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#fff;
+  overflow:hidden;
+}
+.client-group-legend summary{
+  cursor:pointer;
+  list-style:none;
+  padding:9px 12px;
+  font-size:11px;
+  font-weight:900;
+  color:var(--ink);
+}
+.client-group-legend summary::-webkit-details-marker{display:none}
+.client-group-legend-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px 12px;
+  padding:4px 12px 12px;
+}
+.client-group-legend-item{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-size:9px;
+  color:var(--ink-muted);
+  white-space:nowrap;
+}
+
 </style>
 </head>
 <body>
@@ -2060,7 +2093,29 @@ function buildGroupRecurrenceEvaluations(sourceRows){
 }
 
 function buildGroupRecurrenceEvents(sourceRows){return buildGroupRecurrenceEvaluations(sourceRows).filter(item=>item.confirmada)}
-function refreshGroupRecurrenceCache(){const key=[S.processedAt||'',S.baseCompleta.length].join('|');if(_groupRecurrenceCache.key!==key){const evaluations=buildGroupRecurrenceEvaluations(S.baseCompleta);_groupRecurrenceCache={key,evaluations,events:evaluations.filter(item=>item.confirmada)}}return _groupRecurrenceCache}
+function refreshGroupRecurrenceCache(){
+  const key=[
+    S.processedAt||'',
+    S.baseCompleta.length,
+    Object.keys(GC_INC_STATE||{}).length
+  ].join('|');
+
+  if(_groupRecurrenceCache.key!==key){
+    // Usa o mesmo motor de memória paralela da página Correção.
+    // Cada grupo mantém sua própria referência por 30 dias.
+    // Ex.: G1,G2,G1,G2 => o 3º é reincidente de G1 e o 4º de G2.
+    const parallel=gcBuildParallelGroupEvaluations(S.baseCompleta||[]);
+    const evaluations=parallel.evaluations||[];
+    _groupRecurrenceCache={
+      key,
+      evaluations,
+      events:evaluations.filter(item=>item.confirmada),
+      rowMeta:parallel.rowMeta,
+      rowsByClient:parallel.rowsByClient
+    };
+  }
+  return _groupRecurrenceCache;
+}
 function allGroupRecurrenceEvaluations(){return refreshGroupRecurrenceCache().evaluations}
 function allGroupRecurrenceEvents(){return refreshGroupRecurrenceCache().events}
 function getFilteredGroupEvaluations(){
@@ -4332,6 +4387,18 @@ function buildConexaoGrupoUniverse(){
       row.__nextMain=current;
       row.__nextNumero=current[COL.numero];
       row[COL2.numeroRein]=current[COL.numero];
+
+      // Para filtros (Ano, Mês, período, causa, cliente e processo),
+      // a linha analítica representa a INCIDÊNCIA REINCIDENTE atual.
+      row[COL2.nCliente]=current[COL.nCliente];
+      row[COL2.causa]=current[COL.causa];
+      row[COL2.dataInicio]=current[COL.dataInicio];
+      row[COL2.dataFim]=current[COL.dataFim];
+      row[COL2.processo]=current[COL.processo];
+      row.__dataInicio=current.__dataInicio||parseDateVal(current[COL.dataInicio]);
+      row.__dataFim=current.__dataFim||parseDateVal(current[COL.dataFim]);
+      row.__ano=current.__ano||(row.__dataFim?row.__dataFim.getFullYear():null);
+      row.__mes=current.__mes||(row.__dataFim?row.__dataFim.getMonth()+1:null);
       row.__nextDataInicio=current.__dataInicio||parseDateVal(current[COL.dataInicio]);
       row.__nextDataFim=current.__dataFim||parseDateVal(current[COL.dataFim]);
       row.__nextCausa=current[COL.causa];
@@ -5374,16 +5441,41 @@ function computeRanking(filteredBaseRows, baseIndicadorRows){
 
   const reincByClient = new Map();
   if(isConnectionBasedIndicator()){
-    /* Fonte: base de reincidência (planilha de referência) — cada linha
-       já É uma reincidência, não precisa recalcular cadeia/causa/equipe. */
+    /* Fonte: Base de Reincidência.
+       Em Conexão por Grupo, cada linha já foi adaptada para representar
+       a incidência reincidente atual, portanto os filtros de mês/período
+       e os dados do ranking usam a data/equipe/causa dessa incidência. */
     const linhas = getFilteredReincidenciaConexao();
     for(const r of linhas){
-      const c = String(r[COL2.nCliente]||'').trim(); if(!c) continue;
+      const current=r.__nextMain||null;
+      const c = String((current&&current[COL.nCliente])||r[COL2.nCliente]||'').trim();
+      if(!isValidClientId(c)) continue;
+
       let o = reincByClient.get(c);
-      if(!o){ o={count:0,causaCounts:new Map(),ciclos:new Set()}; reincByClient.set(c,o); }
+      if(!o){
+        o={count:0,causaCounts:new Map(),ciclos:new Set(),firstDate:null,firstEquipe:null,lastDate:null,lastEquipe:null};
+        reincByClient.set(c,o);
+      }
+
+      const cause=(current&&current[COL.causa])||r[COL2.causa]||'—';
+      const date=(current&&current.__dataFim)||r.__dataFim||null;
+      const team=(current&&current[COL.equipeDesl])||r.__nextEquipeDesl||'—';
+
       o.count++;
-      o.causaCounts.set(r[COL2.causa], (o.causaCounts.get(r[COL2.causa])||0)+1);
-      o.ciclos.add(r.__ano+'-'+r.__mes);
+      o.causaCounts.set(cause,(o.causaCounts.get(cause)||0)+1);
+
+      if(S.filters.parametro==='conexao_grupo'){
+        const ev=r.__grupoEvento;
+        const groupKey=ev
+          ? `${c}-${gcGroupCode(ev.group,cause)||ev.group}-${normalizeNumero(ev.previous?.[COL.numero])}-${normalizeNumero(ev.current?.[COL.numero])}`
+          : `${c}-${normalizeNumero(r.__nextNumero)}`;
+        o.ciclos.add(groupKey);
+      }else{
+        o.ciclos.add(r.__ano+'-'+r.__mes);
+      }
+
+      if(date&&(!o.firstDate||date<o.firstDate)){o.firstDate=date;o.firstEquipe=team}
+      if(date&&(!o.lastDate||date>o.lastDate)){o.lastDate=date;o.lastEquipe=team}
     }
   } else if(S.filters.parametro === 'grupo'){
     for(const event of getFilteredGroupRecurrences()){
@@ -5407,7 +5499,15 @@ function computeRanking(filteredBaseRows, baseIndicadorRows){
   }
   const out = [];
   for(const [cliente, r] of reincByClient){
-    const t = totalsByClient.get(cliente) || {total:0,firstDate:null,firstEquipe:null,lastDate:null,lastEquipe:null};
+    const t = totalsByClient.get(cliente) || {
+      total:0,
+      firstDate:r.firstDate||null,
+      firstEquipe:r.firstEquipe||null,
+      lastDate:r.lastDate||null,
+      lastEquipe:r.lastEquipe||null
+    };
+    if(!t.firstDate&&r.firstDate){t.firstDate=r.firstDate;t.firstEquipe=r.firstEquipe}
+    if(!t.lastDate&&r.lastDate){t.lastDate=r.lastDate;t.lastEquipe=r.lastEquipe}
     let causaTop=null, causaTopQtd=0;
     for(const [causa,q] of r.causaCounts){
       if(q>causaTopQtd || (q===causaTopQtd && (causaTop===null || String(causa)<String(causaTop)))){ causaTop=causa; causaTopQtd=q; }
@@ -7498,6 +7598,42 @@ async function exportClientBehaviorPptx(){
     setLoading(false);
   }catch(err){console.error('Erro ao exportar apresentação da Visão Cliente:',err);setLoading(false);alert('Não foi possível gerar a apresentação. Detalhe técnico: '+err.message);}
 }
+
+function diagnosticoRankingGrupoAtual(){
+  const ranking=getClientRanking();
+  const events=S.filters.parametro==='grupo'
+    ? getFilteredGroupRecurrences()
+    : S.filters.parametro==='conexao_grupo'
+      ? getFilteredReincidenciaConexao()
+      : [];
+  return {
+    indicador:recurrenceIndicatorLabel(),
+    anos:[...S.filters.anos],
+    meses:[...S.filters.meses],
+    dateFrom:S.filters.dateFrom,
+    dateTo:S.filters.dateTo,
+    eventosFiltrados:events.length,
+    clientesRanking:ranking.length,
+    top5:ranking.slice(0,5)
+  };
+}
+
+function clientGroupLegendHtml(){
+  if(!['grupo','conexao_grupo'].includes(S.filters.parametro))return '';
+
+  const codes=gcAllCorrectionCodes();
+  return `<details class="client-group-legend">
+    <summary>Legenda dos grupos</summary>
+    <div class="client-group-legend-grid">
+      ${codes.map(code=>`
+        <div class="client-group-legend-item">
+          ${gcGroupLogo(code,true,gcGroupLabel(code))}
+          <span>${esc(gcGroupLabel(code))}</span>
+        </div>`).join('')}
+    </div>
+  </details>`;
+}
+
 function renderVisaoCliente(){
   if(!S.baseCompleta.length) return;
   const {base, baseIndicador} = getFiltered();
@@ -7510,8 +7646,9 @@ function renderVisaoCliente(){
   const el = document.getElementById('panel-visaoCliente');
   el.innerHTML = `
     ${usandoConexaoSemBase() ? `<div class="tag-note" style="background:var(--danger-bg);color:var(--danger)">⚠ Parâmetro em "Reincidência Conexão", mas nenhuma base de reincidência foi carregada. Vá em Importar base e envie a planilha de reincidência, ou troque o Parâmetro para "Geral". Os números abaixo estão zerados.</div>` : ''}
-    <div class="tag-note">Total de incidências = registros <b>COM EQUIPE</b>, com Data Fim válida e sem Atendimento Remoto. Indicador ativo: <b>${esc(recurrenceIndicatorLabel())}</b>${S.filters.parametro==='grupo'?' · regra: nova incidência 30 dias ou mais após a anterior e ao menos um grupo de causa em comum; causas multigrupo são aceitas sem duplicar o caso.':' · janela de 30 dias conforme a regra vigente.'} · ${fmtNum(totalIncid)} incidências · ${fmtNum(totalReinc)} reincidências · ${fmtPct(pct)} de reincidência · ${fmtNum(ranking.length)} clientes reincidentes</div>
+    <div class="tag-note">Total de incidências = registros <b>COM EQUIPE</b>, com Data Fim válida e sem Atendimento Remoto. Indicador ativo: <b>${esc(recurrenceIndicatorLabel())}</b>${['grupo','conexao_grupo'].includes(S.filters.parametro)?' · regra: cada grupo mantém memória própria por até 30 dias; repetições do mesmo grupo contam mesmo com outros grupos entre elas.':' · janela de 30 dias conforme a regra vigente.'} · ${fmtNum(totalIncid)} incidências · ${fmtNum(totalReinc)} reincidências · ${fmtPct(pct)} de reincidência · ${fmtNum(ranking.length)} clientes reincidentes</div>
 
+    ${clientGroupLegendHtml()}
     ${behaviorPanelHtml(behavior)}
 
     <div class="section-title">Ranking de clientes com mais reincidência <span class="hint">clique no cliente para ver a régua do tempo</span>
