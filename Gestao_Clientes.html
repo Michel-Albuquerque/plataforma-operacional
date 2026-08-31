@@ -13957,6 +13957,26 @@ function gcCorrectionRowTime(row){
   return NaN;
 }
 
+function gcRowEffectiveCodes(row,model){
+  const inc=normalizeNumero(row?.[COL.numero]);
+  const meta=model?.rowMeta?.get(inc);
+  const active=[...(meta?.activeGroups||[])];
+  const cause=gcRowCause(row);
+
+  // Para causas multigrupo, considerar o grupo efetivamente assumido
+  // pela sequência. Ex.: RAMAL/MEDIDOR dentro de uma cadeia de MEDIDOR
+  // deve bloquear apenas G2; G1 continua sendo uma correção possível.
+  if(active.length){
+    return [...new Set(
+      active.map(group=>gcGroupCode(group,cause)).filter(Boolean)
+    )];
+  }
+
+  // Se a incidência ainda não teve seu contexto resolvido, mantém as
+  // possibilidades originais por segurança.
+  return gcRowPossibleCodes(row);
+}
+
 function gcDangerousCorrectionCodes(row,model){
   const currentInc=normalizeNumero(row?.[COL.numero]);
   const cacheKey=currentInc||gcIncKey(row);
@@ -13967,7 +13987,11 @@ function gcDangerousCorrectionCodes(row,model){
 
   const client=gcClientKey(row?.[COL.nCliente]);
   const t=gcCorrectionRowTime(row);
-  const out=new Set(gcRowPossibleCodes(row));
+
+  // Bloqueia somente o grupo ATIVO da incidência atual.
+  // Uma causa RAMAL/MEDIDOR que está atuando como MEDIDOR não pode
+  // bloquear RAMAL apenas porque RAMAL também é uma possibilidade textual.
+  const out=new Set(gcRowEffectiveCodes(row,model));
 
   for(const other of (model?.rowsByClient?.get(client)||[])){
     if(normalizeNumero(other?.[COL.numero])===currentInc)continue;
@@ -13976,7 +14000,7 @@ function gcDangerousCorrectionCodes(row,model){
     if(!Number.isFinite(t)||!Number.isFinite(ot))continue;
     if(Math.abs(ot-t)>GROUP_REINCIDENCE_MAX_MS)continue;
 
-    for(const code of gcRowPossibleCodes(other))out.add(code);
+    for(const code of gcRowEffectiveCodes(other,model))out.add(code);
 
     const st=gcIncState(other);
     if(st?.correcao==='Sim' && st?.posteriorGroup){
@@ -14043,7 +14067,7 @@ function openGcSuggestionGroup(code){
 function gcSuggestionHtml(row,model){
   const safe=gcSafeCorrectionCodes(row,model);
   if(!safe.length)return '<div class="gc-suggestion"><b>Sugestão de Correção:</b> nenhuma opção segura encontrada na janela de 30 dias.</div>';
-  return `<div class="gc-suggestion" title="Só são exibidos grupos que não aparecem em nenhuma outra incidência deste cliente dentro de ±30 dias."><b>Sugestão de Correção:</b> ${safe.map(code=>`<button type="button" class="gc-suggestion-group-btn" onclick="event.stopPropagation();openGcSuggestionGroup('${code}')" title="Ver causas de ${code}">${gcGroupLogo(code,true,gcGroupLabel(code))}</button>`).join(' ')}</div>`;
+  return `<div class="gc-suggestion" title="Só são exibidos grupos que não criariam outra reincidência. Em causas multigrupo, vale o grupo efetivamente assumido pela sequência."><b>Sugestão de Correção:</b> ${safe.map(code=>`<button type="button" class="gc-suggestion-group-btn" onclick="event.stopPropagation();openGcSuggestionGroup('${code}')" title="Ver causas de ${code}">${gcGroupLogo(code,true,gcGroupLabel(code))}</button>`).join(' ')}</div>`;
 }
 function gcPreserveCorrectionViewport(callback){
   const y=window.scrollY;
