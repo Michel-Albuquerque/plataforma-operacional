@@ -6867,11 +6867,12 @@ function openDashboardMonthlyRecord(index){
   document.getElementById('modalBg').classList.add('show');
 }
 
-function openDashboardMonthlyBar(month,datasetIndex){
+function openDashboardMonthlyBar(month,datasetType){
   if(!month)return;
 
-  const isRecurrence=datasetIndex===1;
-  if(datasetIndex!==0 && datasetIndex!==1)return;
+  const isRecurrence=datasetType==='reincidencias'||datasetType===1;
+  const isIncidence=datasetType==='incidencias'||datasetType===0;
+  if(!isRecurrence&&!isIncidence)return;
 
   const rows=isRecurrence
     ? (month.recurrenceRows||[])
@@ -6957,19 +6958,32 @@ function openDashboardMonthlyBar(month,datasetIndex){
 
 
 let _dashboardRenderToken=0;
+function dashboardMonthlyDatasetType(dataset){
+  const label=normalizeHeaderKey(dataset?.label||'');
+  if(label.includes('REINCID'))return 'reincidencias';
+  if(label.includes('INCID'))return 'incidencias';
+  return '';
+}
+
 function dashboardMonthlyNativeBarHit(chart,nativeEvent){
   if(!chart||!nativeEvent)return null;
 
-  const canvas=chart.canvas;
-  const rect=canvas.getBoundingClientRect();
+  const rect=chart.canvas.getBoundingClientRect();
+
+  // Chart.js trabalha com coordenadas CSS do canvas.
+  // Não aplicar devicePixelRatio aqui.
   const x=nativeEvent.clientX-rect.left;
   const y=nativeEvent.clientY-rect.top;
 
   const hits=[];
 
-  for(const datasetIndex of [0,1]){
+  for(let datasetIndex=0;datasetIndex<(chart.data?.datasets||[]).length;datasetIndex++){
+    const dataset=chart.data.datasets[datasetIndex];
+    const type=dashboardMonthlyDatasetType(dataset);
+    if(!type)continue;
+
     const meta=chart.getDatasetMeta(datasetIndex);
-    if(!meta||meta.hidden)continue;
+    if(!meta||meta.hidden||meta.type!=='bar')continue;
 
     for(let index=0;index<(meta.data||[]).length;index++){
       const element=meta.data[index];
@@ -6982,26 +6996,31 @@ function dashboardMonthlyNativeBarHit(chart,nativeEvent){
       const cx=Number(props.x);
       const top=Math.min(Number(props.y),Number(props.base));
       const bottom=Math.max(Number(props.y),Number(props.base));
-      const half=Math.max(4,Number(props.width||0)/2);
+      const half=Math.max(3,Number(props.width||0)/2);
 
       if(!Number.isFinite(cx)||!Number.isFinite(top)||!Number.isFinite(bottom))continue;
 
-      // Pequena tolerância para barras de reincidência muito baixas.
-      if(
-        x>=cx-half-3 &&
-        x<=cx+half+3 &&
-        y>=top-6 &&
-        y<=bottom+6
-      ){
-        hits.push({datasetIndex,index,area:Math.max(1,bottom-top)});
+      const withinX=x>=cx-half-2&&x<=cx+half+2;
+      const withinY=y>=top-5&&y<=bottom+5;
+
+      if(withinX&&withinY){
+        hits.push({
+          datasetIndex,
+          index,
+          type,
+          dx:Math.abs(x-cx),
+          dy:y<top?top-y:y>bottom?y-bottom:0
+        });
       }
     }
   }
 
-  // Se houver sobreposição, prioriza a menor barra: normalmente é a de
-  // reincidências, garantindo que ela continue clicável mesmo sobre outra série.
-  hits.sort((a,b)=>a.area-b.area||b.datasetIndex-a.datasetIndex);
-  return hits[0]||null;
+  if(!hits.length)return null;
+
+  // Em barras agrupadas, o centro horizontal identifica inequivocamente
+  // se o usuário clicou na barra verde ou na laranja.
+  hits.sort((a,b)=>a.dx-b.dx||a.dy-b.dy);
+  return hits[0];
 }
 
 function wireDashboardMonthlyNativeClick(chart,monthly){
@@ -7020,7 +7039,7 @@ function wireDashboardMonthlyNativeClick(chart,monthly){
     event.preventDefault();
     event.stopPropagation();
 
-    openDashboardMonthlyBar(monthly[hit.index],hit.datasetIndex);
+    openDashboardMonthlyBar(monthly[hit.index],hit.type);
   };
 
   canvas.__dashboardMonthlyClickHandler=handler;
@@ -7237,7 +7256,9 @@ function renderDashboard(){
             plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#141c19'} },
             onHover:(event)=>{
               const target=event?.native?.target||ctx;
-              const hit=dashboardMonthlyClickedBar(S.charts.chartDashboardMensal||event.chart,event);
+              const native=event?.native;
+              const chart=S.charts.chartDashboardMensal||event.chart;
+              const hit=native?dashboardMonthlyNativeBarHit(chart,native):null;
               target.style.cursor=hit?'pointer':'default';
             },
             onClick:()=>{},
