@@ -6957,6 +6957,76 @@ function openDashboardMonthlyBar(month,datasetIndex){
 
 
 let _dashboardRenderToken=0;
+function dashboardMonthlyNativeBarHit(chart,nativeEvent){
+  if(!chart||!nativeEvent)return null;
+
+  const canvas=chart.canvas;
+  const rect=canvas.getBoundingClientRect();
+  const x=nativeEvent.clientX-rect.left;
+  const y=nativeEvent.clientY-rect.top;
+
+  const hits=[];
+
+  for(const datasetIndex of [0,1]){
+    const meta=chart.getDatasetMeta(datasetIndex);
+    if(!meta||meta.hidden)continue;
+
+    for(let index=0;index<(meta.data||[]).length;index++){
+      const element=meta.data[index];
+      if(!element)continue;
+
+      const props=typeof element.getProps==='function'
+        ? element.getProps(['x','y','base','width'],true)
+        : element;
+
+      const cx=Number(props.x);
+      const top=Math.min(Number(props.y),Number(props.base));
+      const bottom=Math.max(Number(props.y),Number(props.base));
+      const half=Math.max(4,Number(props.width||0)/2);
+
+      if(!Number.isFinite(cx)||!Number.isFinite(top)||!Number.isFinite(bottom))continue;
+
+      // Pequena tolerância para barras de reincidência muito baixas.
+      if(
+        x>=cx-half-3 &&
+        x<=cx+half+3 &&
+        y>=top-6 &&
+        y<=bottom+6
+      ){
+        hits.push({datasetIndex,index,area:Math.max(1,bottom-top)});
+      }
+    }
+  }
+
+  // Se houver sobreposição, prioriza a menor barra: normalmente é a de
+  // reincidências, garantindo que ela continue clicável mesmo sobre outra série.
+  hits.sort((a,b)=>a.area-b.area||b.datasetIndex-a.datasetIndex);
+  return hits[0]||null;
+}
+
+function wireDashboardMonthlyNativeClick(chart,monthly){
+  if(!chart?.canvas)return;
+
+  const canvas=chart.canvas;
+
+  if(canvas.__dashboardMonthlyClickHandler){
+    canvas.removeEventListener('click',canvas.__dashboardMonthlyClickHandler,true);
+  }
+
+  const handler=(event)=>{
+    const hit=dashboardMonthlyNativeBarHit(chart,event);
+    if(!hit)return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    openDashboardMonthlyBar(monthly[hit.index],hit.datasetIndex);
+  };
+
+  canvas.__dashboardMonthlyClickHandler=handler;
+  canvas.addEventListener('click',handler,true);
+}
+
 function dashboardMonthlyClickedBar(chart,event){
   if(!chart||!event)return null;
 
@@ -7170,16 +7240,18 @@ function renderDashboard(){
               const hit=dashboardMonthlyClickedBar(S.charts.chartDashboardMensal||event.chart,event);
               target.style.cursor=hit?'pointer':'default';
             },
-            onClick:(event)=>{
-              const chart=event?.chart||S.charts.chartDashboardMensal;
-              const hit=dashboardMonthlyClickedBar(chart,event);
-              if(!hit)return;
-              openDashboardMonthlyBar(monthly[hit.index],hit.datasetIndex);
-            },
+            onClick:()=>{},
             layout:{ padding:{top:18,bottom:9,left:3,right:3} }
           },
           plugins:[dashboardDataLabelsPlugin]
         });
+
+        // Clique nativo no canvas: independente da linha de percentual e do
+        // mecanismo de hit-test do Chart.js.
+        wireDashboardMonthlyNativeClick(
+          S.charts.chartDashboardMensal,
+          monthly
+        );
       }catch(err){
         console.error('Erro ao montar gráfico do dashboard:', err);
         const wrap = ctx.closest ? ctx.closest('.ppt-chart-wrap') : null;
