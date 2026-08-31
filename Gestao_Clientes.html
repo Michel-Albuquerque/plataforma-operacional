@@ -13325,6 +13325,19 @@ function gcDateInputToDate(value,endOfDay){
   if(endOfDay)d.setHours(23,59,59,999);
   return d;
 }
+function gcRowInPagePeriod(row){
+  const from=gcDateInputToDate(S.analiseGrupoCausaDateFrom,false);
+  const to=gcDateInputToDate(S.analiseGrupoCausaDateTo,true);
+  const d=row?.__dataFim instanceof Date
+    ? row.__dataFim
+    : parseDateVal(row?.__dataFim)||parseDateVal(row?.[COL.dataFim]);
+
+  if(!d)return false;
+  if(from&&d<from)return false;
+  if(to&&d>to)return false;
+  return true;
+}
+
 function gcInPagePeriod(event){
   const from=gcDateInputToDate(S.analiseGrupoCausaDateFrom,false);
   const to=gcDateInputToDate(S.analiseGrupoCausaDateTo,true);
@@ -13861,7 +13874,7 @@ function gcBuildModel(){
 
   for(const rows of parallel.rowsByClient.values()){
     for(const row of rows){
-      if(!gcInPagePeriod(row))continue;
+      if(!gcRowInPagePeriod(row))continue;
       if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
       const inc=normalizeNumero(row?.[COL.numero]);
       if(inc)visibleRowKeys.add(inc);
@@ -14458,6 +14471,46 @@ function gcClientTable(clients,kind,model){
   }).join('')}</tbody></table></div>`;
 }
 
+
+function diagnosticoAbasCorrecao(){
+  const model=gcBuildModel();
+  const out={todos:0,semCorrecao:0,comCorrecao:0,acoesSalvas:0,clientesComAcao:[]};
+
+  for(const client of model.clients.filter(c=>c.group.length>0)){
+    const rows=model.rowsByClient?.get(gcClientKey(client.cliente))||[];
+    let hasNo=false,hasYes=false,acoes=[];
+
+    for(const row of rows){
+      if(!gcRowInPagePeriod(row))continue;
+      const st=gcIncState(row);
+      const pg=String(st?.posteriorGroup||'').trim();
+      const pc=String(st?.posteriorCause||'').trim();
+      const saved=(!!pg&&!!pc)||(String(st?.correcao||'')==='Sim'&&!!pc);
+
+      if(saved){
+        hasYes=true;
+        out.acoesSalvas++;
+        acoes.push({
+          incidencia:row?.[COL.numero],
+          grupo:pg,
+          causa:pc,
+          correcao:st?.correcao
+        });
+      }else if(String(st?.correcao||'Sem Ação')==='Não'){
+        hasNo=true;
+      }
+    }
+
+    if(hasYes){
+      out.comCorrecao++;
+      out.clientesComAcao.push({cliente:client.cliente,acoes});
+    }else if(hasNo)out.semCorrecao++;
+    else out.todos++;
+  }
+  return out;
+}
+
+
 function renderAnaliseGrupoCausa(fromAsync=false){
   const el=document.getElementById('panel-analiseGrupoCausa');if(!el)return;
   try{
@@ -14474,8 +14527,40 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   if(q)clients=clients.filter(c=>String(c.cliente).toLowerCase().includes(q));
   let ativos=clients.filter(c=>c.group.length>0);
   const actionFilter=S.analiseGrupoCausaActionFilter||'todos';
-  if(actionFilter==='com')ativos=ativos.filter(c=>gcCorrectionCountForClient(c.cliente,model)>0);
-  else if(actionFilter==='sem')ativos=ativos.filter(c=>gcCorrectionCountForClient(c.cliente,model)===0);
+
+  // Status das abas:
+  // - Todos: somente pendentes / Sem Ação (inclui 'Sim' ainda não concluído, para permitir terminar a edição)
+  // - Sem Correção: ação registrada como 'Não'
+  // - Com Correção: correção concluída com grupo + causa posterior salvos
+  const gcClientActionBucket=(client)=>{
+    const rows=model?.rowsByClient?.get(gcClientKey(client))||[];
+    let hasNoCorrection=false;
+    let hasCorrection=false;
+
+    for(const row of rows){
+      if(!gcRowInPagePeriod(row))continue;
+      if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
+
+      const st=gcIncState(row);
+      const posteriorGroup=String(st?.posteriorGroup||'').trim();
+      const posteriorCause=String(st?.posteriorCause||'').trim();
+      const hasStoredCorrection=
+        (!!posteriorGroup && !!posteriorCause) ||
+        (String(st?.correcao||'')==='Sim' && !!posteriorCause);
+
+      if(hasStoredCorrection){hasCorrection=true;continue}
+      if(String(st?.correcao||'Sem Ação')==='Não')hasNoCorrection=true;
+    }
+
+    // Prioridade: uma correção efetivamente salva leva o cliente para
+    // "Com Correção". Se não houver correção salva, mas houver decisão "Não",
+    // vai para "Sem Correção". O restante permanece em "Todos".
+    if(hasCorrection)return 'com';
+    if(hasNoCorrection)return 'sem';
+    return 'todos';
+  };
+
+  ativos=ativos.filter(c=>gcClientActionBucket(c.cliente)===actionFilter);
   el.innerHTML=`<div class="gc-page">
     <div class="gc-filters">
       <div class="gc-filter-field"><label>Data inicial</label><input type="date" id="gcDateFrom" value="${esc(S.analiseGrupoCausaDateFrom||'')}"></div>
@@ -14503,10 +14588,10 @@ function renderAnaliseGrupoCausa(fromAsync=false){
         <div class="gc-title">Correção de reincidências por Grupo</div>
         <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · ao abrir um cliente, o anterior é fechado</div>
       </div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <div class="gc-action-tabs" role="group" aria-label="Filtrar ações">
+        <div class="gc-action-tabs" role="group" aria-label="Filtrar correções">
           <button type="button" data-gc-action-filter="todos" class="${actionFilter==='todos'?'active':''}">Todos</button>
-          <button type="button" data-gc-action-filter="sem" class="${actionFilter==='sem'?'active':''}">Sem Ação</button>
-          <button type="button" data-gc-action-filter="com" class="${actionFilter==='com'?'active':''}">Com Ação</button>
+          <button type="button" data-gc-action-filter="sem" class="${actionFilter==='sem'?'active':''}">Sem Correção</button>
+          <button type="button" data-gc-action-filter="com" class="${actionFilter==='com'?'active':''}">Com Correção</button>
         </div>
         <button type="button" class="gc-export-changes" id="gcExportCauseChanges">Exportar correções</button>
         <input class="gc-search" id="gcSearch" value="${esc(S.analiseGrupoCausaSearch||'')}" placeholder="Buscar número do cliente">
@@ -14591,22 +14676,48 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     }
   });
 
+  function gcRerenderKeepIncidencePosition(inc){
+    const incKey=normalizeNumero(inc);
+    const currentCard=el.querySelector(`[data-gc-inc="${CSS.escape(String(incKey))}"]`) || el.querySelector(`[data-gc-inc="${CSS.escape(String(inc))}"]`);
+    const oldTop=currentCard?.getBoundingClientRect().top ?? null;
+    const wrap=el.querySelector('.gc-correction-table-wrap');
+    const oldWrapTop=wrap?.getBoundingClientRect().top ?? null;
+    const tableTop=wrap?.scrollTop||0;
+    const tableLeft=wrap?.scrollLeft||0;
+    const oldWindowX=window.scrollX;
+    const oldWindowY=window.scrollY;
+
+    S.renderKeys.analiseGrupoCausa='';
+    renderAnaliseGrupoCausa(true);
+
+    requestAnimationFrame(()=>{
+      const nextWrap=document.querySelector('#panel-analiseGrupoCausa .gc-correction-table-wrap');
+      if(nextWrap){nextWrap.scrollTop=tableTop;nextWrap.scrollLeft=tableLeft}
+
+      const nextCard=document.querySelector(`#panel-analiseGrupoCausa [data-gc-inc="${CSS.escape(String(incKey))}"]`) || document.querySelector(`#panel-analiseGrupoCausa [data-gc-inc="${CSS.escape(String(inc))}"]`);
+      if(nextCard && oldTop!=null){
+        const newTop=nextCard.getBoundingClientRect().top;
+        window.scrollBy(0,newTop-oldTop);
+        return;
+      }
+
+      // Se o registro mudou de aba e deixou de existir na tela, mantém o viewport da tabela.
+      if(nextWrap && oldWrapTop!=null){
+        const delta=nextWrap.getBoundingClientRect().top-oldWrapTop;
+        window.scrollTo(oldWindowX,Math.max(0,oldWindowY+delta));
+      }else{
+        window.scrollTo(oldWindowX,oldWindowY);
+      }
+    });
+  }
+
   el.querySelectorAll('[data-gc-inc-correction]').forEach(select=>select.onchange=async(event)=>{
     event.stopPropagation();
     const inc=select.dataset.gcIncCorrection;
     const row=model?.rowByInc?.get(normalizeNumero(inc)) || (S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
     if(!row||gcIsValidated(row))return;
-    const y=window.scrollY;
-    const wrap=el.querySelector('.gc-correction-table-wrap');
-    const top=wrap?.scrollTop||0,left=wrap?.scrollLeft||0;
     await gcSaveIncState(row,{correcao:select.value});
-    S.renderKeys.analiseGrupoCausa='';
-    renderAnaliseGrupoCausa(true);
-    requestAnimationFrame(()=>{
-      window.scrollTo(window.scrollX,y);
-      const next=document.querySelector('#panel-analiseGrupoCausa .gc-correction-table-wrap');
-      if(next){next.scrollTop=top;next.scrollLeft=left}
-    });
+    gcRerenderKeepIncidencePosition(inc);
   });
 
   el.querySelectorAll('[data-gc-feedback]').forEach(select=>select.onchange=(event)=>{
@@ -14639,21 +14750,12 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     const [encodedGroup,encodedCause]=String(causeSelect.value).split('|||');
     const actualGroup=decodeURIComponent(encodedGroup||'');
     const actualCause=decodeURIComponent(encodedCause||'');
-    const y=window.scrollY;
-    const wrap=el.querySelector('.gc-correction-table-wrap');
-    const top=wrap?.scrollTop||0,left=wrap?.scrollLeft||0;
     await gcSaveIncState(row,{
       correcao:'Sim',
       posteriorGroup:actualGroup||gcActualGroupFromCategory(groupSelect.value,actualCause),
       posteriorCause:actualCause
     });
-    S.renderKeys.analiseGrupoCausa='';
-    renderAnaliseGrupoCausa(true);
-    requestAnimationFrame(()=>{
-      window.scrollTo(window.scrollX,y);
-      const next=document.querySelector('#panel-analiseGrupoCausa .gc-correction-table-wrap');
-      if(next){next.scrollTop=top;next.scrollLeft=left}
-    });
+    gcRerenderKeepIncidencePosition(inc);
   });
 
   el.querySelectorAll('[data-gc-inc-undo]').forEach(button=>button.onclick=async(event)=>{
@@ -14661,21 +14763,12 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     const inc=button.dataset.gcIncUndo;
     const row=model?.rowByInc?.get(normalizeNumero(inc)) || (S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
     if(!row||gcIsValidated(row))return;
-    const y=window.scrollY;
-    const wrap=el.querySelector('.gc-correction-table-wrap');
-    const top=wrap?.scrollTop||0,left=wrap?.scrollLeft||0;
     await gcSaveIncState(row,{
       correcao:'Sem Ação',
       posteriorGroup:'',
       posteriorCause:''
     });
-    S.renderKeys.analiseGrupoCausa='';
-    renderAnaliseGrupoCausa(true);
-    requestAnimationFrame(()=>{
-      window.scrollTo(window.scrollX,y);
-      const next=document.querySelector('#panel-analiseGrupoCausa .gc-correction-table-wrap');
-      if(next){next.scrollTop=top;next.scrollLeft=left}
-    });
+    gcRerenderKeepIncidencePosition(inc);
   });
 
   const exportChanges=document.getElementById('gcExportCauseChanges');
