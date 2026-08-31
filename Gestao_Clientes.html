@@ -1570,6 +1570,46 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 }
 .gc-client-action-inc{font-weight:900;color:#30286b}
 
+
+/* V37 — fila visual da análise na aba Todos */
+.gc-row-current{
+  background:#fff6d9 !important;
+  box-shadow:inset 4px 0 0 #e0a600;
+}
+.gc-row-next{
+  background:#eef6ff !important;
+  box-shadow:inset 4px 0 0 #4f86c6;
+}
+.gc-detail-current > td{
+  background:#fffaf0 !important;
+  border-left:4px solid #e0a600;
+}
+.gc-detail-next > td{
+  background:#f5f9ff !important;
+  border-left:4px solid #4f86c6;
+}
+.gc-analysis-marker{
+  display:inline-flex;
+  align-items:center;
+  margin-left:7px;
+  padding:3px 7px;
+  border-radius:999px;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.035em;
+  vertical-align:middle;
+}
+.gc-analysis-marker.current{
+  background:#f5c84a;
+  color:#5f4700;
+  border:1px solid #dbad29;
+}
+.gc-analysis-marker.next{
+  background:#dcecff;
+  color:#285b91;
+  border:1px solid #a9cbed;
+}
+
 </style>
 </head>
 <body>
@@ -2337,6 +2377,8 @@ const S = {
   analiseGrupoCausaDateFrom:'',
   analiseGrupoCausaDateTo:'',
   analiseGrupoCausaActionFilter:'todos',
+  analiseGrupoCausaCurrentClient:'',
+  analiseGrupoCausaNextClient:'',
   analiseGrupoCausaExpanded:new Set(),
   analiseGrupoCausaCorrections:{},
   analiseGrupoCausaCorrectionsLoaded:false,
@@ -14283,7 +14325,7 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
           <b>Ação registrada:</b>
           ${gcGroupLogo(gcGroupCode(st.posteriorGroup,st.posteriorCause),true,st.posteriorCause)}
           <span>${esc(st.posteriorCause)}</span>
-          ${st.savedAt?`<small>Salva em ${esc(gcDateTime(st.savedAt))}</small>`:''}
+          ${st.savedAt?`<small>Salva em ${esc(gcDate(st.savedAt))}</small>`:''}
         </div>`:''}
         ${hasSavedCorrection?`<button type="button" class="gc-undo-change" data-gc-inc-undo="${esc(gcIncKey(row))}">Desfazer correção</button>`:''}
       </div>`:''}
@@ -14447,7 +14489,47 @@ function gcSortHeader(label,key){
 }
 function gcClientTable(clients,kind,model){
   if(!clients.length)return '<div class="gc-empty">Nenhum cliente encontrado.</div>';
+
   const sorted=gcSortedClients(clients);
+
+  // Na aba Todos, manter um ponteiro visual para o caso em análise e o próximo.
+  if(kind==='todos'){
+    const visibleIds=sorted.map(c=>String(c.cliente));
+
+    // Se o cliente atual acabou de sair de Todos (foi classificado),
+    // promover automaticamente o que estava marcado como Próxima.
+    if(
+      S.analiseGrupoCausaCurrentClient &&
+      !visibleIds.includes(String(S.analiseGrupoCausaCurrentClient))
+    ){
+      const promoted=visibleIds.includes(String(S.analiseGrupoCausaNextClient))
+        ? String(S.analiseGrupoCausaNextClient)
+        : '';
+
+      S.analiseGrupoCausaCurrentClient=promoted;
+
+      if(promoted){
+        const idx=visibleIds.indexOf(promoted);
+        S.analiseGrupoCausaNextClient=idx>=0&&idx+1<visibleIds.length
+          ? visibleIds[idx+1]
+          : '';
+      }else{
+        S.analiseGrupoCausaNextClient='';
+      }
+    }
+
+    // Se o "próximo" também saiu por outra atualização, recalcular pelo atual.
+    if(
+      S.analiseGrupoCausaCurrentClient &&
+      !visibleIds.includes(String(S.analiseGrupoCausaNextClient))
+    ){
+      const idx=visibleIds.indexOf(String(S.analiseGrupoCausaCurrentClient));
+      S.analiseGrupoCausaNextClient=idx>=0&&idx+1<visibleIds.length
+        ? visibleIds[idx+1]
+        : '';
+    }
+  }
+
   return `<div class="gc-table-wrap gc-correction-table-wrap"><table class="gc-table gc-correction-summary"><thead><tr>
     <th>${gcSortHeader('Cliente','cliente')}</th>
     <th>${gcSortHeader('Reinc. Grupo','group')}</th>
@@ -14458,9 +14540,17 @@ function gcClientTable(clients,kind,model){
     <th>${gcSortHeader('Outros','outros')}</th>
   </tr></thead><tbody>${sorted.map(c=>{
     const key=`${kind}:${c.cliente}`,open=S.analiseGrupoCausaExpanded.has(key);
-    const detail=open?`<tr class="gc-detail"><td colspan="7">${gcDetailTable(c,model)}</td></tr>`:'';
-    return `<tr class="gc-row" data-gc-client="${encodeURIComponent(c.cliente)}" data-gc-kind="${kind}">
-      <td><b>${open?'▾':'▸'} ${esc(c.cliente)}</b></td>
+    const isCurrent=kind==='todos'&&String(c.cliente)===String(S.analiseGrupoCausaCurrentClient||'');
+    const isNext=kind==='todos'&&String(c.cliente)===String(S.analiseGrupoCausaNextClient||'');
+    const marker=isCurrent
+      ? '<span class="gc-analysis-marker current">ANÁLISE ATUAL</span>'
+      : isNext
+        ? '<span class="gc-analysis-marker next">PRÓXIMA</span>'
+        : '';
+    const detail=open?`<tr class="gc-detail ${isCurrent?'gc-detail-current':isNext?'gc-detail-next':''}"><td colspan="7">${gcDetailTable(c,model)}</td></tr>`:'';
+
+    return `<tr class="gc-row ${isCurrent?'gc-row-current':isNext?'gc-row-next':''}" data-gc-client="${encodeURIComponent(c.cliente)}" data-gc-kind="${kind}">
+      <td><b>${open?'▾':'▸'} ${esc(c.cliente)}</b> ${marker}</td>
       <td>${fmtNum(c.group.length)}</td>
       <td>${fmtNum(c.ramal)}</td>
       <td>${fmtNum(c.medidor)}</td>
@@ -14629,7 +14719,19 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   el.querySelectorAll('[data-gc-client]').forEach(tr=>tr.onclick=(event)=>{
     if(event.target.closest('select,button,details,summary,input,a'))return;
     event.preventDefault();
-    const cli=decodeURIComponent(tr.dataset.gcClient||''),key=`${tr.dataset.gcKind}:${cli}`;
+    const cli=decodeURIComponent(tr.dataset.gcClient||''),kind=tr.dataset.gcKind||'',key=`${kind}:${cli}`;
+
+    if(kind==='todos'){
+      const rows=[...el.querySelectorAll('.gc-correction-summary > tbody > tr.gc-row[data-gc-kind="todos"]')];
+      const idx=rows.indexOf(tr);
+      const nextRow=idx>=0?rows[idx+1]:null;
+
+      S.analiseGrupoCausaCurrentClient=cli;
+      S.analiseGrupoCausaNextClient=nextRow
+        ? decodeURIComponent(nextRow.dataset.gcClient||'')
+        : '';
+    }
+
     const wasOpen=S.analiseGrupoCausaExpanded.has(key);
     const y=window.scrollY;
     const wrap=el.querySelector('.gc-correction-table-wrap');
