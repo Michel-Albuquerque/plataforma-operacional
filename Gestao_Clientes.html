@@ -1210,7 +1210,7 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 .gc-cause{font-weight:750;line-height:1.25;margin-bottom:4px}
 .gc-text-expand{margin-top:3px}.gc-text-expand summary{cursor:pointer;list-style:none;color:#43564d}.gc-text-expand summary::-webkit-details-marker{display:none}
 .gc-text-expand summary:after{content:' +';font-weight:900;color:#008556}.gc-text-expand[open] summary:after{content:' −'}
-.gc-text-expand .gc-text-full{margin-top:5px;padding:6px;border-radius:5px;background:rgba(255,255,255,.68);font-size:8.4px;line-height:1.35}
+.gc-text-expand .gc-text-full{margin-top:6px;padding:9px;border-radius:6px;background:rgba(255,255,255,.78);font-size:11.5px;line-height:1.55}
 .gc-text-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-height:2.7em}
 .gc-correction{width:100%;height:29px;border:1px solid #bdcbc5;border-radius:6px;background:#fff;padding:0 4px;font-size:8.4px;font-weight:800}
 .gc-correction.sim{background:#e4f4ec;color:#006e4b;border-color:#a9d8c5}.gc-correction.nao{background:#f7e8e6;color:#9d3931;border-color:#e3bbb6}
@@ -1513,6 +1513,30 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
   margin-right:4px;
 }
 
+
+/* V31 */
+.filter-toggle-check{
+  display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 10px;
+  border:1px solid var(--border);border-radius:8px;background:#fff;
+  font-size:11px;font-weight:750;color:var(--ink);cursor:pointer;white-space:nowrap
+}
+.filter-toggle-check input{width:14px;height:14px;accent-color:#008556}
+.filter-toggle-check:has(input:checked){border-color:#008556;background:#eef9f4;color:#006d49}
+
+.gc-action-tabs{display:inline-flex;border:1px solid #cfdad5;border-radius:8px;overflow:hidden;background:#fff}
+.gc-action-tabs button{border:0;border-right:1px solid #dbe4df;background:#fff;padding:7px 10px;font-size:10px;font-weight:800;color:#62736b;cursor:pointer}
+.gc-action-tabs button:last-child{border-right:0}
+.gc-action-tabs button.active{background:#087d55;color:#fff}
+
+.gc-suggestion-group-btn{border:0;background:transparent;padding:0;margin:0;cursor:pointer;border-radius:999px;vertical-align:middle}
+.gc-suggestion-group-btn:hover{transform:translateY(-1px);filter:brightness(.96)}
+.gc-suggestion-modal-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px}
+
+.gc-improdutivo-badge{
+  display:inline-flex;align-items:center;margin-left:6px;padding:3px 7px;border-radius:999px;
+  background:#fff0df;border:1px solid #e77a17;color:#a94b00;font-size:8px;font-weight:900;letter-spacing:.04em
+}
+
 </style>
 </head>
 <body>
@@ -1628,7 +1652,8 @@ const COL = {
   turnoHoraFim:'Turno hora fim', viatura:'Viatura ', tipoInstalacao:'Tipo de Instalação',
   comEquipe:'COM EQUIPE/SEM EQUIPE', ordem2Obs:'Ordem 2 OBS', concat:'CONCAT',
   dt:'DT', causasOrdem2:'CAUSAS ORDEM 2', equipeOrdem2:'Equipe Ordem2',
-  processoOrdem2:'Processo Ordem2', viaturaOrdem2:'Viatura Ordem2'
+  processoOrdem2:'Processo Ordem2', viaturaOrdem2:'Viatura Ordem2',
+  convergencia:'CONVERGENCIA'
 };
 const PRINCIPAL_SCHEMA_VERSION = 11;
 const CALLBACK_FLOW_SCHEMA_VERSION = 2;
@@ -1643,7 +1668,8 @@ function normalizeHeaderKey(v){
    essas variações na importação e também ao restaurar uma carga já salva. */
 const PRINCIPAL_FIELD_ALIASES = [
   [COL.numero, ['Numero','Número da Incidência','Numero da Incidencia','Nº Incidência','N° Incidência','Incidência','Incidencia']],
-  [COL.nt, ['N.T.','Numero NT','Número NT']],
+  [COL.nt, ['N.T.','Numero NT','Número NT','Nível de Tensão','Nivel de Tensao','Nivel Tensao']],
+  [COL.convergencia, ['Convergência','Convergencia','CONVERGÊNCIA']],
   [COL.estado, ['Status','Situação','Situacao','Estado da Incidência','Estado da Incidencia']],
   [COL.dataInicio, ['Data Inicio','Data/Hora Início','Data Hora Início','Data Hora Inicio','Data de Início','Data de Inicio','Abertura','Data Abertura']],
   [COL.dataFim, ['Data Fim ','Data/Hora Fim','Data Hora Fim','Data de Fim','Data Encerramento','Encerramento','Data Conclusão','Data Conclusao']],
@@ -2173,9 +2199,9 @@ const CLASS_COLORS = {GERADORA:'#3457d5', REINCIDENTE:'#d97a29', 'NÃO ANALISADA
 function makeDefaultFilters(){
   return {
     anos:new Set([2026]), meses:new Set(), dateFrom:null, dateTo:null,
-    polos:new Set(), equipes:new Set(), causas:new Set(), processos:new Set(),
+    polos:new Set(), equipes:new Set(), causas:new Set(), processos:new Set(), nts:new Set(),
     clienteSearch:'', cliAf3minMin:null, cliAf3minMax:null,
-    clienteAfetado:'todos',
+    clienteAfetado:'todos', defeitoConexao:false,
     parametro:'conexao', granularity:'diario'
   };
 }
@@ -2202,7 +2228,7 @@ const S = {
   baseCompleta: [],
   fileName: '',
   processedAt: null,
-  distinct: { polos:[], sucursais:[], equipes:[], causas:[], processos:[], anos:[], meses:[] },
+  distinct: { polos:[], sucursais:[], equipes:[], causas:[], processos:[], nts:[], anos:[], meses:[] },
   stats: { totalLido:0, semData:0, semCliente:0, semEquipe:0, causaExcluidaReinc:0, elegiveis:0, grupos:0, clientesUnicos:0, clientesReincidentes:0, totalReincidencias:0 },
   filtersByTab: { dashboard: makeDefaultFilters(), visaoCliente: makeDefaultFilters(), visaoEquipe: makeDefaultFilters(), diagnostico: makeDefaultFilters(), analiseCausa: makeDefaultFilters(), analiseGrupoCausa: makeDefaultFilters(), ordem2:ORDER2_SHARED_FILTERS, ordem2Diagnostico:ORDER2_SHARED_FILTERS },
   filters: null,
@@ -2277,6 +2303,7 @@ const S = {
   analiseGrupoCausaSearch:'',
   analiseGrupoCausaDateFrom:'',
   analiseGrupoCausaDateTo:'',
+  analiseGrupoCausaActionFilter:'todos',
   analiseGrupoCausaExpanded:new Set(),
   analiseGrupoCausaCorrections:{},
   analiseGrupoCausaCorrectionsLoaded:false,
@@ -3113,7 +3140,33 @@ async function handleFile(file){
     }
     S.obsEorderStats = statsEorder;
 
-    processRawRows(rows, file.name, mapaObsEorder);
+    /* Aba opcional TMA — cruza pelo Número da incidência e traz CONVERGENCIA.
+       Apenas a classe IMPROCEDENTE-IMPRODUTIVO gera sinalização visual. */
+    let mapaTma=new Map();
+    let tmaNome=wb.SheetNames.find(n=>/^(BASE\s*)?TMA(E)?$/i.test(String(n).trim()));
+    if(!tmaNome){
+      tmaNome=wb.SheetNames.find(n=>{
+        try{
+          const sample=XLSX.utils.sheet_to_json(wb.Sheets[n],{defval:null,raw:true,range:0}).slice(0,3);
+          return sample.some(r=>Object.keys(r||{}).some(k=>normalizeHeaderKey(k)==='CONVERGENCIA'));
+        }catch(_){return false}
+      });
+    }
+    if(tmaNome){
+      setLoading(true,'Lendo base TMA…','Identificando incidências improdutivas',70);
+      await yieldUI();
+      const tmaRows=XLSX.utils.sheet_to_json(wb.Sheets[tmaNome],{defval:null,raw:true});
+      for(const tr of tmaRows){
+        const keys=Object.keys(tr||{});
+        const numeroKey=keys.find(k=>['NUMERO','NUMERODAINCIDENCIA','INCIDENCIA','NINCIDENCIA'].includes(normalizeHeaderKey(k)));
+        const convKey=keys.find(k=>normalizeHeaderKey(k)==='CONVERGENCIA');
+        if(!numeroKey||!convKey)continue;
+        const nk=normalizeNumero(tr[numeroKey]);
+        if(nk&&!mapaTma.has(nk))mapaTma.set(nk,tr[convKey]);
+      }
+    }
+
+    processRawRows(rows, file.name, mapaObsEorder,{mapaTma});
   }catch(err){
     console.error(err);
     setLoading(false);
@@ -3126,8 +3179,9 @@ function processRawRows(rows, fileName, mapaObsEorder, options){
   S.principalReimportRequired=false;
   normalizePrincipalRows(rows);
   const stats = { totalLido:rows.length, semData:0, semCliente:0, semEquipe:0, causaExcluidaReinc:0, elegiveis:0, grupos:0, clientesUnicos:0, clientesReincidentes:0, totalReincidencias:0 };
-  const polos=new Set(), sucursais=new Set(), equipes=new Set(), causas=new Set(), processos=new Set(), anos=new Set(), meses=new Set();
+  const polos=new Set(), sucursais=new Set(), equipes=new Set(), causas=new Set(), processos=new Set(), nts=new Set(), anos=new Set(), meses=new Set();
   mapaObsEorder = mapaObsEorder || new Map();
+  const mapaTma = options.mapaTma || new Map();
   let obsEorderEncontradas = 0;
 
   for(const r of rows){
@@ -3150,6 +3204,17 @@ function processRawRows(rows, fileName, mapaObsEorder, options){
     r.__dataFimExecucao = r.__dataFimExecucao==null
       ? (r['Data Fim Execução']!=null ? r['Data Fim Execução'] : (r['Data fim Execução']!=null?r['Data fim Execução']:null))
       : r.__dataFimExecucao;
+
+    const numeroTma=normalizeNumero(r[COL.numero]);
+    const convergenciaTma=
+      (numeroTma&&mapaTma.has(numeroTma) ? mapaTma.get(numeroTma) : null) ??
+      r[COL.convergencia] ??
+      r['Convergência'] ??
+      r['Convergencia'] ??
+      null;
+    r.__convergenciaTma=convergenciaTma;
+    r.__improdutivo=normCausa(convergenciaTma)==='IMPROCEDENTE-IMPRODUTIVO';
+
     if(r[COL.concat]!=null && String(r[COL.concat]).trim()!==''){
       const chaveNorm = normalizeConcat(r[COL.concat]);
       if(chaveNorm && mapaObsEorder.has(chaveNorm)){
@@ -3163,6 +3228,7 @@ function processRawRows(rows, fileName, mapaObsEorder, options){
     if(hasValidValue(r[COL.equipeDesl])) equipes.add(String(r[COL.equipeDesl]).trim());
     if(r[COL.causa]) causas.add(r[COL.causa]);
     if(r[COL.processo]) processos.add(r[COL.processo]);
+    if(hasValidValue(r[COL.nt])) nts.add(String(r[COL.nt]).trim());
     if(r.__ano) anos.add(r.__ano);
     if(r.__mes) meses.add(r.__mes);
   }
@@ -3176,6 +3242,7 @@ function processRawRows(rows, fileName, mapaObsEorder, options){
   S.distinct.equipes = [...equipes].sort();
   S.distinct.causas = [...causas].sort();
   S.distinct.processos = [...processos].sort();
+  S.distinct.nts = [...nts].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR',{numeric:true}));
   S.distinct.anos = [...anos].sort((a,b)=>a-b);
   S.distinct.meses = [...meses].sort((a,b)=>a-b);
   S.obsEorderStats = Object.assign({}, S.obsEorderStats, { correspondencias: obsEorderEncontradas });
@@ -4326,6 +4393,21 @@ function matchesFiltersReincidencia(r){
       : centralReincidenceProcess(r);
     if(!f.processos.has(processo))return false;
   }
+  if(f.nts?.size){
+    const nt=S.filters.parametro==='conexao_grupo'
+      ? String(r?.__nextMain?.[COL.nt]||'').trim()
+      : String(r?.__prevMain?.[COL.nt]||r?.__nextMain?.[COL.nt]||'').trim();
+    if(!f.nts.has(nt))return false;
+  }
+  if(S.filters.parametro==='conexao_grupo' && f.defeitoConexao){
+    const primeiraCausa=normCausa(r?.__prevMain?.[COL.causa] ?? r?.[COL2.causa] ?? '');
+    const defeitos=new Set([
+      'DEFEITO EM CONEXAO DE MEDIDOR',
+      'DEFEITO EM CONEXAO RAMAL CONCENTRICO',
+      'DEFEITO EM CONEXAO'
+    ]);
+    if(!defeitos.has(primeiraCausa))return false;
+  }
   if(f.clienteSearch){
     const c = String(r[COL2.nCliente]||'').toLowerCase();
     if(!c.includes(f.clienteSearch.toLowerCase())) return false;
@@ -4663,6 +4745,7 @@ function matchesFilters(r){
   if(f.equipes.size && !f.equipes.has(String(r[COL.equipeDesl]||'').trim())) return false;
   if(f.causas.size && !f.causas.has(r[COL.causa])) return false;
   if(f.processos.size && !f.processos.has(r[COL.processo])) return false;
+  if(f.nts?.size && !f.nts.has(String(r[COL.nt]||'').trim())) return false;
   if(f.clienteSearch){
     const c = String(r[COL.nCliente]||'').toLowerCase();
     if(!c.includes(f.clienteSearch.toLowerCase())) return false;
@@ -4681,10 +4764,12 @@ function filterCacheKey(){
     param:S.filters.parametro,
     a:[...S.filters.anos], m:[...S.filters.meses], df:S.filters.dateFrom, dt:S.filters.dateTo,
     e:[...S.filters.equipes], c:[...S.filters.causas], pr:[...S.filters.processos],
+    nt:[...(S.filters.nts||[])],
     po:[...S.filters.polos],
     cs:S.filters.clienteSearch,
     nmin:S.filters.cliAf3minMin, nmax:S.filters.cliAf3minMax,
     ca:S.filters.clienteAfetado||'todos',
+    dc:!!S.filters.defeitoConexao,
     gran:S.filters.granularity||'diario'
   });
 }
@@ -4744,17 +4829,19 @@ function renderFilterBar(){
     ${fchipMulti('equipes','Equipe Desl.', S.distinct.equipes, S.filters.equipes, null, true)}
     ${fchipMulti('causas','Causa', S.distinct.causas, S.filters.causas, null, true)}
     ${fchipMulti('processos','Processo', S.distinct.processos, S.filters.processos, null, true)}
+    ${fchipMulti('nts','NT', (S.distinct.nts||[]), S.filters.nts, null, true)}
     ${fchipCliente()}
     ${S.filters.parametro==='conexao_grupo'?fchipClienteAfetado():fchipNumberRange('cliAf3min','Cli Af 3 min')}
+    ${S.filters.parametro==='conexao_grupo'?`<label class="filter-toggle-check" title="Mantém apenas reincidências cuja primeira causa é um dos defeitos de conexão definidos"><input type="checkbox" id="defeitoConexaoToggle" ${S.filters.defeitoConexao?'checked':''}><span>Defeito Conexão</span></label>`:''}
     <button class="clearall" id="btnClearFilters">Limpar filtros</button>
     <span class="resultcount" id="resultCount"></span>
   `;
   document.getElementById('btnClearFilters').onclick = ()=>{
     const f = S.filters;
     f.anos.clear(); f.meses.clear(); f.dateFrom=null; f.dateTo=null;
-    f.polos.clear(); f.equipes.clear(); f.causas.clear(); f.processos.clear();
+    f.polos.clear(); f.equipes.clear(); f.causas.clear(); f.processos.clear(); f.nts.clear();
     f.clienteSearch=''; f.parametro='conexao'; f.granularity='diario';
-    f.cliAf3minMin=null; f.cliAf3minMax=null; f.clienteAfetado='todos';
+    f.cliAf3minMin=null; f.cliAf3minMax=null; f.clienteAfetado='todos'; f.defeitoConexao=false;
     invalidateCache(true); renderFilterBar(); forceRefreshFilteredView();
   };
   wireFilterPanels();
@@ -5004,7 +5091,7 @@ function wireFilterPanels(){
     b.onclick = (e)=>{
       e.stopPropagation();
       const key = b.dataset.fall;
-      const opts = key==='anos'?S.distinct.anos:key==='meses'?S.distinct.meses:S.distinct[key];
+      const opts = key==='anos'?S.distinct.anos:key==='meses'?S.distinct.meses:(S.distinct[key]||[]);
       S.filters[key] = new Set(opts);
       syncCheckboxesFromState(key);
       invalidateCache(true); refreshChipButton(key); forceRefreshFilteredView();
@@ -5019,6 +5106,17 @@ function wireFilterPanels(){
       invalidateCache(true); refreshChipButton(key); forceRefreshFilteredView();
     };
   });
+
+  const defeitoToggle=document.getElementById('defeitoConexaoToggle');
+  if(defeitoToggle){
+    defeitoToggle.onchange=(e)=>{
+      e.stopPropagation();
+      S.filters.defeitoConexao=!!defeitoToggle.checked;
+      invalidateCache(true);
+      forceRefreshFilteredView();
+    };
+  }
+
   const ci = document.getElementById('clienteFilterInput');
   if(ci){
     ci.onclick = e=>e.stopPropagation();
@@ -5152,7 +5250,7 @@ function activeRenderKey(){
   if(S.currentTab==='callbackContingencia')return `callback:${S.callbackView}:${S.callbackBase.length}:${Object.keys(S.callbackHistoryBase||{}).length}:${(S.callbackTransitions||[]).length}:${S.callbackVersion}:${JSON.stringify(S.callbackFilters)}:${JSON.stringify(S.callbackDiagnosticFilters)}:${JSON.stringify(S.callbackAssignments)}`;
   if(S.currentTab==='acao')return `acao:${S.actionView}:${S.actionVersion}:${S.fiscalizacaoVersion}:${S.baseCompleta.length}:${S.baseReincidencia.length}:${S.fiscalizacaoBase.length}:${JSON.stringify(S.actionUI)}:${JSON.stringify(S.fiscalizacaoFilters)}`;
   if(S.currentTab==='analiseCausa')return `causa:${S.processedAt||''}:${S.reincidenciaProcessedAt||''}:${S.baseCompleta.length}:${S.baseReincidencia.length}:${JSON.stringify(S.causeUI)}`;
-  if(S.currentTab==='analiseGrupoCausa')return `grupocausa:${S.processedAt||''}:${S.baseCompleta.length}:${S.analiseGrupoCausaSearch}:${S.analiseGrupoCausaDateFrom}:${S.analiseGrupoCausaDateTo}:${JSON.stringify(S.analiseGrupoCausaCorrections||{})}`;
+  if(S.currentTab==='analiseGrupoCausa')return `grupocausa:${S.processedAt||''}:${S.baseCompleta.length}:${S.analiseGrupoCausaSearch}:${S.analiseGrupoCausaDateFrom}:${S.analiseGrupoCausaDateTo}:${JSON.stringify(S.analiseGrupoCausaCorrections||{})}:${S.analiseGrupoCausaActionFilter||'todos'}:${JSON.stringify([...(S.filters?.nts||[])])}`;
   if(S.currentTab==='ordem2'||S.currentTab==='ordem2Diagnostico')return `ordem2:${S.currentTab}:${S.processedAt||''}:${S.baseCompleta.length}:${S.order2Version}:${JSON.stringify(S.order2UI)}`;
   return filterCacheKey()+'|principal:'+S.baseCompleta.length+'|reinc:'+S.baseReincidencia.length;
 }
@@ -5906,59 +6004,122 @@ function getEquipe30Ranking(){
    ============================================================ */
 function computeMonthlyDashboard(filteredBase){
   const byMonth = new Map();
+
   for(const r of filteredBase){
     if(r.__ano==null || r.__mes==null) continue;
     if(!(r.__mes>=1 && r.__mes<=12)) continue;
     if(!(r.__ano>=2000 && r.__ano<=2100)) continue;
+
     const key = r.__ano+'-'+String(r.__mes).padStart(2,'0');
-    if(!byMonth.has(key)) byMonth.set(key, {ano:r.__ano, mes:r.__mes, rows:[]});
-    byMonth.get(key).rows.push(r);
+    if(!byMonth.has(key)){
+      byMonth.set(key,{
+        ano:r.__ano,
+        mes:r.__mes,
+        rows:[],
+        indicatorRows:[],
+        recurrenceRows:[]
+      });
+    }
+    const bucket=byMonth.get(key);
+    bucket.rows.push(r);
+    if(isIndicatorRow(r))bucket.indicatorRows.push(r);
   }
 
-  const reincPorMes = new Map(); // key 'YYYY-MM' -> qtd
   if(isConnectionBasedIndicator()){
     for(const r of getFilteredReincidenciaConexao()){
       if(r.__ano==null || r.__mes==null) continue;
       const key = r.__ano+'-'+String(r.__mes).padStart(2,'0');
-      reincPorMes.set(key, (reincPorMes.get(key)||0)+1);
-      if(!byMonth.has(key)) byMonth.set(key, {ano:r.__ano, mes:r.__mes, rows:[]});
+
+      if(!byMonth.has(key)){
+        byMonth.set(key,{
+          ano:r.__ano,
+          mes:r.__mes,
+          rows:[],
+          indicatorRows:[],
+          recurrenceRows:[]
+        });
+      }
+      byMonth.get(key).recurrenceRows.push(r);
     }
   } else if(S.filters.parametro === 'grupo'){
     for(const event of getFilteredGroupRecurrences()){
-      const r=event.row;if(r.__ano==null||r.__mes==null)continue;const key=r.__ano+'-'+String(r.__mes).padStart(2,'0');reincPorMes.set(key,(reincPorMes.get(key)||0)+1);if(!byMonth.has(key))byMonth.set(key,{ano:r.__ano,mes:r.__mes,rows:[]});
+      const r=event.row;
+      if(r.__ano==null || r.__mes==null)continue;
+      const key=r.__ano+'-'+String(r.__mes).padStart(2,'0');
+
+      if(!byMonth.has(key)){
+        byMonth.set(key,{
+          ano:r.__ano,
+          mes:r.__mes,
+          rows:[],
+          indicatorRows:[],
+          recurrenceRows:[]
+        });
+      }
+      const drillRow={...r,__grupoEvento:event,__grupoAtivo:event.group||''};
+      byMonth.get(key).recurrenceRows.push(drillRow);
     }
   } else {
-    for(const [key, {rows}] of byMonth){
-      const eligible = rows.filter(isReincElegivel);
-      const byCliente = new Map();
+    for(const [key,bucket] of byMonth){
+      const eligible=bucket.rows.filter(isReincElegivel);
+      const byCliente=new Map();
+
       for(const r of eligible){
-        const cli = String(r[COL.nCliente]).trim();
-        if(!byCliente.has(cli)) byCliente.set(cli, []);
+        const cli=String(r[COL.nCliente]).trim();
+        if(!byCliente.has(cli))byCliente.set(cli,[]);
         byCliente.get(cli).push(r);
       }
-      let reincidencias = 0;
-      for(const [cli, crows] of byCliente){
-        crows.sort((a,b)=> (a.__dataFim - b.__dataFim) || String(a[COL.numero]).localeCompare(String(b[COL.numero])));
-        let buf = [];
-        const close = ()=>{ if(buf.length>1) reincidencias += (buf.length-1); buf=[]; };
+
+      for(const crows of byCliente.values()){
+        crows.sort((a,b)=>
+          (a.__dataFim-b.__dataFim) ||
+          String(a[COL.numero]).localeCompare(String(b[COL.numero]))
+        );
+
+        let buf=[];
+        const close=()=>{
+          if(buf.length>1){
+            // A primeira é a geradora; todas as seguintes são reincidentes.
+            bucket.recurrenceRows.push(...buf.slice(1));
+          }
+          buf=[];
+        };
+
         for(const row of crows){
-          if(!buf.length){ buf.push(row); continue; }
-          const diff = row.__dataFim - buf[buf.length-1].__dataFim;
-          if(diff <= JANELA_TIMELINE_MS) buf.push(row); else { close(); buf.push(row); }
+          if(!buf.length){
+            buf.push(row);
+            continue;
+          }
+          const diff=row.__dataFim-buf[buf.length-1].__dataFim;
+          if(diff<=JANELA_TIMELINE_MS)buf.push(row);
+          else{
+            close();
+            buf.push(row);
+          }
         }
         close();
       }
-      reincPorMes.set(key, reincidencias);
     }
   }
 
-  const out = [];
-  for(const [key, {ano, mes, rows}] of byMonth){
-    const indicador = rows.filter(isIndicatorRow).length;
-    const reincidencias = reincPorMes.get(key) || 0;
-    out.push({key, ano, mes, indicador, reincidencias, pct: indicador ? (reincidencias/indicador*100) : 0});
+  const out=[];
+  for(const [key,bucket] of byMonth){
+    const indicador=bucket.indicatorRows.length;
+    const reincidencias=bucket.recurrenceRows.length;
+
+    out.push({
+      key,
+      ano:bucket.ano,
+      mes:bucket.mes,
+      indicador,
+      reincidencias,
+      pct:indicador?(reincidencias/indicador*100):0,
+      indicatorRows:bucket.indicatorRows,
+      recurrenceRows:bucket.recurrenceRows
+    });
   }
-  out.sort((a,b)=> a.ano-b.ano || a.mes-b.mes);
+
+  out.sort((a,b)=>a.ano-b.ano||a.mes-b.mes);
   return out;
 }
 
@@ -6629,6 +6790,143 @@ function openExecutivePriorityRecord(index){
   document.getElementById('modalBg').classList.add('show');
 }
 
+let _dashboardMonthlyDrillRows=[];
+
+function dashboardMonthlyDrillMainRow(row){
+  return row?.__nextMain || row?.row || row || null;
+}
+
+function dashboardMonthlyDrillValue(row,col,fallback='—'){
+  const main=dashboardMonthlyDrillMainRow(row);
+  const value=main?.[col];
+  return value==null||String(value).trim()===''?fallback:value;
+}
+
+function dashboardMonthlyGroupLabel(row){
+  if(!['grupo','conexao_grupo'].includes(S.filters.parametro))return '—';
+
+  const event=row?.__grupoEvento;
+  if(event?.group){
+    const cause=dashboardMonthlyDrillValue(row,COL.causa,'');
+    return gcGroupCode(event.group,cause)||event.group||'—';
+  }
+
+  const cause=dashboardMonthlyDrillValue(row,COL.causa,'');
+  const groups=[...causeGroups(cause)];
+  if(!groups.length)return '—';
+  return groups.map(g=>gcGroupCode(g,cause)||g).join(', ');
+}
+
+function openDashboardMonthlyRecord(index){
+  const row=_dashboardMonthlyDrillRows[index];
+  if(!row)return;
+
+  const main=dashboardMonthlyDrillMainRow(row);
+  const numero=main?.[COL.numero] ?? row?.[COL2.numeroRein] ?? row?.[COL2.numero];
+
+  if(main && main[COL.numero]!=null){
+    openRowModal(main[COL.numero]);
+    return;
+  }
+
+  document.getElementById('modalBox').classList.remove('wide');
+  document.getElementById('modalTitle').textContent='Incidência '+formatNumero(numero);
+  document.getElementById('modalBody').innerHTML=Object.keys(row||{})
+    .filter(key=>!key.startsWith('__'))
+    .map(key=>`<div class="mfield"><div class="k">${esc(key)}</div><div class="v">${esc(row[key]??'—')}</div></div>`)
+    .join('');
+  document.getElementById('modalBg').classList.add('show');
+}
+
+function openDashboardMonthlyBar(month,datasetIndex){
+  if(!month)return;
+
+  const isRecurrence=datasetIndex===1;
+  if(datasetIndex!==0 && datasetIndex!==1)return;
+
+  const rows=isRecurrence
+    ? (month.recurrenceRows||[])
+    : (month.indicatorRows||[]);
+
+  _dashboardMonthlyDrillRows=rows;
+
+  const tipo=isRecurrence?'Reincidências':'Incidências';
+  const mesLabel=(MESES_NOMES[month.mes]||String(month.mes))+'/'+month.ano;
+
+  document.getElementById('modalBox').classList.add('wide');
+  document.getElementById('modalTitle').textContent=
+    `${tipo} — ${mesLabel} — ${fmtNum(rows.length)} registro(s)`;
+
+  document.getElementById('modalBody').innerHTML=`
+    <div class="tag-note">
+      Registros que compõem a barra de <b>${tipo}</b> de <b>${esc(mesLabel)}</b>,
+      respeitando os filtros atualmente aplicados.
+    </div>
+    <div class="table-scroll compact">
+      <table>
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Incidência</th>
+            <th>Data Fim</th>
+            <th>Equipe</th>
+            <th>Processo</th>
+            <th>Causa</th>
+            ${['grupo','conexao_grupo'].includes(S.filters.parametro)?'<th>Grupo</th>':''}
+            <th>Detalhes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.length?rows.map((row,index)=>{
+            const main=dashboardMonthlyDrillMainRow(row);
+            const cliente=
+              main?.[COL.nCliente] ??
+              row?.[COL2.nCliente] ??
+              '—';
+            const numero=
+              main?.[COL.numero] ??
+              row?.[COL2.numeroRein] ??
+              row?.[COL2.numero] ??
+              '—';
+            const dataFim=
+              main?.__dataFim ??
+              row?.__dataFim ??
+              parseDateVal(main?.[COL.dataFim]) ??
+              parseDateVal(row?.[COL2.dataFim]);
+            const equipe=
+              main?.[COL.equipeDesl] ??
+              row?.__nextEquipeDesl ??
+              '—';
+            const processo=
+              main?.[COL.processo] ??
+              row?.__nextProcesso ??
+              row?.[COL2.processo] ??
+              '—';
+            const causa=
+              main?.[COL.causa] ??
+              row?.__nextCausa ??
+              row?.[COL2.causa] ??
+              '—';
+
+            return `<tr>
+              <td><button class="table-link" onclick="openClientTimeline('${esc(String(cliente))}')">${esc(cliente)}</button></td>
+              <td>${esc(formatNumero(numero))}</td>
+              <td>${dataFim?fmtDateTime(dataFim):'—'}</td>
+              <td>${esc(equipe)}</td>
+              <td>${esc(processo)}</td>
+              <td>${esc(causa)}</td>
+              ${['grupo','conexao_grupo'].includes(S.filters.parametro)?`<td>${esc(dashboardMonthlyGroupLabel(row))}</td>`:''}
+              <td><button class="table-link" onclick="openDashboardMonthlyRecord(${index})">Abrir →</button></td>
+            </tr>`;
+          }).join(''):`<tr><td colspan="${['grupo','conexao_grupo'].includes(S.filters.parametro)?8:7}" style="padding:28px;text-align:center">Nenhum registro nesta barra.</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('modalBg').classList.add('show');
+}
+
+
 let _dashboardRenderToken=0;
 function renderDashboard(){
   if(!S.baseCompleta.length) return;
@@ -6725,7 +7023,7 @@ function renderDashboard(){
           </aside>
 
           <main class="ppt-center">
-            <div class="ppt-card ppt-main-chart"><div class="ppt-card-title">Evolução mensal</div><div class="ppt-chart-wrap"><canvas id="chartDashboardMensal"></canvas></div></div>
+            <div class="ppt-card ppt-main-chart"><div class="ppt-card-title">Evolução mensal <span style="font-size:9px;font-weight:600;color:var(--ink-faint);margin-left:6px">clique nas barras para ver os casos</span></div><div class="ppt-chart-wrap"><canvas id="chartDashboardMensal"></canvas></div></div>
             <div class="ppt-rank-grid">
               <div class="ppt-card ppt-rank"><div class="ppt-card-title">Top 5 clientes mais reincidentes</div>${topClientes.length?topClientes.map(c=>`<div class="rank-line" style="cursor:pointer" onclick="openClientTimeline('${esc(c.cliente)}')"><span class="k">${esc(c.cliente)}</span><b>${fmtNum(c.reincidencias)} · ${fmtPct(c.pctReincidencia)}</b></div><div class="rank-bar"><i style="width:${(c.reincidencias/maxClienteReinc*100).toFixed(0)}%"></i></div>`).join(''):'<div class="ppt-no-comment">Sem dados</div>'}</div>
               <div class="ppt-card ppt-rank ppt-team-card">
@@ -6805,6 +7103,17 @@ function renderDashboard(){
               x:{grid:{display:false}, border:{display:false}, ticks:{display:true,autoSkip:false,maxRotation:0,minRotation:0,padding:9,color:'#3f4d47',font:{family:'Inter',size:13.5,weight:'700'}}}
             },
             plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#141c19'} },
+            onHover:(event,elements)=>{
+              const target=event?.native?.target||ctx;
+              const hit=elements?.[0];
+              target.style.cursor=(hit && (hit.datasetIndex===0 || hit.datasetIndex===1))?'pointer':'default';
+            },
+            onClick:(event,elements)=>{
+              const hit=elements?.[0];
+              if(!hit)return;
+              if(hit.datasetIndex!==0 && hit.datasetIndex!==1)return;
+              openDashboardMonthlyBar(monthly[hit.index],hit.datasetIndex);
+            },
             layout:{ padding:{top:18,bottom:9,left:3,right:3} }
           },
           plugins:[dashboardDataLabelsPlugin]
@@ -8025,6 +8334,8 @@ function activeFilterSummaryText(){
   if(f.equipes.size) parts.push('Equipe: '+f.equipes.size+' selecionada(s)');
   if(f.causas.size) parts.push('Causa: '+f.causas.size+' selecionada(s)');
   if(f.processos.size) parts.push('Processo: '+f.processos.size+' selecionado(s)');
+  if(f.nts?.size) parts.push('NT: '+[...f.nts].join(', '));
+  if(f.defeitoConexao&&f.parametro==='conexao_grupo')parts.push('Defeito Conexão');
   if(f.cliAf3minMin!=null || f.cliAf3minMax!=null) parts.push('Cli Af 3 min: '+(f.cliAf3minMin!=null?f.cliAf3minMin:'…')+' – '+(f.cliAf3minMax!=null?f.cliAf3minMax:'…'));
   return parts.join(' · ');
 }
@@ -9533,7 +9844,7 @@ function renderAnaliseCausaLegacy(){
       <div class="ca-filter"><label>Período</label><select id="caPeriod"><option value="equivalent" ${ui.periodMode==='equivalent'?'selected':''}>Período equivalente</option><option value="q1" ${ui.periodMode==='q1'?'selected':''}>Janeiro a março</option><option value="q2" ${ui.periodMode==='q2'?'selected':''}>Janeiro a junho</option><option value="q3" ${ui.periodMode==='q3'?'selected':''}>Janeiro a setembro</option><option value="full" ${ui.periodMode==='full'?'selected':''}>Ano completo</option></select></div>
       <div class="ca-filter"><label>Causa</label><select id="caCause">${causeFilterOptions(causes,ui.cause,'Todas as causas')}</select></div>
       <div class="ca-filter"><label>Equipe Desl.</label><select id="caTeam">${causeFilterOptions(teams,ui.team,'Todas as equipes')}</select></div>
-      <div class="ca-filter"><label>Tipo de cliente</label><select id="caType">${causeFilterOptions(types,ui.customerType,'Todos os tipos')}</select></div>
+      <div class="ca-filter"><label>NT</label><select id="caType">${causeFilterOptions(types,ui.customerType,'Todos os NT')}</select></div>
       <div class="ca-filter"><label>Buscar cliente/incidência</label><input id="caSearch" value="${esc(ui.search)}" placeholder="Digite o número..."></div>
       <button class="btn sm ca-clear" id="caClear">Limpar filtros</button>
     </div>
@@ -9580,7 +9891,7 @@ function renderAnaliseCausa(){
       <div class="ca-filter"><label>Período</label><select id="caPeriod"><option value="equivalent" ${ui.periodMode==='equivalent'?'selected':''}>Período equivalente</option><option value="q1" ${ui.periodMode==='q1'?'selected':''}>Janeiro a março</option><option value="q2" ${ui.periodMode==='q2'?'selected':''}>Janeiro a junho</option><option value="q3" ${ui.periodMode==='q3'?'selected':''}>Janeiro a setembro</option><option value="full" ${ui.periodMode==='full'?'selected':''}>Ano completo</option></select></div>
       <div class="ca-filter"><label>Causa</label><select id="caCause">${causeFilterOptions(causes,ui.cause,'Todas as causas')}</select></div>
       <div class="ca-filter"><label>Equipe Desl.</label><select id="caTeam">${causeFilterOptions(teams,ui.team,'Todas as equipes')}</select></div>
-      <div class="ca-filter"><label>Tipo de cliente</label><select id="caType">${causeFilterOptions(types,ui.customerType,'Todos os tipos')}</select></div>
+      <div class="ca-filter"><label>NT</label><select id="caType">${causeFilterOptions(types,ui.customerType,'Todos os NT')}</select></div>
       <div class="ca-filter"><label>Buscar cliente</label><input id="caSearch" value="${esc(ui.search)}" placeholder="Nº do cliente..."></div>
       <button class="btn sm ca-clear" id="caClear">Limpar filtros</button>
     </div>
@@ -9706,7 +10017,7 @@ function renderDiagnostico(){
   const openingOverlap=a.alerts.opening1h.filter(p=>p.flags.overlap).length;
   const shortPrevious=a.alerts.unresolved.filter(p=>hoursBetween(p.prevStart,p.prevEnd)!=null&&hoursBetween(p.prevStart,p.prevEnd)<=2).length;
   const uniqueOpeningClients=new Set(a.alerts.opening1h.map(p=>String(p.client))).size;
-  const teamSelected=[...S.filters.equipes][0]||'',causeSelected=[...S.filters.causas][0]||'',poloSelected=[...S.filters.polos][0]||'';
+  const teamSelected=[...S.filters.equipes][0]||'',causeSelected=[...S.filters.causas][0]||'',poloSelected=[...S.filters.polos][0]||'',ntSelected=[...(S.filters.nts||[])][0]||'';
   const criticalDetail=a.criticalDay?diagnosticCriticalBreakdown(a,a.criticalDay.key):'Sem casos críticos';
   el.innerHTML=`<div class="diag-v2">
     <div class="dv-head">
@@ -9722,6 +10033,7 @@ function renderDiagnostico(){
       <div class="dv-control"><select id="diagTeam" aria-label="Equipe deslocada">${diagnosticSelectOptions(S.distinct.equipes,new Set(teamSelected?[teamSelected]:[]),'Equipe Desl.')}</select></div>
       <div class="dv-control"><select id="diagCause" aria-label="Causa">${diagnosticSelectOptions(S.distinct.causas,new Set(causeSelected?[causeSelected]:[]),'Causa')}</select></div>
       <div class="dv-control"><select id="diagPolo" aria-label="Polo">${diagnosticSelectOptions(S.distinct.polos,new Set(poloSelected?[poloSelected]:[]),'Polo')}</select></div>
+      <div class="dv-control"><select id="diagNt" aria-label="Nível de tensão">${diagnosticSelectOptions(S.distinct.nts||[],new Set(ntSelected?[ntSelected]:[]),'NT')}</select></div>
       <div class="dv-control search"><input id="diagClientSearch" value="${esc(S.filters.clienteSearch)}" placeholder="Buscar Nº Cliente" aria-label="Buscar número do cliente">${dvIcon('search')}</div>
     </div>
     <div class="dv-filter-note">${dvIcon('info')}<span>Clique em qualquer card, alerta, barra ou ponto do gráfico para abrir os registros que originaram o resultado.</span><span class="spacer"></span><button class="dv-clear" id="diagClearFilters">${dvIcon('reset')} Limpar filtros</button></div>
@@ -12941,6 +13253,7 @@ function gcBuildGeneralEvents(){
   const byClient=new Map(),events=[];
   for(const row of S.baseCompleta||[]){
     if(!gcGeneralEligible(row))continue;
+    if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
     const client=String(row[COL.nCliente]||'').trim();
     if(!client)continue;
     if(!byClient.has(client))byClient.set(client,[]);
@@ -13426,6 +13739,7 @@ function gcBuildModel(){
     S.baseCompleta.length,
     S.analiseGrupoCausaDateFrom||'',
     S.analiseGrupoCausaDateTo||'',
+    JSON.stringify([...(S.filters?.nts||[])]),
     GC_CORRECTION_MODEL_VERSION
   ].join('|');
 
@@ -13686,10 +14000,50 @@ function gcSafeCorrectionCodes(row,model){
     .sort((a,b)=>gcGroupNumber(a)-gcGroupNumber(b));
 }
 
+function gcCausesForGroupCode(code){
+  const result=[];
+  const seen=new Set();
+
+  for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
+    if(gcGroupCode(group,cause)!==code)continue;
+    const key=normalizeHeaderKey(cause);
+    if(!key||seen.has(key))continue;
+    seen.add(key);result.push(String(cause).trim());
+  }
+
+  for(const cause of CAUSAS_PERMITIDAS_GERAL||[]){
+    const groups=[...causeGroups(cause)];
+    const codes=groups.map(g=>gcGroupCode(g,cause)).filter(Boolean);
+    const individual=gcGroupCode(cause,cause);
+    if(!codes.includes(code)&&individual!==code)continue;
+    const key=normalizeHeaderKey(cause);
+    if(!key||seen.has(key))continue;
+    seen.add(key);result.push(String(cause).trim());
+  }
+
+  const unique=GC_INDIVIDUAL_GROUP_CATALOG.codeToCause.get(code);
+  if(unique&&!seen.has(normalizeHeaderKey(unique)))result.push(unique);
+
+  return result.sort((a,b)=>a.localeCompare(b,'pt-BR'));
+}
+
+function openGcSuggestionGroup(code){
+  const causes=gcCausesForGroupCode(code);
+  document.getElementById('modalBox').classList.remove('wide');
+  document.getElementById('modalTitle').textContent=`${code} · ${gcGroupLabel(code)}`;
+  document.getElementById('modalBody').innerHTML=`
+    <div class="gc-suggestion-modal-head">${gcGroupLogo(code,true,gcGroupLabel(code))}<b>${esc(gcGroupLabel(code))}</b></div>
+    <div class="table-scroll compact"><table>
+      <thead><tr><th>Grupo</th><th>Causas pertencentes ao grupo</th></tr></thead>
+      <tbody>${causes.length?causes.map(c=>`<tr><td>${gcGroupLogo(code,true,c)}</td><td>${esc(c)}</td></tr>`).join(''):`<tr><td>${gcGroupLogo(code,true)}</td><td>${esc(gcGroupLabel(code))}</td></tr>`}</tbody>
+    </table></div>`;
+  document.getElementById('modalBg').classList.add('show');
+}
+
 function gcSuggestionHtml(row,model){
   const safe=gcSafeCorrectionCodes(row,model);
   if(!safe.length)return '<div class="gc-suggestion"><b>Sugestão de Correção:</b> nenhuma opção segura encontrada na janela de 30 dias.</div>';
-  return `<div class="gc-suggestion" title="Só são exibidos grupos que não aparecem em nenhuma outra incidência deste cliente dentro de ±30 dias."><b>Sugestão de Correção:</b> ${safe.map(code=>gcGroupLogo(code,true,gcGroupLabel(code))).join(' ')}</div>`;
+  return `<div class="gc-suggestion" title="Só são exibidos grupos que não aparecem em nenhuma outra incidência deste cliente dentro de ±30 dias."><b>Sugestão de Correção:</b> ${safe.map(code=>`<button type="button" class="gc-suggestion-group-btn" onclick="event.stopPropagation();openGcSuggestionGroup('${code}')" title="Ver causas de ${code}">${gcGroupLogo(code,true,gcGroupLabel(code))}</button>`).join(' ')}</div>`;
 }
 function gcPreserveCorrectionViewport(callback){
   const y=window.scrollY;
@@ -13726,6 +14080,8 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
   const canShowCorrection=!validated&&!!(recurrent||gcHasLaterRecurrent(row,model)||hasSavedCorrection);
   const canShowFeedback=!!(recurrent||gcHasLaterRecurrent(row,model)||hasSavedCorrection||validated);
   const process=row?.[COL.processo];
+  const improdutivo=!!row?.__improdutivo;
+  const improdutivoBadge=improdutivo?'<span class="gc-improdutivo-badge">IMPRODUTIVO</span>':'';
 
   let cardClass='',badge='';
   if(recurrent){
@@ -13746,7 +14102,7 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
         <div class="gc-client-inside">Cliente ${esc(gcClientKey(row?.[COL.nCliente]))}</div>
         <div class="gc-att-date">${esc(gcDate(row?.__dataFim))}</div>
       </div>
-      ${badge}${validated?'<span class="gc-validated-badge">VALIDADO</span>':''}
+      ${badge}${improdutivoBadge}${validated?'<span class="gc-validated-badge">VALIDADO</span>':''}
     </div>
 
     <div class="gc-att-grid">
@@ -13961,11 +14317,9 @@ function gcClientTable(clients,kind,model){
     <th>${gcSortHeader('Vegetação','vegetacao')}</th>
     <th>${gcSortHeader('Animais','animais')}</th>
     <th>${gcSortHeader('Outros','outros')}</th>
-    <th>${gcSortHeader('Correções','correcoes')}</th>
   </tr></thead><tbody>${sorted.map(c=>{
     const key=`${kind}:${c.cliente}`,open=S.analiseGrupoCausaExpanded.has(key);
-    const corr=gcCorrectionCountForClient(c.cliente,model);
-    const detail=open?`<tr class="gc-detail"><td colspan="8">${gcDetailTable(c,model)}</td></tr>`:'';
+    const detail=open?`<tr class="gc-detail"><td colspan="7">${gcDetailTable(c,model)}</td></tr>`:'';
     return `<tr class="gc-row" data-gc-client="${encodeURIComponent(c.cliente)}" data-gc-kind="${kind}">
       <td><b>${open?'▾':'▸'} ${esc(c.cliente)}</b></td>
       <td>${fmtNum(c.group.length)}</td>
@@ -13974,7 +14328,6 @@ function gcClientTable(clients,kind,model){
       <td>${fmtNum(c.vegetacao)}</td>
       <td>${fmtNum(c.animais)}</td>
       <td>${fmtNum(c.outros)}</td>
-      <td class="gc-corrections-cell">${fmtNum(corr)}</td>
     </tr>${detail}`;
   }).join('')}</tbody></table></div>`;
 }
@@ -13993,11 +14346,18 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   const q=String(S.analiseGrupoCausaSearch||'').trim().toLowerCase();
   let clients=model.clients;
   if(q)clients=clients.filter(c=>String(c.cliente).toLowerCase().includes(q));
-  const ativos=clients.filter(c=>c.group.length>0);
+  let ativos=clients.filter(c=>c.group.length>0);
+  const actionFilter=S.analiseGrupoCausaActionFilter||'todos';
+  if(actionFilter==='com')ativos=ativos.filter(c=>gcCorrectionCountForClient(c.cliente,model)>0);
+  else if(actionFilter==='sem')ativos=ativos.filter(c=>gcCorrectionCountForClient(c.cliente,model)===0);
   el.innerHTML=`<div class="gc-page">
     <div class="gc-filters">
       <div class="gc-filter-field"><label>Data inicial</label><input type="date" id="gcDateFrom" value="${esc(S.analiseGrupoCausaDateFrom||'')}"></div>
       <div class="gc-filter-field"><label>Data final</label><input type="date" id="gcDateTo" value="${esc(S.analiseGrupoCausaDateTo||'')}"></div>
+      <div class="gc-filter-field"><label>NT</label><select id="gcNtFilter">
+        <option value="">Todos</option>
+        ${(S.distinct.nts||[]).map(nt=>`<option value="${esc(nt)}" ${S.filters?.nts?.has(nt)?'selected':''}>${esc(nt)}</option>`).join('')}
+      </select></div>
       <label class="gc-filter-check" title="A Reincidência por Grupo considera somente continuidades confirmadas">
         <input type="checkbox" checked disabled> Continuidade
       </label>
@@ -14017,6 +14377,11 @@ function renderAnaliseGrupoCausa(fromAsync=false){
         <div class="gc-title">Correção de reincidências por Grupo</div>
         <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · ao abrir um cliente, o anterior é fechado</div>
       </div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="gc-action-tabs" role="group" aria-label="Filtrar ações">
+          <button type="button" data-gc-action-filter="todos" class="${actionFilter==='todos'?'active':''}">Todos</button>
+          <button type="button" data-gc-action-filter="sem" class="${actionFilter==='sem'?'active':''}">Sem Ação</button>
+          <button type="button" data-gc-action-filter="com" class="${actionFilter==='com'?'active':''}">Com Ação</button>
+        </div>
         <button type="button" class="gc-export-changes" id="gcExportCauseChanges">Exportar correções</button>
         <input class="gc-search" id="gcSearch" value="${esc(S.analiseGrupoCausaSearch||'')}" placeholder="Buscar número do cliente">
       </div></div>
@@ -14031,10 +14396,24 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     let timer;
     search.oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>{S.analiseGrupoCausaSearch=search.value;S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa()},160)};
   }
-  const df=document.getElementById('gcDateFrom'),dt=document.getElementById('gcDateTo'),clear=document.getElementById('gcDateClear');
+  const df=document.getElementById('gcDateFrom'),dt=document.getElementById('gcDateTo'),clear=document.getElementById('gcDateClear'),ntFilter=document.getElementById('gcNtFilter');
+  if(ntFilter)ntFilter.onchange=()=>{
+    S.filters.nts=new Set(ntFilter.value?[ntFilter.value]:[]);
+    gcInvalidateCorrectionModel();
+    S.renderKeys.analiseGrupoCausa='';
+    renderAnaliseGrupoCausa();
+  };
   if(df)df.onchange=()=>{S.analiseGrupoCausaDateFrom=df.value||'';S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa()};
   if(dt)dt.onchange=()=>{S.analiseGrupoCausaDateTo=dt.value||'';S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa()};
   if(clear)clear.onclick=()=>{S.analiseGrupoCausaDateFrom='';S.analiseGrupoCausaDateTo='';S.renderKeys.analiseGrupoCausa='';renderAnaliseGrupoCausa()};
+
+  el.querySelectorAll('[data-gc-action-filter]').forEach(btn=>btn.onclick=(event)=>{
+    event.stopPropagation();
+    S.analiseGrupoCausaActionFilter=btn.dataset.gcActionFilter||'todos';
+    S.analiseGrupoCausaExpanded.clear();
+    S.renderKeys.analiseGrupoCausa='';
+    renderAnaliseGrupoCausa();
+  });
 
   el.querySelectorAll('[data-gc-client]').forEach(tr=>tr.onclick=(event)=>{
     if(event.target.closest('select,button,details,summary,input,a'))return;
