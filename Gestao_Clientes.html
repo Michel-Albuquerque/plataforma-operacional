@@ -1635,6 +1635,13 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 .gc-status-card.warning{border-left:4px solid #d49a16}
 .gc-status-card.success{border-left:4px solid #0b8d61}
 @media(max-width:950px){.gc-status-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.dashboard-monthly-hotspots{overflow:visible}
+.dashboard-monthly-bar-hotspot:focus-visible{
+  outline:2px solid #008556;
+  outline-offset:1px;
+}
+
 </style>
 </head>
 <body>
@@ -6543,6 +6550,9 @@ function openAllProcessRanking(){
   document.getElementById('modalBox').classList.add('wide');
   document.getElementById('modalTitle').textContent='Ranking completo de Reincidência por Processo';
   document.getElementById('modalBody').innerHTML=`
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px">
+      <button type="button" class="gc-export-changes" onclick="exportDashboardMonthlyDrill()">Baixar tabela</button>
+    </div>
     <div class="tag-note">Ordenação atual: <b>${esc(processSortConfig().label)}</b>. Selecione um processo para abrir os indicadores e os registros correspondentes.</div>
     <div class="table-scroll compact"><table><thead><tr><th>Posição</th><th>Processo</th><th>Incidências</th><th>Reincidências</th><th>% Reincidência</th><th>Participação na operação</th><th>Detalhamento</th></tr></thead><tbody>
     ${analysis.items.map((item,index)=>`<tr><td>${index+1}º</td><td>${esc(item.process)}</td><td>${fmtNum(item.totalIncidences)}</td><td>${fmtNum(item.recurrenceCount)}</td><td>${fmtPct(item.pctReincidence)}</td><td>${fmtPct(item.operationShare)}</td><td><button class="table-link" onclick="openProcessRankingDetail('${encodeURIComponent(item.process).replace(/'/g,'%27')}')">Abrir base →</button></td></tr>`).join('')||'<tr><td colspan="7">Sem processos no filtro atual.</td></tr>'}
@@ -7128,112 +7138,109 @@ function dashboardMonthlyDatasetType(dataset){
   return '';
 }
 
-function dashboardMonthlyNativeBarHit(chart,nativeEvent){
-  if(!chart||!nativeEvent)return null;
+function dashboardMonthlyBarType(dataset){
+  const label=normalizeHeaderKey(dataset?.label||'');
+  if(label.includes('REINCID'))return 'reincidencias';
+  if(label.includes('INCID'))return 'incidencias';
+  return '';
+}
 
-  const rect=chart.canvas.getBoundingClientRect();
-  const x=nativeEvent.clientX-rect.left;
-  const y=nativeEvent.clientY-rect.top;
+function buildDashboardMonthlyBarHotspots(chart){
+  if(!chart?.canvas)return;
 
-  const labels=chart.data?.labels||[];
-  if(!labels.length)return null;
+  const canvas=chart.canvas;
+  const wrap=canvas.closest('.ppt-chart-wrap')||canvas.parentElement;
+  if(!wrap)return;
 
-  // Primeiro identifica o MÊS pela posição horizontal dos ticks.
-  // Assim o índice do mês nunca depende da ordem interna dos datasets.
-  let monthIndex=-1;
-  let monthDx=Infinity;
-  const xScale=chart.scales?.x;
+  if(getComputedStyle(wrap).position==='static')wrap.style.position='relative';
 
-  for(let i=0;i<labels.length;i++){
-    const px=xScale?.getPixelForTick
-      ? xScale.getPixelForTick(i)
-      : chart.getDatasetMeta(0)?.data?.[i]?.x;
+  wrap.querySelectorAll('.dashboard-monthly-hotspots').forEach(el=>el.remove());
 
-    if(!Number.isFinite(px))continue;
-    const dx=Math.abs(x-px);
-    if(dx<monthDx){
-      monthDx=dx;
-      monthIndex=i;
-    }
-  }
+  const overlay=document.createElement('div');
+  overlay.className='dashboard-monthly-hotspots';
+  overlay.style.position='absolute';
+  overlay.style.left=canvas.offsetLeft+'px';
+  overlay.style.top=canvas.offsetTop+'px';
+  overlay.style.width=canvas.clientWidth+'px';
+  overlay.style.height=canvas.clientHeight+'px';
+  overlay.style.pointerEvents='none';
+  overlay.style.zIndex='8';
 
-  if(monthIndex<0)return null;
+  const monthly=chart.__monthlyRows||[];
 
-  const candidates=[];
-
-  // Depois identifica QUAL DAS DUAS BARRAS daquele mês foi clicada.
   for(let datasetIndex=0;datasetIndex<(chart.data?.datasets||[]).length;datasetIndex++){
     const dataset=chart.data.datasets[datasetIndex];
-    const label=normalizeHeaderKey(dataset?.label||'');
-    const type=label.includes('REINCID')
-      ? 'reincidencias'
-      : label.includes('INCID')
-        ? 'incidencias'
-        : '';
-
+    const type=dashboardMonthlyBarType(dataset);
     if(!type)continue;
 
     const meta=chart.getDatasetMeta(datasetIndex);
     if(!meta||meta.hidden||meta.type!=='bar')continue;
 
-    const element=meta.data?.[monthIndex];
-    if(!element)continue;
+    (meta.data||[]).forEach((element,index)=>{
+      const month=monthly[index];
+      if(!month||!element)return;
 
-    const props=typeof element.getProps==='function'
-      ? element.getProps(['x','y','base','width'],true)
-      : element;
+      const props=typeof element.getProps==='function'
+        ? element.getProps(['x','y','base','width'],true)
+        : element;
 
-    const cx=Number(props.x);
-    const top=Math.min(Number(props.y),Number(props.base));
-    const bottom=Math.max(Number(props.y),Number(props.base));
-    const half=Math.max(3,Number(props.width||0)/2);
+      const cx=Number(props.x);
+      const rawTop=Math.min(Number(props.y),Number(props.base));
+      const rawBottom=Math.max(Number(props.y),Number(props.base));
+      const width=Math.max(8,Number(props.width||0));
 
-    if(!Number.isFinite(cx)||!Number.isFinite(top)||!Number.isFinite(bottom))continue;
+      if(!Number.isFinite(cx)||!Number.isFinite(rawTop)||!Number.isFinite(rawBottom))return;
 
-    const withinX=x>=cx-half-4&&x<=cx+half+4;
-    const withinY=y>=top-8&&y<=bottom+8;
+      // Hitbox exatamente alinhado à barra. Para barras muito pequenas,
+      // aumenta somente na vertical, mantendo o centro/coluna corretos.
+      const realHeight=Math.max(1,rawBottom-rawTop);
+      const hitHeight=Math.max(14,realHeight);
+      const top=realHeight>=14
+        ? rawTop
+        : Math.max(0,rawBottom-hitHeight);
 
-    if(withinX&&withinY){
-      candidates.push({
-        type,
-        index:monthIndex,
-        datasetIndex,
-        dx:Math.abs(x-cx)
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className=`dashboard-monthly-bar-hotspot ${type}`;
+      btn.dataset.monthIndex=String(index);
+      btn.dataset.barType=type;
+      btn.title=`Abrir ${type==='reincidencias'?'reincidências':'incidências'} de ${(MESES_NOMES[month.mes]||month.mes)}/${month.ano}`;
+      btn.setAttribute('aria-label',btn.title);
+
+      Object.assign(btn.style,{
+        position:'absolute',
+        left:(cx-width/2)+'px',
+        top:top+'px',
+        width:width+'px',
+        height:hitHeight+'px',
+        border:'0',
+        padding:'0',
+        margin:'0',
+        background:'transparent',
+        cursor:'pointer',
+        pointerEvents:'auto'
       });
-    }
+
+      btn.onclick=(event)=>{
+        event.preventDefault();
+        event.stopPropagation();
+        openDashboardMonthlyBar(month,type);
+      };
+
+      overlay.appendChild(btn);
+    });
   }
 
-  if(!candidates.length)return null;
+  wrap.appendChild(overlay);
 
-  candidates.sort((a,b)=>a.dx-b.dx);
-  return candidates[0];
-}
-
-function wireDashboardMonthlyNativeClick(chart){
-  if(!chart?.canvas)return;
-
-  const canvas=chart.canvas;
-
-  if(canvas.__dashboardMonthlyClickHandler){
-    canvas.removeEventListener('click',canvas.__dashboardMonthlyClickHandler,true);
+  if(!canvas.__dashboardHotspotResizeObserver && typeof ResizeObserver!=='undefined'){
+    canvas.__dashboardHotspotResizeObserver=new ResizeObserver(()=>{
+      if(chart?.canvas?.isConnected){
+        requestAnimationFrame(()=>buildDashboardMonthlyBarHotspots(chart));
+      }
+    });
+    canvas.__dashboardHotspotResizeObserver.observe(canvas);
   }
-
-  const handler=(event)=>{
-    const hit=dashboardMonthlyNativeBarHit(chart,event);
-    if(!hit)return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    const monthly=chart.__monthlyRows||[];
-    const month=monthly[hit.index];
-    if(!month)return;
-
-    openDashboardMonthlyBar(month,hit.type);
-  };
-
-  canvas.__dashboardMonthlyClickHandler=handler;
-  canvas.addEventListener('click',handler,true);
 }
 
 function dashboardMonthlyClickedBar(chart,event){
@@ -7444,13 +7451,7 @@ function renderDashboard(){
               x:{grid:{display:false}, border:{display:false}, ticks:{display:true,autoSkip:false,maxRotation:0,minRotation:0,padding:9,color:'#3f4d47',font:{family:'Inter',size:13.5,weight:'700'}}}
             },
             plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#141c19'} },
-            onHover:(event)=>{
-              const target=event?.native?.target||ctx;
-              const native=event?.native;
-              const chart=S.charts.chartDashboardMensal||event.chart;
-              const hit=native?dashboardMonthlyNativeBarHit(chart,native):null;
-              target.style.cursor=hit?'pointer':'default';
-            },
+            onHover:()=>{},
             onClick:()=>{},
             layout:{ padding:{top:18,bottom:9,left:3,right:3} }
           },
@@ -7460,7 +7461,7 @@ function renderDashboard(){
         // Clique nativo no canvas: independente da linha de percentual e do
         // mecanismo de hit-test do Chart.js.
         S.charts.chartDashboardMensal.__monthlyRows=monthly;
-        wireDashboardMonthlyNativeClick(S.charts.chartDashboardMensal);
+        requestAnimationFrame(()=>buildDashboardMonthlyBarHotspots(S.charts.chartDashboardMensal));
       }catch(err){
         console.error('Erro ao montar gráfico do dashboard:', err);
         const wrap = ctx.closest ? ctx.closest('.ppt-chart-wrap') : null;
@@ -8008,6 +8009,17 @@ function ensurePptxRuntime(){
   runtime.remove();
   return typeof PptxGenJS!=='undefined';
 }
+function dashboardCanvasPng(id){
+  try{
+    const canvas=document.getElementById(id);
+    if(!canvas||!canvas.width||!canvas.height)return '';
+    return canvas.toDataURL('image/png',1.0);
+  }catch(error){
+    console.warn('Não foi possível capturar gráfico para o PowerPoint:',id,error);
+    return '';
+  }
+}
+
 async function exportDashboardPptx(){
   if(!document.getElementById('dashboardPptPage')){ alert('Abra a área Reincidente antes de exportar.'); return; }
   if(!ensurePptxRuntime()){
@@ -8046,7 +8058,7 @@ async function exportDashboardPptx(){
     pptx.subject='Acompanhamento de Reincidência'; pptx.title='Acompanhamento de Reincidência'; pptx.lang='pt-BR';
     const slide=pptx.addSlide();
     slide.background={color:'F1F5F3'};
-    const SH=pptx.ShapeType, CT=pptx.ChartType;
+    const SH=pptx.ShapeType;
     const addText=(value,x,y,w,h,opts={})=>slide.addText(String(value),Object.assign({x,y,w,h,fontFace:'Aptos',fontSize:9,color:'1A2823',margin:0,breakLine:false,fit:'shrink'},opts));
     const addCard=(x,y,w,h)=>slide.addShape(SH.roundRect,{x,y,w,h,rectRadius:.05,fill:{color:'FFFFFF'},line:{color:'DCE6E1',pt:.6}});
     const addKpi=(label,value,y,color='17241F')=>{addCard(.10,y,2.05,.55);addText(label.toUpperCase(),.22,y+.10,1.75,.12,{fontSize:7.5,bold:true,color:'7B8A83',charSpacing:.2});addText(value,.22,y+.23,1.75,.24,{fontSize:17,bold:true,color});};
@@ -8068,8 +8080,12 @@ async function exportDashboardPptx(){
     causas.forEach(([causa,q],i)=>{const y=4.08+i*.47;addText(causa,.22,y,1.50,.14,{fontSize:6.8,color:'59665F'});addText(fmtPct(q/totalCausas*100),1.73,y,.25,.14,{fontSize:6.8,bold:true,align:'right'});slide.addShape(SH.rect,{x:.22,y:y+.19,w:1.76,h:.025,fill:{color:'E7EEEA'},line:{color:'E7EEEA'}});slide.addShape(SH.rect,{x:.22,y:y+.19,w:1.76*(q/(causas[0]?.[1]||1)),h:.025,fill:{color:'046B45'},line:{color:'046B45'}});});
     addCard(2.24,.92,7.72,2.62); addText('Evolução mensal',2.38,1.05,2.2,.16,{fontSize:9,bold:true});
     if(labels.length){
-      slide.addChart(CT.bar,[{name:'Incidências',labels,values:monthly.map(m=>m.indicador)},{name:'Reincidências',labels,values:monthly.map(m=>m.reincidencias)}],{x:2.37,y:1.26,w:7.42,h:2.08,catAxisLabelPos:'low',catAxisLabelFontSize:7,catAxisLineShow:false,valAxisHidden:true,showLegend:false,showValue:true,dataLabelPosition:'outEnd',dataLabelColor:'59665F',dataLabelFontSize:7,dataLabelFormatCode:'0',chartColors:['CFE3D9','D97A29'],catGridLine:{style:'none'},valGridLine:{style:'none'},showTitle:false,showBorder:false,gapWidthPct:65});
-      slide.addChart(CT.line,[{name:'% Reincidência',labels,values:monthly.map(m=>(m.pct||0)/100)}],{x:2.37,y:1.26,w:7.42,h:1.83,catAxisLabelPos:'none',catAxisLineShow:false,valAxisHidden:true,showLegend:false,showValue:true,dataLabelPosition:'t',dataLabelColor:'046B45',dataLabelFontSize:7,dataLabelFormatCode:'0.0%',chartColors:['046B45'],lineSize:2,lineSmooth:true,lineDataSymbol:'circle',lineDataSymbolSize:4,catGridLine:{style:'none'},valGridLine:{style:'none'},showTitle:false,showBorder:false,chartArea:{fill:{color:'FFFFFF',transparency:100},border:{color:'FFFFFF',transparency:100}},plotArea:{fill:{color:'FFFFFF',transparency:100},border:{color:'FFFFFF',transparency:100}}});
+      const monthlyPng=dashboardCanvasPng('chartDashboardMensal');
+      if(monthlyPng){
+        slide.addImage({data:monthlyPng,x:2.37,y:1.24,w:7.42,h:2.10});
+      }else{
+        addText('Gráfico mensal indisponível na captura.',2.55,2.05,6.9,.25,{fontSize:9,color:'75837D',align:'center'});
+      }
     }
     addCard(2.24,3.62,3.34,1.55); addText('Top 5 clientes mais reincidentes',2.38,3.75,2.7,.15,{fontSize:8.5,bold:true});
     topClientes.forEach((c,i)=>{const y=4.03+i*.20;addText(c.cliente,2.38,y,1.35,.12,{fontSize:6.8,color:'59665F'});addText(`${fmtNum(c.reincidencias)} · ${fmtPct(c.pctReincidencia)}`,4.13,y,1.20,.12,{fontSize:6.8,bold:true,align:'right'});});
@@ -8077,8 +8093,12 @@ async function exportDashboardPptx(){
     topEquipes.forEach((e,i)=>{const y=4.03+i*.20;addText(e.equipe,5.80,y,1.55,.12,{fontSize:6.8,color:'59665F'});addText(`${fmtNum(e.totalAtendimentos)} inc. · ${fmtNum(e.reincidenciasGeradas)} reinc. · ${fmtPct(e.pctReincidencia)} · ${fmtNum(e.daysWorked||0)}d`,7.30,y,2.42,.12,{fontSize:6.3,bold:true,align:'right'});});
     addCard(2.24,5.25,3.96,2.07); addText('Reincidência por turno — evolução mensal (%)',2.38,5.38,3.45,.16,{fontSize:8.5,bold:true});
     if(turnLabels.length){
-      const turnos=['Turno A','Turno B','Turno C'];
-      slide.addChart(CT.bar,turnos.map(turno=>({name:turno,labels:turnLabels,values:turnoDash.months.map(m=>{const ri=m.counts.get(turno)||0,ti=m.incidentCounts.get(turno)||0;return ti?ri/ti:0;})})),{x:2.37,y:5.60,w:3.66,h:1.52,catAxisLabelPos:'low',catAxisLabelFontSize:6.3,catAxisLineShow:false,valAxisHidden:true,showLegend:false,showValue:true,dataLabelPosition:'outEnd',dataLabelColor:'59665F',dataLabelFontSize:6.2,dataLabelFormatCode:'0.0%',chartColors:['00AEEF','003B7A','046B45'],catGridLine:{style:'none'},valGridLine:{style:'none'},showTitle:false,showBorder:false,gapWidthPct:45});
+      const turnoPng=dashboardCanvasPng('chartDashboardTurno');
+      if(turnoPng){
+        slide.addImage({data:turnoPng,x:2.37,y:5.58,w:3.66,h:1.55});
+      }else{
+        addText('Gráfico por turno indisponível na captura.',2.50,6.18,3.35,.20,{fontSize:7,color:'75837D',align:'center'});
+      }
     }
     addCard(6.28,5.25,3.98,2.07);
     addText('Reincidências por tipo de instalação',6.42,5.38,2.62,.16,{fontSize:8.5,bold:true});
@@ -8110,7 +8130,7 @@ async function exportDashboardPptx(){
     });
     if(!pptProcesses.length)addText('Sem processos no filtro atual.',10.23,3.76,2.3,.2,{fontSize:8,color:'75837D'});
     setLoading(true,'Finalizando PowerPoint…','Salvando o slide com gráficos editáveis e alta definição',82);
-    await pptx.writeFile({fileName:`Acompanhamento_Reincidencia_${stamp()}.pptx`,compression:true});
+    await pptx.writeFile({fileName:`Acompanhamento_Reincidencia_${stamp()}.pptx`});
     setLoading(false);
   }catch(err){
     console.error('Erro ao exportar PowerPoint:',err); setLoading(false);
