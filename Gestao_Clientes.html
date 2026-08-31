@@ -6957,6 +6957,39 @@ function openDashboardMonthlyBar(month,datasetIndex){
 
 
 let _dashboardRenderToken=0;
+function dashboardMonthlyClickedBar(chart,event){
+  if(!chart||!event)return null;
+
+  const x=Number(event.x);
+  const y=Number(event.y);
+  if(!Number.isFinite(x)||!Number.isFinite(y))return null;
+
+  // Verifica diretamente a geometria das duas séries de barras.
+  // Isso evita que a linha de % "roube" o clique da barra de Reincidências.
+  for(const datasetIndex of [0,1]){
+    const meta=chart.getDatasetMeta(datasetIndex);
+    if(!meta||meta.hidden)continue;
+
+    for(let index=0;index<(meta.data||[]).length;index++){
+      const element=meta.data[index];
+      if(element&&typeof element.inRange==='function'&&element.inRange(x,y,true)){
+        return {datasetIndex,index};
+      }
+    }
+  }
+
+  // Fallback Chart.js.
+  const hits=chart.getElementsAtEventForMode(
+    event.native||event,
+    'nearest',
+    {intersect:true},
+    false
+  )||[];
+
+  const barHit=hits.find(hit=>hit.datasetIndex===0||hit.datasetIndex===1);
+  return barHit||null;
+}
+
 function renderDashboard(){
   if(!S.baseCompleta.length) return;
   const renderToken=++_dashboardRenderToken;
@@ -7132,15 +7165,15 @@ function renderDashboard(){
               x:{grid:{display:false}, border:{display:false}, ticks:{display:true,autoSkip:false,maxRotation:0,minRotation:0,padding:9,color:'#3f4d47',font:{family:'Inter',size:13.5,weight:'700'}}}
             },
             plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#141c19'} },
-            onHover:(event,elements)=>{
+            onHover:(event)=>{
               const target=event?.native?.target||ctx;
-              const hit=elements?.[0];
-              target.style.cursor=(hit && (hit.datasetIndex===0 || hit.datasetIndex===1))?'pointer':'default';
+              const hit=dashboardMonthlyClickedBar(S.charts.chartDashboardMensal||event.chart,event);
+              target.style.cursor=hit?'pointer':'default';
             },
-            onClick:(event,elements)=>{
-              const hit=elements?.[0];
+            onClick:(event)=>{
+              const chart=event?.chart||S.charts.chartDashboardMensal;
+              const hit=dashboardMonthlyClickedBar(chart,event);
               if(!hit)return;
-              if(hit.datasetIndex!==0 && hit.datasetIndex!==1)return;
               openDashboardMonthlyBar(monthly[hit.index],hit.datasetIndex);
             },
             layout:{ padding:{top:18,bottom:9,left:3,right:3} }
@@ -13095,36 +13128,65 @@ function gcSaveIncStateLocal(){
 async function gcLoadIncStateServer(){
   if(GC_INC_STATE_SERVER_LOADED||GC_INC_STATE_SERVER_LOADING)return;
   GC_INC_STATE_SERVER_LOADING=true;
+
+  // Local é apenas contingência enquanto o servidor não responde.
   gcLoadIncStateLocal();
+
   try{
     const result=await callbackSupabaseRpc('analise_causa_incidencias_listar',{});
     const rows=Array.isArray(result)?result:(Array.isArray(result?.registros)?result.registros:[]);
+
+    const latestByInc=new Map();
+
     for(const item of rows){
-      const key=normalizeNumero(item.incidencia||'');
+      const key=normalizeNumero(item?.incidencia||'');
       if(!key)continue;
-      const posteriorGroup=String(item.grupo_posterior||'').trim();
-      const posteriorCause=String(item.causa_posterior||'').trim();
-      GC_INC_STATE[key]={
-        correcao:(posteriorGroup&&posteriorCause)?'Sim':String(item.correcao||'Sem Ação'),
-        feedback:String(item.feedback_operador||'Sem Feedback'),
+
+      const stamp=Date.parse(item?.updated_at||item?.created_at||'')||0;
+      const prev=latestByInc.get(key);
+      if(!prev || stamp>=prev.stamp){
+        latestByInc.set(key,{item,stamp});
+      }
+    }
+
+    const serverState={};
+
+    for(const [key,entry] of latestByInc){
+      const item=entry.item;
+      const posteriorGroup=String(item?.grupo_posterior||'').trim();
+      const posteriorCause=String(item?.causa_posterior||'').trim();
+
+      serverState[key]={
+        correcao:(posteriorGroup&&posteriorCause)
+          ? 'Sim'
+          : String(item?.correcao||'Sem Ação'),
+        feedback:String(item?.feedback_operador||'Sem Feedback'),
         posteriorGroup,
         posteriorCause,
-        savedAt:item.updated_at||item.created_at||''
+        savedAt:item?.updated_at||item?.created_at||''
       };
     }
+
+    // Se o Supabase respondeu, ele vira a fonte de verdade.
+    // Registros antigos existentes apenas no localStorage deixam de gerar
+    // ALTERADO / Com Correção indevidamente.
+    GC_INC_STATE=serverState;
     gcSaveIncStateLocal();
     gcInvalidateCorrectionModel();
+
   }catch(error){
-    console.warn('Registros de Correção: Supabase ainda não configurado; usando armazenamento local.',error);
+    console.warn('Registros de Correção: Supabase indisponível; mantendo armazenamento local como contingência.',error);
   }finally{
     GC_INC_STATE_SERVER_LOADED=true;
     GC_INC_STATE_SERVER_LOADING=false;
+
     if(S.currentTab==='analiseGrupoCausa'){
       S.renderKeys.analiseGrupoCausa='';
       renderAnaliseGrupoCausa(true);
     }
   }
 }
+
 async function gcSaveIncState(row,patch={}){
   const key=gcIncKey(row);
   if(!key)return;
@@ -13526,7 +13588,14 @@ function gcCauseOptionsForCategory(code,selectedCause='',excludedCodes=[]){
     const cat=gcGroupCode(group,cause);
     if(!cat)continue;
     if(code!=='TODOS' && cat!==code)continue;
-    if(excluded.has(cat))continue;
+
+    // Uma causa já salva deve permanecer visível no seletor para auditoria.
+    // O bloqueio vale apenas para NOVAS escolhas.
+    const isSavedSelected=
+      !!selectedCause &&
+      normalizeHeaderKey(cause)===normalizeHeaderKey(selectedCause);
+
+    if(excluded.has(cat)&&!isSavedSelected)continue;
 
     const k=normalizeHeaderKey(cause)+'|'+cat;
     if(seen.has(k))continue;
@@ -14285,7 +14354,7 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
           <button type="button" class="gc-save-change" data-gc-inc-save="${esc(gcIncKey(row))}">Salvar correção</button>
         </div>
         ${hasStoredCorrection?`<div class="gc-saved-change gc-saved-change-strong">
-          <b>Ação registrada:</b>
+          <b>Ação registrada na incidência ${esc(inc)}:</b>
           ${gcGroupLogo(gcGroupCode(st.posteriorGroup,st.posteriorCause),true,st.posteriorCause)}
           <span>${esc(st.posteriorCause)}</span>
           ${st.savedAt?`<small>Salva em ${esc(gcDate(st.savedAt))}</small>`:''}
@@ -14534,7 +14603,7 @@ function gcClientTable(clients,kind,model){
     <th>${gcSortHeader('Vegetação','vegetacao')}</th>
     <th>${gcSortHeader('Animais','animais')}</th>
     <th>${gcSortHeader('Outros','outros')}</th>
-    ${kind==='sem'||kind==='com'?'<th>Cancelar</th>':''}
+    ${kind==='sem'||kind==='com'?'<th>Reporte</th>':''}
   </tr></thead><tbody>${sorted.map(c=>{
     const key=`${kind}:${c.cliente}`,open=S.analiseGrupoCausaExpanded.has(key);
     const isCurrent=kind==='todos'&&String(c.cliente)===String(S.analiseGrupoCausaCurrentClient||'');
@@ -14718,7 +14787,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
         <button type="button" class="gc-export-changes" id="gcExportCauseChanges">Exportar base</button>
         <input class="gc-search" id="gcSearch" value="${esc(S.analiseGrupoCausaSearch||'')}" placeholder="Buscar número do cliente">
       </div></div>
-      ${gcClientTable(ativos,'ativo',model)}
+      ${gcClientTable(ativos,actionFilter,model)}
     </section>
 
     ${gcCauseReferenceTable()}
