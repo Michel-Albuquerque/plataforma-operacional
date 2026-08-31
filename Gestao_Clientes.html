@@ -1626,6 +1626,15 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
 .gc-cancel-report:hover{background:#fdeaea;border-color:#c96767}
 .gc-cancel-report:disabled{opacity:.55;cursor:wait}
 
+
+.gc-status-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:10px 0 12px}
+.gc-status-card{background:#fff;border:1px solid #d7e1dc;border-radius:10px;padding:10px 12px;box-shadow:0 2px 8px rgba(32,48,42,.04)}
+.gc-status-card .label{font-size:9px;font-weight:900;color:#607168;letter-spacing:.04em}
+.gc-status-card .value{font-size:24px;line-height:1.1;margin-top:3px;font-weight:900;color:#17251f}
+.gc-status-card .sub{margin-top:3px;font-size:9px;color:#75857d}
+.gc-status-card.warning{border-left:4px solid #d49a16}
+.gc-status-card.success{border-left:4px solid #0b8d61}
+@media(max-width:950px){.gc-status-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -2123,15 +2132,96 @@ const CAUSE_GROUP_RELATIONS = [
   ['DEFEITO NO DISJUNTOR NO TRAFO','DEFEITO NO DISJUNTOR NO TRAFO'],['PADRAO QUEBRADO','PADRAO QUEBRADO'],
   ['SOBRECARGA','SOBRECARGA']
 ];
+
+const GC_CANONICAL_CAUSE_GROUP_RELATIONS=[
+  ['DEFEITO EM CONEXAO','RAMAL'],
+  ['DEFEITO EM CONEXAO RAMAL CONCENTRICO','RAMAL'],
+  ['DEFEITO EM CONEXAO RAMAL CONVECIONAL','RAMAL'],
+  ['DEFEITO EM RAMAL CONCÊNTRICO','RAMAL'],
+  ['DEFEITO EM RAMAL DE LIGAÇÃO','RAMAL'],
+  ['DEFEITO RAMAL DE LIGAÇÃO CABO AL','RAMAL'],
+  ['RAMAL DE LIGAÇÃO SUBSTITUÍDO','RAMAL'],
+  ['DEFEITO EM CONEXAO RAMAL SUBTERRANEO','RAMAL'],
+  ['CONDUTOR TRANÇADO','RAMAL'],
+  ['CONDUTOR PARTIDO','RAMAL'],
+  ['JUMP PARTIDO','RAMAL'],
+  ['DEFEITO EM CONEXÃO','RAMAL'],
+  ['CS COM MAL CONTATO','RAMAL'],
+  ['DEF EM CONEXAO MED RAMAL CONCÊNTRICO','RAMAL'],
+
+  ['DEFEITO EM CONEXAO','MEDIDOR'],
+  ['DEFEITO EM CONEXÃO','MEDIDOR'],
+  ['BORNE FUNDIDO','MEDIDOR'],
+  ['DEFEITO EM MEDIÇÃO SELADA','MEDIDOR'],
+  ['DEF EM CONEXAO MED RAMAL CONCÊNTRICO','MEDIDOR'],
+  ['DEFEITO EM CONEXAO DE MEDIDOR','MEDIDOR'],
+  ['DEFEITO EM MEDIDOR RAMAL CONCÊNTRICO','MEDIDOR'],
+  ['DEFEITO EM MEDIDOR','MEDIDOR'],
+  ['MEDIDOR QUEIMADO SUBSTITUÍDO','MEDIDOR'],
+
+  ['VEGETAÇÃO','VEGETAÇÃO'],
+  ['GALHO/FOLHA','VEGETAÇÃO'],
+  ['DEFEITO TEMPORÁRIO NÃO IDENTIFICADO','VEGETAÇÃO'],
+  ['ÁRVORE TOMBADA','VEGETAÇÃO'],
+
+  ['ANIMAIS','ANIMAIS'],
+  ['PÁSSARO','ANIMAIS'],
+
+  ['TERCEIROS ACIDENTAL','TERCEIROS ACIDENTAL'],
+  ['PIPA','PIPA'],
+  ['CORPO ESTRANHO','CORPO ESTRANHO'],
+  ['DEF INT COM CORREÇÃO COELCE','DEF INT COM CORREÇÃO COELCE'],
+  ['CS QUEIMADO','CS QUEIMADO'],
+  ['DESCARGAS ATMOSFÉRICAS','DESCARGAS ATMOSFÉRICAS'],
+  ['CONDUTOR BAMBO','CONDUTOR BAMBO'],
+  ['DEGRADAÇÃO MATERIAL','DEGRADAÇÃO MATERIAL'],
+  ['DEFEITO EM TRANSFORMADOR','DEFEITO EM TRANSFORMADOR'],
+  ['DEFEITO EM ISOLADOR','DEFEITO EM ISOLADOR'],
+  ['DEFEITO EM CONCENTRADOR - REDE DAT','DEFEITO EM CONCENTRADOR - REDE DAT'],
+  ['CONDUTOR SOLTO DO ISOLADOR','CONDUTOR SOLTO DO ISOLADOR'],
+  ['POSTE ABALROADO','POSTE ABALROADO'],
+  ['DEFEITO NO DISJUNTOR NO TRAFO','DEFEITO NO DISJUNTOR NO TRAFO'],
+  ['PADRAO QUEBRADO','PADRAO QUEBRADO'],
+  ['SOBRECARGA','SOBRECARGA']
+];
+
+function gcCanonicalCauseGroupRelations(){
+  const map=new Map();
+  for(const [cause,group] of GC_CANONICAL_CAUSE_GROUP_RELATIONS){
+    const key=normalizeHeaderKey(cause);
+    if(!map.has(key))map.set(key,new Set());
+    map.get(key).add(group);
+  }
+  return map;
+}
+const GC_CANONICAL_CAUSE_GROUP_MAP=gcCanonicalCauseGroupRelations();
+let GC_HISTORICAL_UNMAPPED_CAUSES=new Set();
+
+function gcRefreshHistoricalUnmappedCauses(){
+  const canonical=new Set([...GC_CANONICAL_CAUSE_GROUP_MAP.keys()]);
+  const unmapped=[];
+  for(const cause of (S.distinct?.causas||[])){
+    const text=String(cause||'').trim();
+    const key=normalizeHeaderKey(text);
+    if(!key||canonical.has(key))continue;
+    unmapped.push(text);
+  }
+  S.historicalUnmappedCauses=[...new Set(unmapped)].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  GC_HISTORICAL_UNMAPPED_CAUSES=new Set(S.historicalUnmappedCauses.map(normalizeHeaderKey));
+}
 const CAUSE_GROUP_MAP = (()=>{const map=new Map();for(const [cause,group] of CAUSE_GROUP_RELATIONS){const key=normalizeHeaderKey(cause);if(!map.has(key))map.set(key,new Set());map.get(key).add(group)}return map})();
 const GROUP_REINCIDENCE_MAX_MS = 30*86400000;
 let _groupRecurrenceCache={key:'',evaluations:[],events:[]};
 function causeGroups(value){
   const key=normalizeHeaderKey(value);
-  const mapped=CAUSE_GROUP_MAP.get(key);
-  if(mapped&&mapped.size)return mapped;
-  const causa=normCausa(value);
-  return causa?new Set([causa]):new Set();
+  if(!key)return new Set();
+  if(GC_CANONICAL_CAUSE_GROUP_MAP.has(key))return new Set(GC_CANONICAL_CAUSE_GROUP_MAP.get(key));
+  if(GC_HISTORICAL_UNMAPPED_CAUSES.has(key))return new Set(['NÃO REINCIDENTE']);
+
+  // Fallback apenas durante a inicialização, antes da lista histórica ser montada.
+  const legacy=CAUSE_GROUP_MAP.get(key);
+  if(legacy&&legacy.size)return new Set(legacy);
+  return new Set();
 }
 function sharedCauseGroups(a,b){const ga=causeGroups(a),gb=causeGroups(b),shared=[];for(const group of ga)if(gb.has(group))shared.push(group);return shared}
 function isGroupReincidenceEligible(row){return !!row&&isIndicatorRow(row)&&!isAtendimentoRemoto(row)&&isValidClientId(row[COL.nCliente])&&hasValidValue(row[COL.equipeDesl])&&causeGroups(row[COL.causa]).size>0}
@@ -2318,6 +2408,7 @@ const S = {
   fileName: '',
   processedAt: null,
   distinct: { polos:[], sucursais:[], equipes:[], causas:[], processos:[], nts:[], anos:[], meses:[] },
+  historicalUnmappedCauses:[],
   stats: { totalLido:0, semData:0, semCliente:0, semEquipe:0, causaExcluidaReinc:0, elegiveis:0, grupos:0, clientesUnicos:0, clientesReincidentes:0, totalReincidencias:0 },
   filtersByTab: { dashboard: makeDefaultFilters(), visaoCliente: makeDefaultFilters(), visaoEquipe: makeDefaultFilters(), diagnostico: makeDefaultFilters(), analiseCausa: makeDefaultFilters(), analiseGrupoCausa: makeDefaultFilters(), ordem2:ORDER2_SHARED_FILTERS, ordem2Diagnostico:ORDER2_SHARED_FILTERS },
   filters: null,
@@ -3332,6 +3423,7 @@ function processRawRows(rows, fileName, mapaObsEorder, options){
   S.distinct.sucursais = [...sucursais].sort();
   S.distinct.equipes = [...equipes].sort();
   S.distinct.causas = [...causas].sort();
+  gcRefreshHistoricalUnmappedCauses();
   S.distinct.processos = [...processos].sort();
   S.distinct.nts = [...nts].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR',{numeric:true}));
   S.distinct.anos = [...anos].sort((a,b)=>a-b);
@@ -13592,6 +13684,7 @@ function gcBuildIndividualCauseGroupCatalog(){
 const GC_INDIVIDUAL_GROUP_CATALOG=gcBuildIndividualCauseGroupCatalog();
 
 function gcGroupCode(group,cause=''){
+  if(String(group||'').toUpperCase()==='NÃO REINCIDENTE')return 'G0';
   const g=String(group||'').toUpperCase();
   if(GC_GROUP_CATEGORY[g])return GC_GROUP_CATEGORY[g];
 
@@ -13603,6 +13696,7 @@ function gcGroupNumber(code){
   return m?Number(m[1]):9999;
 }
 function gcGroupLabel(code){
+  if(String(code)==='G0')return 'NÃO REINCIDENTE';
   if(code==='G1')return 'RAMAL';
   if(code==='G2')return 'MEDIDOR';
   if(code==='G3')return 'VEGETAÇÃO';
@@ -13611,27 +13705,13 @@ function gcGroupLabel(code){
 }
 function gcGroupCodeColor(groupOrCode,cause=''){
   const code=/^G\d+$/i.test(String(groupOrCode||''))?String(groupOrCode).toUpperCase():gcGroupCode(groupOrCode,cause);
+  if(code==='G0')return '#59636E';
   const n=gcGroupNumber(code);
-
-  const distinct={
-    1:'#15835A',
-    2:'#C98A1D',
-    3:'#4A9E3E',
-    4:'#4F67B1',
-    5:'#A43C78',
-    6:'#7C4DB3'
-  };
+  const distinct={1:'#0F8A5F',2:'#C88700',3:'#3B9A42',4:'#3558B8',5:'#A63A76',6:'#7B43B6'};
   if(distinct[n])return distinct[n];
-
-  // Do G7 em diante, usar apenas uma escala neutra de cinzas.
-  const neutral=[
-    '#46515B','#525D67','#5E6973','#6A757E','#76818A',
-    '#828C95','#8E989F','#9AA3AA','#A6AEB5','#B2BAC0',
-    '#BEC5CA','#CAD0D5','#D4D9DD','#DEE2E5'
-  ];
-  if(n>=7)return neutral[Math.min(n-7,neutral.length-1)];
-
-  return '#687781';
+  const neutral=['#374151','#46505D','#56616E','#66727F','#75818E','#84909C','#929DA8','#7D8792','#68737F','#515C68','#414B56','#59636E','#6E7884','#828C97'];
+  if(n>=7)return neutral[(n-7)%neutral.length];
+  return '#59636E';
 }
 function gcGroupLogo(group,active=true,cause=''){
   const code=/^G\d+$/i.test(String(group||''))?String(group).toUpperCase():gcGroupCode(group,cause);
@@ -13645,8 +13725,11 @@ function gcGroupLogosContext(allGroups,activeGroups,cause=''){
   return allCodes.map(code=>gcGroupLogo(code,activeCodes.has(code),cause)).join('');
 }
 function gcAllCorrectionCodes(){
-  const codes=['G1','G2','G3','G4',...GC_INDIVIDUAL_GROUP_CATALOG.codeToCause.keys()];
-  return [...new Set(codes)].sort((a,b)=>gcGroupNumber(a)-gcGroupNumber(b));
+  const codes=['G1','G2','G3','G4',...GC_INDIVIDUAL_GROUP_CATALOG.codeToCause.keys()]
+    .filter(code=>code!=='G0');
+  const ordered=[...new Set(codes)].sort((a,b)=>gcGroupNumber(a)-gcGroupNumber(b));
+  if((S.historicalUnmappedCauses||[]).length)ordered.push('G0');
+  return ordered;
 }
 function gcCorrectionGroupOptions(selected='',excludedCodes=[]){
   const excluded=new Set([...(excludedCodes||[])].filter(Boolean));
@@ -13660,11 +13743,13 @@ function gcCorrectionGroupOptions(selected='',excludedCodes=[]){
     opts
       .filter(([v])=>v==='TODOS'||!excluded.has(v)||v===selected)
       .map(([v,l,bg])=>{
-        const style=bg?`background:${bg};color:#fff;font-weight:700`:'background:#f3f5f4;color:#172b23;font-weight:700';
+        const textColor=bg&&['#84909C','#929DA8','#7D8792','#828C97'].includes(String(bg).toUpperCase())?'#172b23':'#fff';
+        const style=bg?`background:${bg};color:${textColor};font-weight:700`:'background:#f3f5f4;color:#172b23;font-weight:700';
         return `<option value="${v}" ${v===selected?'selected':''} style="${style}">${esc(l)}</option>`;
       }).join('');
 }
 function gcActualGroupFromCategory(code,cause){
+  if(code==='G0')return 'NÃO REINCIDENTE';
   if(code==='G1')return 'RAMAL';
   if(code==='G2')return 'MEDIDOR';
   if(code==='G3')return 'VEGETAÇÃO';
@@ -13673,6 +13758,15 @@ function gcActualGroupFromCategory(code,cause){
   return String(cause||'').trim()||gcGroupLabel(code);
 }
 function gcCauseOptionsForCategory(code,selectedCause='',excludedCodes=[]){
+  if(code==='G0'){
+    const selected=String(selectedCause||'');
+    return '<option value="">Selecionar causa</option>'+
+      [...(S.historicalUnmappedCauses||[])].map(c=>{
+        const value=encodeURIComponent('NÃO REINCIDENTE')+'|||'+encodeURIComponent(c);
+        return `<option value="${value}" ${normalizeHeaderKey(c)===normalizeHeaderKey(selected)?'selected':''}>${esc(c)}</option>`;
+      }).join('');
+  }
+
   const excluded=new Set([...(excludedCodes||[])].filter(Boolean));
   const rows=[];
   const seen=new Set();
@@ -13709,7 +13803,8 @@ function gcCauseOptionsForCategory(code,selectedCause='',excludedCodes=[]){
 
 function gcCauseReferenceTable(){
   const byCause=new Map();
-  for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
+
+  for(const [cause,group] of GC_CANONICAL_CAUSE_GROUP_RELATIONS){
     const key=normalizeHeaderKey(cause);
     if(!byCause.has(key))byCause.set(key,{cause,groups:[]});
     if(!byCause.get(key).groups.includes(group))byCause.get(key).groups.push(group);
@@ -13724,13 +13819,22 @@ function gcCauseReferenceTable(){
     return ac-bc||a.cause.localeCompare(b.cause,'pt-BR');
   });
 
+  const historical=(S.historicalUnmappedCauses||[]).map(cause=>({
+    cause,
+    groups:['NÃO REINCIDENTE'],
+    codes:['G0']
+  }));
+
   return `<section class="gc-card gc-cause-ref">
     <div class="gc-head"><div>
       <div class="gc-title">Tabela de referência das causas</div>
-      <div class="gc-sub">G1 a G4 são grupos compartilhados. De G5 em diante, cada causa possui seu próprio grupo e só reincide com a mesma causa.</div>
+      <div class="gc-sub">
+        G1 a G4 são grupos compartilhados. Os demais grupos mapeados seguem as regras informadas.
+        G0 reúne causas históricas reais que não estão na tabela de grupos e <b>não contam como reincidência</b>, mesmo quando repetidas.
+      </div>
     </div></div>
     <div class="gc-table-wrap"><table><thead><tr><th>Código da causa</th><th>Grupo</th><th>Causa</th></tr></thead><tbody>
-      ${rows.map(r=>`<tr>
+      ${[...rows,...historical].map(r=>`<tr>
         <td>—</td>
         <td>${r.codes.map(code=>gcGroupLogo(code,true,r.cause)).join('')}</td>
         <td class="cause">${esc(r.cause)}</td>
@@ -13830,6 +13934,7 @@ function gcBuildParallelGroupEvaluations(sourceRows,options={}){
       for(const group of possible){
         const groupCode=gcGroupCode(group,rowCause(current));
         const anchorKey=groupCode||group;
+        if(anchorKey==='G0')continue;
         const anchor=anchors.get(anchorKey);
         if(!anchor)continue;
         const diffMs=current.__dataFim-anchor.time;
@@ -14049,10 +14154,7 @@ function gcBuildModel(){
   }
 
   for(const [inc,st] of Object.entries(GC_INC_STATE||{})){
-    const hasAction=
-      st?.correcao==='Sim' &&
-      !!String(st?.posteriorCause||'').trim();
-
+    const hasAction=String(st?.correcao||'')==='Sim';
     if(!hasAction)continue;
 
     const key=normalizeNumero(inc);
@@ -14271,36 +14373,31 @@ function gcSafeCorrectionCodes(row,model){
 }
 
 function gcCausesForGroupCode(code){
-  const result=[];
-  const seen=new Set();
-
+  if(code==='G0')return [...(S.historicalUnmappedCauses||[])];
+  const result=[],seen=new Set();
+  for(const [cause,group] of GC_CANONICAL_CAUSE_GROUP_RELATIONS){
+    if(gcGroupCode(group,cause)!==code)continue;
+    const key=normalizeHeaderKey(cause);
+    if(!key||seen.has(key))continue;
+    seen.add(key);result.push(String(cause).trim());
+  }
   for(const [cause,group] of CAUSE_GROUP_RELATIONS||[]){
     if(gcGroupCode(group,cause)!==code)continue;
     const key=normalizeHeaderKey(cause);
     if(!key||seen.has(key))continue;
     seen.add(key);result.push(String(cause).trim());
   }
-
-  for(const cause of CAUSAS_PERMITIDAS_GERAL||[]){
-    const groups=[...causeGroups(cause)];
-    const codes=groups.map(g=>gcGroupCode(g,cause)).filter(Boolean);
-    const individual=gcGroupCode(cause,cause);
-    if(!codes.includes(code)&&individual!==code)continue;
-    const key=normalizeHeaderKey(cause);
-    if(!key||seen.has(key))continue;
-    seen.add(key);result.push(String(cause).trim());
-  }
-
   const unique=GC_INDIVIDUAL_GROUP_CATALOG.codeToCause.get(code);
   if(unique&&!seen.has(normalizeHeaderKey(unique)))result.push(unique);
-
   return result.sort((a,b)=>a.localeCompare(b,'pt-BR'));
 }
 
 function openGcSuggestionGroup(code){
   const causes=gcCausesForGroupCode(code);
   document.getElementById('modalBox').classList.remove('wide');
-  document.getElementById('modalTitle').textContent=`${code} · ${gcGroupLabel(code)}`;
+  document.getElementById('modalTitle').textContent=code==='G0'
+    ? 'G0 · Causas históricas sem reincidência'
+    : `${code} · ${gcGroupLabel(code)}`;
   document.getElementById('modalBody').innerHTML=`
     <div class="gc-suggestion-modal-head">${gcGroupLogo(code,true,gcGroupLabel(code))}<b>${esc(gcGroupLabel(code))}</b></div>
     <div class="table-scroll compact"><table>
@@ -14795,6 +14892,37 @@ async function gcCancelClientReport(client,kind,model){
   return true;
 }
 
+function gcCorrectionStatusStats(model){
+  let semCorrecao=0,comCorrecao=0,comSemConclusao=0,comConcluida=0;
+
+  for(const client of model.clients.filter(c=>c.group.length>0)){
+    const rows=model.rowsByClient?.get(gcClientKey(client.cliente))||[];
+    let hasNo=false,hasIncomplete=false,hasComplete=false;
+
+    for(const row of rows){
+      if(!gcRowInPagePeriod(row))continue;
+      if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
+      const st=gcIncState(row);
+      const pg=String(st?.posteriorGroup||'').trim(),pc=String(st?.posteriorCause||'').trim();
+      const decision=String(st?.correcao||'Sem Ação');
+      if(pg&&pc)hasComplete=true;
+      else if(decision==='Sim')hasIncomplete=true;
+      else if(decision==='Não')hasNo=true;
+    }
+
+    if(hasComplete){comCorrecao++;comConcluida++}
+    else if(hasIncomplete){comCorrecao++;comSemConclusao++}
+    else if(hasNo)semCorrecao++;
+  }
+
+  const total=semCorrecao+comCorrecao;
+  return {
+    semCorrecao,comCorrecao,comSemConclusao,comConcluida,
+    pctSem:total?semCorrecao/total*100:0,
+    pctCom:total?comCorrecao/total*100:0
+  };
+}
+
 function renderAnaliseGrupoCausa(fromAsync=false){
   const el=document.getElementById('panel-analiseGrupoCausa');if(!el)return;
   try{
@@ -14811,6 +14939,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   if(q)clients=clients.filter(c=>String(c.cliente).toLowerCase().includes(q));
   let ativos=clients.filter(c=>c.group.length>0);
   const actionFilter=S.analiseGrupoCausaActionFilter||'todos';
+  const statusStats=gcCorrectionStatusStats(model);
 
   // Status das abas:
   // - Todos: somente pendentes / Sem Ação (inclui 'Sim' ainda não concluído, para permitir terminar a edição)
@@ -14818,28 +14947,30 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   // - Com Correção: correção concluída com grupo + causa posterior salvos
   const gcClientActionBucket=(client)=>{
     const rows=model?.rowsByClient?.get(gcClientKey(client))||[];
-    let hasNoCorrection=false;
-    let hasCorrection=false;
+    let hasNoCorrection=false,hasCorrectionComplete=false,hasCorrectionIncomplete=false;
 
     for(const row of rows){
       if(!gcRowInPagePeriod(row))continue;
       if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
-
       const st=gcIncState(row);
-      const posteriorGroup=String(st?.posteriorGroup||'').trim();
-      const posteriorCause=String(st?.posteriorCause||'').trim();
-      const hasStoredCorrection=
-        (!!posteriorGroup && !!posteriorCause) ||
-        (String(st?.correcao||'')==='Sim' && !!posteriorCause);
+      const pg=String(st?.posteriorGroup||'').trim();
+      const pc=String(st?.posteriorCause||'').trim();
+      const decision=String(st?.correcao||'Sem Ação');
 
-      if(hasStoredCorrection){hasCorrection=true;continue}
-      if(String(st?.correcao||'Sem Ação')==='Não')hasNoCorrection=true;
+      if(pg&&pc){hasCorrectionComplete=true;continue}
+      if(decision==='Sim'){hasCorrectionIncomplete=true;continue}
+      if(decision==='Não')hasNoCorrection=true;
     }
 
-    // Prioridade: uma correção efetivamente salva leva o cliente para
-    // "Com Correção". Se não houver correção salva, mas houver decisão "Não",
-    // vai para "Sem Correção". O restante permanece em "Todos".
-    if(hasCorrection)return 'com';
+    if(hasCorrectionComplete)return 'com';
+
+    if(hasCorrectionIncomplete){
+      const currentOpen=
+        String(S.analiseGrupoCausaCurrentClient||'')===String(client) &&
+        [...S.analiseGrupoCausaExpanded].some(k=>k===`todos:${client}`);
+      return currentOpen?'todos':'com';
+    }
+
     if(hasNoCorrection)return 'sem';
     return 'todos';
   };
@@ -14865,6 +14996,29 @@ function renderAnaliseGrupoCausa(fromAsync=false){
       Por isso, atendimentos de outro grupo no meio da linha do tempo <b>não apagam</b> a referência anterior.
       Causas que pertencem a mais de um grupo mostram todas as possibilidades; o grupo usado fica colorido e os demais ficam em cinza. As correções podem ser feitas tanto no reincidente quanto na incidência de origem.
       Ao expandir um cliente, todas as incidências do ciclo são exibidas em ordem cronológica.
+    </div>
+
+    <div class="gc-status-cards">
+      <div class="gc-status-card">
+        <div class="label">SEM CORREÇÃO</div>
+        <div class="value">${fmtNum(statusStats.semCorrecao)}</div>
+        <div class="sub">${fmtPct(statusStats.pctSem)} de Sem Correção + Com Correção</div>
+      </div>
+      <div class="gc-status-card">
+        <div class="label">COM CORREÇÃO</div>
+        <div class="value">${fmtNum(statusStats.comCorrecao)}</div>
+        <div class="sub">${fmtPct(statusStats.pctCom)} de Sem Correção + Com Correção</div>
+      </div>
+      <div class="gc-status-card warning">
+        <div class="label">COM CORREÇÃO · SEM CONCLUSÃO</div>
+        <div class="value">${fmtNum(statusStats.comSemConclusao)}</div>
+        <div class="sub">Sim marcado, sem grupo/causa finalizados</div>
+      </div>
+      <div class="gc-status-card success">
+        <div class="label">COM CORREÇÃO · CONCLUÍDA</div>
+        <div class="value">${fmtNum(statusStats.comConcluida)}</div>
+        <div class="sub">Grupo e causa posterior salvos</div>
+      </div>
     </div>
 
     <section class="gc-card">
