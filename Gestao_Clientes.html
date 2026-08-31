@@ -1610,6 +1610,22 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
   border:1px solid #a9cbed;
 }
 
+
+/* V40 — cancelar reporte */
+.gc-cancel-cell{text-align:center;white-space:nowrap}
+.gc-cancel-report{
+  border:1px solid #d9a3a3;
+  background:#fff7f7;
+  color:#a32424;
+  border-radius:7px;
+  padding:6px 9px;
+  font-size:9px;
+  font-weight:850;
+  cursor:pointer;
+}
+.gc-cancel-report:hover{background:#fdeaea;border-color:#c96767}
+.gc-cancel-report:disabled{opacity:.55;cursor:wait}
+
 </style>
 </head>
 <body>
@@ -14518,6 +14534,7 @@ function gcClientTable(clients,kind,model){
     <th>${gcSortHeader('Vegetação','vegetacao')}</th>
     <th>${gcSortHeader('Animais','animais')}</th>
     <th>${gcSortHeader('Outros','outros')}</th>
+    ${kind==='sem'||kind==='com'?'<th>Cancelar</th>':''}
   </tr></thead><tbody>${sorted.map(c=>{
     const key=`${kind}:${c.cliente}`,open=S.analiseGrupoCausaExpanded.has(key);
     const isCurrent=kind==='todos'&&String(c.cliente)===String(S.analiseGrupoCausaCurrentClient||'');
@@ -14527,7 +14544,8 @@ function gcClientTable(clients,kind,model){
       : isNext
         ? '<span class="gc-analysis-marker next">PRÓXIMA</span>'
         : '';
-    const detail=open?`<tr class="gc-detail ${isCurrent?'gc-detail-current':isNext?'gc-detail-next':''}"><td colspan="7">${gcDetailTable(c,model)}</td></tr>`:'';
+    const detailColspan=(kind==='sem'||kind==='com')?8:7;
+    const detail=open?`<tr class="gc-detail ${isCurrent?'gc-detail-current':isNext?'gc-detail-next':''}"><td colspan="${detailColspan}">${gcDetailTable(c,model)}</td></tr>`:'';
 
     return `<tr class="gc-row ${isCurrent?'gc-row-current':isNext?'gc-row-next':''}" data-gc-client="${encodeURIComponent(c.cliente)}" data-gc-kind="${kind}">
       <td><b>${open?'▾':'▸'} ${esc(c.cliente)}</b> ${marker}</td>
@@ -14537,6 +14555,7 @@ function gcClientTable(clients,kind,model){
       <td>${fmtNum(c.vegetacao)}</td>
       <td>${fmtNum(c.animais)}</td>
       <td>${fmtNum(c.outros)}</td>
+      ${kind==='sem'||kind==='com'?`<td class="gc-cancel-cell"><button type="button" class="gc-cancel-report" data-gc-cancel-client="${encodeURIComponent(c.cliente)}" data-gc-cancel-kind="${kind}" title="Cancelar reporte e voltar para Todos">Cancelar reporte</button></td>`:''}
     </tr>${detail}`;
   }).join('')}</tbody></table></div>`;
 }
@@ -14580,6 +14599,39 @@ function diagnosticoAbasCorrecao(){
   return out;
 }
 
+
+
+async function gcCancelClientReport(client,kind,model){
+  const clientKey=gcClientKey(client);
+  const rows=model?.rowsByClient?.get(clientKey)||[];
+  const targets=[];
+
+  for(const row of rows){
+    if(!gcRowInPagePeriod(row))continue;
+    if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
+
+    const st=gcIncState(row);
+    const posteriorGroup=String(st?.posteriorGroup||'').trim();
+    const posteriorCause=String(st?.posteriorCause||'').trim();
+    const hasCorrection=!!posteriorGroup&&!!posteriorCause;
+    const isSemCorrecao=String(st?.correcao||'Sem Ação')==='Não';
+
+    if(kind==='com' && hasCorrection)targets.push(row);
+    if(kind==='sem' && !hasCorrection && isSemCorrecao)targets.push(row);
+  }
+
+  if(!targets.length)return false;
+
+  for(const row of targets){
+    await gcSaveIncState(row,{
+      correcao:'Sem Ação',
+      posteriorGroup:'',
+      posteriorCause:''
+    });
+  }
+
+  return true;
+}
 
 function renderAnaliseGrupoCausa(fromAsync=false){
   const el=document.getElementById('panel-analiseGrupoCausa');if(!el)return;
@@ -14694,6 +14746,43 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     S.analiseGrupoCausaExpanded.clear();
     S.renderKeys.analiseGrupoCausa='';
     renderAnaliseGrupoCausa();
+  });
+
+  el.querySelectorAll('[data-gc-cancel-client]').forEach(button=>button.onclick=async(event)=>{
+    event.stopPropagation();
+
+    const client=decodeURIComponent(button.dataset.gcCancelClient||'');
+    const kind=button.dataset.gcCancelKind||'';
+
+    if(!client || !['sem','com'].includes(kind))return;
+
+    const ok=window.confirm(
+      kind==='com'
+        ? 'Cancelar esta correção e devolver o cliente para a aba Todos como Sem Ação?'
+        : 'Cancelar este reporte de Sem Correção e devolver o cliente para a aba Todos como Sem Ação?'
+    );
+    if(!ok)return;
+
+    button.disabled=true;
+    button.textContent='Cancelando…';
+
+    try{
+      const changed=await gcCancelClientReport(client,kind,model);
+      if(!changed)return;
+
+      // Remove qualquer expansão antiga e volta imediatamente para Todos.
+      S.analiseGrupoCausaExpanded.clear();
+      S.analiseGrupoCausaActionFilter='todos';
+      S.analiseGrupoCausaCurrentClient=String(client);
+      S.analiseGrupoCausaNextClient='';
+      S.renderKeys.analiseGrupoCausa='';
+      renderAnaliseGrupoCausa(true);
+    }catch(error){
+      console.error('Erro ao cancelar reporte:',error);
+      alert('Não foi possível cancelar o reporte. '+(error?.message||String(error)));
+      button.disabled=false;
+      button.textContent='Cancelar reporte';
+    }
   });
 
   el.querySelectorAll('[data-gc-client]').forEach(tr=>tr.onclick=(event)=>{
