@@ -1661,6 +1661,40 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
   padding:4px 0 6px;
 }
 
+
+.dashboard-monthly-export-toolbar{
+  position:sticky;
+  top:0;
+  z-index:20;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:-2px 0 10px;
+  padding:9px 10px;
+  background:#f5faf7;
+  border:1px solid #cfe1d8;
+  border-radius:9px;
+}
+.dashboard-monthly-export-toolbar>div{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.dashboard-monthly-export-toolbar>div b{
+  font-size:12px;
+  color:#17251f;
+}
+.dashboard-monthly-export-toolbar>div span{
+  font-size:9px;
+  color:#6f8178;
+}
+.dashboard-monthly-export-button{
+  min-width:145px;
+  font-size:10px !important;
+  padding:8px 12px !important;
+}
+
 </style>
 </head>
 <body>
@@ -7087,6 +7121,9 @@ function openDashboardMonthlyBar(month,datasetType){
 
   _dashboardMonthlyDrillRows=rows;
 
+  const tipo=isRecurrence?'Reincidências':'Incidências';
+  const mesLabel=(MESES_NOMES[month.mes]||String(month.mes))+'/'+month.ano;
+
   DASHBOARD_MONTHLY_DRILL_EXPORT_NAME=
     `${isRecurrence?'reincidencias':'incidencias'}_${month.ano}_${String(month.mes).padStart(2,'0')}`;
 
@@ -7111,25 +7148,37 @@ function openDashboardMonthlyBar(month,datasetType){
     if(['grupo','conexao_grupo'].includes(S.filters.parametro)){
       result['Grupo']=dashboardMonthlyGroupLabel(row);
     }
-
     return result;
   });
 
-  const tipo=isRecurrence?'Reincidências':'Incidências';
-  const mesLabel=(MESES_NOMES[month.mes]||String(month.mes))+'/'+month.ano;
+  const modalBox=document.getElementById('modalBox');
+  const modalTitle=document.getElementById('modalTitle');
+  const modalBody=document.getElementById('modalBody');
+  if(!modalBox||!modalTitle||!modalBody)return;
 
-  document.getElementById('modalBox').classList.add('wide');
-  document.getElementById('modalTitle').textContent=
-    `${tipo} — ${mesLabel} — ${fmtNum(rows.length)} registro(s)`;
+  modalBox.classList.add('wide');
+  modalTitle.textContent=`${tipo} — ${mesLabel} — ${fmtNum(rows.length)} registro(s)`;
 
-  document.getElementById('modalBody').innerHTML=`
-    <div class="dashboard-monthly-modal-tools">
-      <button type="button" class="gc-export-changes" onclick="exportDashboardMonthlyDrill()">Exportar tabela</button>
+  const groupColumn=['grupo','conexao_grupo'].includes(S.filters.parametro);
+
+  modalBody.innerHTML=`
+    <div class="dashboard-monthly-export-toolbar">
+      <div>
+        <b>${esc(tipo)} de ${esc(mesLabel)}</b>
+        <span>${fmtNum(rows.length)} registro(s)</span>
+      </div>
+      <button
+        type="button"
+        id="dashboardMonthlyExportButton"
+        class="gc-export-changes dashboard-monthly-export-button"
+      >⬇ Exportar tabela</button>
     </div>
+
     <div class="tag-note">
-      Registros que compõem a barra de <b>${tipo}</b> de <b>${esc(mesLabel)}</b>,
-      respeitando os filtros atualmente aplicados.
+      Registros que compõem exatamente a barra de <b>${esc(tipo)}</b> de
+      <b>${esc(mesLabel)}</b>, respeitando os filtros atualmente aplicados.
     </div>
+
     <div class="table-scroll compact">
       <table>
         <thead>
@@ -7140,41 +7189,19 @@ function openDashboardMonthlyBar(month,datasetType){
             <th>Equipe</th>
             <th>Processo</th>
             <th>Causa</th>
-            ${['grupo','conexao_grupo'].includes(S.filters.parametro)?'<th>Grupo</th>':''}
+            ${groupColumn?'<th>Grupo</th>':''}
             <th>Detalhes</th>
           </tr>
         </thead>
         <tbody>
           ${rows.length?rows.map((row,index)=>{
             const main=dashboardMonthlyDrillMainRow(row);
-            const cliente=
-              main?.[COL.nCliente] ??
-              row?.[COL2.nCliente] ??
-              '—';
-            const numero=
-              main?.[COL.numero] ??
-              row?.[COL2.numeroRein] ??
-              row?.[COL2.numero] ??
-              '—';
-            const dataFim=
-              main?.__dataFim ??
-              row?.__dataFim ??
-              parseDateVal(main?.[COL.dataFim]) ??
-              parseDateVal(row?.[COL2.dataFim]);
-            const equipe=
-              main?.[COL.equipeDesl] ??
-              row?.__nextEquipeDesl ??
-              '—';
-            const processo=
-              main?.[COL.processo] ??
-              row?.__nextProcesso ??
-              row?.[COL2.processo] ??
-              '—';
-            const causa=
-              main?.[COL.causa] ??
-              row?.__nextCausa ??
-              row?.[COL2.causa] ??
-              '—';
+            const cliente=main?.[COL.nCliente]??row?.[COL2.nCliente]??'—';
+            const numero=main?.[COL.numero]??row?.[COL2.numeroRein]??row?.[COL2.numero]??'—';
+            const dataFim=main?.__dataFim??row?.__dataFim??parseDateVal(main?.[COL.dataFim])??parseDateVal(row?.[COL2.dataFim]);
+            const equipe=main?.[COL.equipeDesl]??row?.__nextEquipeDesl??'—';
+            const processo=main?.[COL.processo]??row?.__nextProcesso??row?.[COL2.processo]??'—';
+            const causa=main?.[COL.causa]??row?.__nextCausa??row?.[COL2.causa]??'—';
 
             return `<tr>
               <td><button class="table-link" onclick="openClientTimeline('${esc(String(cliente))}')">${esc(cliente)}</button></td>
@@ -7183,16 +7210,22 @@ function openDashboardMonthlyBar(month,datasetType){
               <td>${esc(equipe)}</td>
               <td>${esc(processo)}</td>
               <td>${esc(causa)}</td>
-              ${['grupo','conexao_grupo'].includes(S.filters.parametro)?`<td>${esc(dashboardMonthlyGroupLabel(row))}</td>`:''}
+              ${groupColumn?`<td>${esc(dashboardMonthlyGroupLabel(row))}</td>`:''}
               <td><button class="table-link" onclick="openDashboardMonthlyRecord(${index})">Abrir →</button></td>
             </tr>`;
-          }).join(''):`<tr><td colspan="${['grupo','conexao_grupo'].includes(S.filters.parametro)?8:7}" style="padding:28px;text-align:center">Nenhum registro nesta barra.</td></tr>`}
+          }).join(''):`<tr><td colspan="${groupColumn?8:7}" style="padding:28px;text-align:center">Nenhum registro nesta barra.</td></tr>`}
         </tbody>
       </table>
     </div>`;
 
-  document.getElementById('modalBg').classList.add('show');
+  const exportButton=document.getElementById('dashboardMonthlyExportButton');
+  if(exportButton){
+    exportButton.onclick=exportDashboardMonthlyDrill;
+  }
+
+  document.getElementById('modalBg')?.classList.add('show');
 }
+
 
 
 let _dashboardRenderToken=0;
@@ -7341,71 +7374,94 @@ function dashboardMonthlyClickedBar(chart,event){
   return barHit||null;
 }
 
-const dashboardMonthlyClickPlugin={
-  id:'dashboardMonthlyClickPlugin',
-  afterEvent(chart,args){
-    const ev=args?.event;
-    if(!ev)return;
+function dashboardMonthlyExactHit(chart,nativeEvent){
+  if(!chart||!nativeEvent||!window.Chart)return null;
 
-    const type=ev.type;
-    if(!['mousemove','click'].includes(type))return;
-
-    const x=Number(ev.x),y=Number(ev.y);
-    if(!Number.isFinite(x)||!Number.isFinite(y))return;
-
-    const hits=[];
-
-    for(let datasetIndex=0;datasetIndex<(chart.data?.datasets||[]).length;datasetIndex++){
-      const dataset=chart.data.datasets[datasetIndex];
-      const barType=dashboardMonthlyBarType(dataset);
-      if(!barType)continue;
-
-      const meta=chart.getDatasetMeta(datasetIndex);
-      if(!meta||meta.hidden||meta.type!=='bar')continue;
-
-      (meta.data||[]).forEach((element,index)=>{
-        if(!element)return;
-        const props=typeof element.getProps==='function'
-          ? element.getProps(['x','y','base','width'],true)
-          : element;
-
-        const cx=Number(props.x);
-        const top=Math.min(Number(props.y),Number(props.base));
-        const bottom=Math.max(Number(props.y),Number(props.base));
-        const half=Math.max(3,Number(props.width||0)/2);
-
-        if(!Number.isFinite(cx)||!Number.isFinite(top)||!Number.isFinite(bottom))return;
-
-        const inX=x>=cx-half&&x<=cx+half;
-        const inY=y>=top-5&&y<=bottom+5;
-
-        if(inX&&inY){
-          hits.push({
-            datasetIndex,
-            index,
-            barType,
-            dx:Math.abs(x-cx)
-          });
-        }
-      });
-    }
-
-    hits.sort((a,b)=>a.dx-b.dx);
-    const hit=hits[0]||null;
-
-    if(chart.canvas){
-      chart.canvas.style.cursor=hit?'pointer':'default';
-    }
-
-    if(type==='click'&&hit){
-      const monthly=chart.__monthlyRows||[];
-      const month=monthly[hit.index];
-      if(month){
-        openDashboardMonthlyBar(month,hit.barType);
-      }
-    }
+  let pos;
+  try{
+    // API oficial do Chart.js: corrige escala CSS, DPR e transform do dashboard.
+    pos=Chart.helpers.getRelativePosition(nativeEvent,chart);
+  }catch(_){
+    return null;
   }
-};
+
+  const x=Number(pos?.x),y=Number(pos?.y);
+  if(!Number.isFinite(x)||!Number.isFinite(y))return null;
+
+  const hits=[];
+
+  for(let datasetIndex=0;datasetIndex<(chart.data?.datasets||[]).length;datasetIndex++){
+    const dataset=chart.data.datasets[datasetIndex];
+    const barType=dashboardMonthlyBarType(dataset);
+    if(!barType)continue;
+
+    const meta=chart.getDatasetMeta(datasetIndex);
+    if(!meta||meta.hidden||meta.type!=='bar')continue;
+
+    (meta.data||[]).forEach((element,index)=>{
+      if(!element)return;
+
+      const props=typeof element.getProps==='function'
+        ? element.getProps(['x','y','base','width'],true)
+        : element;
+
+      const cx=Number(props.x);
+      const top=Math.min(Number(props.y),Number(props.base));
+      const bottom=Math.max(Number(props.y),Number(props.base));
+      const half=Math.max(3,Number(props.width||0)/2);
+
+      if(!Number.isFinite(cx)||!Number.isFinite(top)||!Number.isFinite(bottom))return;
+
+      // A área clicável fica presa à própria barra.
+      // Só há tolerância vertical de 4 px para barras laranjas muito baixas.
+      if(
+        x>=cx-half &&
+        x<=cx+half &&
+        y>=top-4 &&
+        y<=bottom+4
+      ){
+        hits.push({datasetIndex,index,barType,dx:Math.abs(x-cx)});
+      }
+    });
+  }
+
+  hits.sort((a,b)=>a.dx-b.dx);
+  return hits[0]||null;
+}
+
+function wireDashboardMonthlyExactClick(chart){
+  if(!chart?.canvas)return;
+
+  const canvas=chart.canvas;
+
+  if(canvas.__monthlyExactClick){
+    canvas.removeEventListener('click',canvas.__monthlyExactClick);
+    canvas.removeEventListener('mousemove',canvas.__monthlyExactMove);
+  }
+
+  const move=event=>{
+    const hit=dashboardMonthlyExactHit(chart,event);
+    canvas.style.cursor=hit?'pointer':'default';
+  };
+
+  const click=event=>{
+    const hit=dashboardMonthlyExactHit(chart,event);
+    if(!hit)return;
+
+    const monthly=chart.__monthlyRows||[];
+    const month=monthly[hit.index];
+    if(!month)return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    openDashboardMonthlyBar(month,hit.barType);
+  };
+
+  canvas.__monthlyExactClick=click;
+  canvas.__monthlyExactMove=move;
+  canvas.addEventListener('click',click);
+  canvas.addEventListener('mousemove',move);
+}
 
 function renderDashboard(){
   if(!S.baseCompleta.length) return;
@@ -7587,12 +7643,13 @@ function renderDashboard(){
             onClick:()=>{},
             layout:{ padding:{top:18,bottom:9,left:3,right:3} }
           },
-          plugins:[dashboardDataLabelsPlugin,dashboardMonthlyClickPlugin]
+          plugins:[dashboardDataLabelsPlugin]
         });
 
         // Clique nativo no canvas: independente da linha de percentual e do
         // mecanismo de hit-test do Chart.js.
         S.charts.chartDashboardMensal.__monthlyRows=monthly;
+        wireDashboardMonthlyExactClick(S.charts.chartDashboardMensal);
       }catch(err){
         console.error('Erro ao montar gráfico do dashboard:', err);
         const wrap = ctx.closest ? ctx.closest('.ppt-chart-wrap') : null;
@@ -14332,18 +14389,10 @@ function gcBuildModel(){
     return GC_CORRECTION_MODEL_CACHE.model;
   }
 
-  /*
-    DUAS CAMADAS, PROPOSITALMENTE SEPARADAS:
-
-    1) IDENTIFICAÇÃO HISTÓRICA:
-       vem diretamente de buildConexaoGrupoUniverse(), que é a mesma base
-       usada pelo indicador "Reincidência Conexão por Grupo".
-       Assim, uma correção posterior nunca apaga a reincidência original.
-
-    2) APOIO À CORREÇÃO:
-       usa o motor atual para sugestões/estado visual, mas sem decidir
-       quantas reincidências existem.
-  */
+  // Uma única fonte de cálculo pesado:
+  // o mesmo motor ORIGINAL já cacheado pelo indicador Conexão por Grupo.
+  const connectionParallel=conexaoGrupoParallelModel();
+  const parallel=connectionParallel.model;
   const officialUniverse=buildConexaoGrupoUniverse()||[];
 
   const confirmed=[];
@@ -14354,37 +14403,23 @@ function gcBuildModel(){
     const current=official?.__nextMain||ev?.current||null;
     if(!ev||!current)continue;
 
-    // Mesmo critério temporal do evento reincidente que alimenta o mês
-    // no dashboard: a incidência posterior/atual.
     if(!gcInPagePeriod({current}))continue;
-
     if(S.filters?.nts?.size && !S.filters.nts.has(String(current?.[COL.nt]||'').trim()))continue;
 
     const inc=normalizeNumero(current?.[COL.numero]);
     if(!inc||confirmedSeen.has(inc))continue;
     confirmedSeen.add(inc);
 
-    confirmed.push({
-      ...ev,
-      row:current,
-      current,
-      confirmada:true
-    });
+    confirmed.push({...ev,row:current,current,confirmada:true});
   }
 
-  // Modelo auxiliar para cartões/sugestões. Ele pode refletir alterações
-  // salvas, mas NÃO define o universo histórico confirmado acima.
-  const parallel=gcBuildParallelGroupEvaluations(S.baseCompleta||[]);
+  // Não reconstruir gcBuildParallelGroupEvaluations nem gcBuildGeneralEvents.
+  // Esses dois cálculos eram a maior fonte de travamento na abertura.
   const evaluationsAll=parallel.evaluations||[];
   const evaluations=evaluationsAll.filter(gcInPagePeriod);
-  const evalByPair=new Map(evaluationsAll.map(e=>[gcPairKey(e),e]));
-
-  // Eventos gerais são mantidos apenas para compatibilidade interna.
-  const generalAll=gcBuildGeneralEvents();
-  const general=generalAll.filter(gcInPagePeriod);
 
   const byClient=new Map();
-  function ensure(client){
+  const ensure=client=>{
     const key=gcClientKey(client);
     if(!byClient.has(key)){
       byClient.set(key,{
@@ -14400,9 +14435,7 @@ function gcBuildModel(){
       });
     }
     return byClient.get(key);
-  }
-
-  for(const e of general)ensure(e.client).general.push(e);
+  };
 
   for(const e of confirmed){
     const c=ensure(e.client);
@@ -14416,12 +14449,10 @@ function gcBuildModel(){
     if(!gs.some(g=>['RAMAL','MEDIDOR','VEGETAÇÃO','ANIMAIS'].includes(g)))c.outros++;
   }
 
-  const clients=[...byClient.values()]
-    .sort((a,b)=>
-      b.group.length-a.group.length ||
-      b.general.length-a.general.length ||
-      String(a.cliente).localeCompare(String(b.cliente),'pt-BR')
-    );
+  const clients=[...byClient.values()].sort((a,b)=>
+    b.group.length-a.group.length ||
+    String(a.cliente).localeCompare(String(b.cliente),'pt-BR',{numeric:true})
+  );
 
   const rowByInc=new Map();
   for(const row of S.baseCompleta||[]){
@@ -14429,20 +14460,19 @@ function gcBuildModel(){
     if(inc&&!rowByInc.has(inc))rowByInc.set(inc,row);
   }
 
-  /*
-    Clientes oficialmente presentes na Correção.
-    As ações podem estar em qualquer incidência exibida no histórico desses
-    clientes, porque todos os containers agora permitem Correção/Feedback.
-  */
   const officialClientKeys=new Set(
-    clients.filter(c=>c.group.length>0).map(c=>gcClientKey(c.cliente))
+    clients.map(c=>gcClientKey(c.cliente))
   );
 
   const visibleRowKeys=new Set();
   const visibleRows=[];
+  const visibleRowsByClient=new Map();
 
   for(const clientKey of officialClientKeys){
-    for(const row of parallel.rowsByClient.get(clientKey)||[]){
+    const rows=parallel.rowsByClient.get(clientKey)||[];
+    const clientVisible=[];
+
+    for(const row of rows){
       if(!gcRowInPagePeriod(row))continue;
       if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
 
@@ -14451,7 +14481,10 @@ function gcBuildModel(){
 
       visibleRowKeys.add(inc);
       visibleRows.push(row);
+      clientVisible.push(row);
     }
+
+    visibleRowsByClient.set(clientKey,clientVisible);
   }
 
   const correctionCountByClient=new Map();
@@ -14475,13 +14508,14 @@ function gcBuildModel(){
   }
 
   const model={
-    general,
+    general:[],
     evaluations,
     confirmed,
-    evalByPair,
+    evalByPair:new Map(),
     clients,
     rowMeta:parallel.rowMeta,
     rowsByClient:parallel.rowsByClient,
+    visibleRowsByClient,
     rowByInc,
     officialClientKeys,
     visibleRows,
@@ -15228,7 +15262,7 @@ function diagnosticoAbasCorrecao(){
 
 async function gcCancelClientReport(client,kind,model){
   const clientKey=gcClientKey(client);
-  const rows=model?.rowsByClient?.get(clientKey)||[];
+  const rows=model?.visibleRowsByClient?.get(clientKey)||[];
   const targets=[];
 
   for(const row of rows){
@@ -15349,9 +15383,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   // - Com Correção: correção concluída com grupo + causa posterior salvos
   const gcClientActionBucket=(client)=>{
     const clientKey=gcClientKey(client);
-    const rows=(model?.visibleRows||[]).filter(
-      row=>gcClientKey(row?.[COL.nCliente])===clientKey
-    );
+    const rows=model?.visibleRowsByClient?.get(clientKey)||[];
 
     let hasNo=false;
     let hasIncomplete=false;
