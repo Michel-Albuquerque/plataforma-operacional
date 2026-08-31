@@ -14053,10 +14053,28 @@ function gcBuildTimelineCycles(rows,confirmedEvents){
   return cycles.filter(cycle=>cycle.some(row=>eventCurrentKeys.has(normalizeNumero(row?.[COL.numero]))));
 }
 
+function gcOfficialConnectionGroupCurrentKeys(){
+  const keys=new Set();
+
+  for(const row of buildConexaoGrupoUniverse()||[]){
+    const current=row?.__nextMain||row?.__grupoEvento?.current||null;
+    const inc=normalizeNumero(
+      current?.[COL.numero] ??
+      row?.__nextNumero ??
+      row?.[COL2.numeroRein]
+    );
+    if(inc)keys.add(inc);
+  }
+
+  return keys;
+}
+
 function gcBuildModel(){
   const modelKey=[
     S.processedAt||'',
     S.baseCompleta.length,
+    S.baseReincidencia.length,
+    S.reincidenciaProcessedAt||'',
     S.analiseGrupoCausaDateFrom||'',
     S.analiseGrupoCausaDateTo||'',
     JSON.stringify([...(S.filters?.nts||[])]),
@@ -14088,9 +14106,19 @@ function gcBuildModel(){
   const parallel=gcBuildParallelGroupEvaluations([...timelineRowsMap.values()]);
   const evaluationsAll=parallel.evaluations;
 
+  const officialConnectionGroupKeys=gcOfficialConnectionGroupCurrentKeys();
+
   const general=generalAll.filter(gcInPagePeriod);
   const evaluations=evaluationsAll.filter(gcInPagePeriod);
-  const confirmed=evaluations.filter(e=>e.confirmada);
+
+  // A lógica de grupos continua sendo a mesma da Correção, mas a lista
+  // de reincidências confirmadas precisa pertencer ao mesmo universo
+  // oficial usado pelo indicador Reincidência Conexão por Grupo.
+  const confirmed=evaluations.filter(e=>
+    e.confirmada &&
+    officialConnectionGroupKeys.has(normalizeNumero(e?.current?.[COL.numero]))
+  );
+
   const evalByPair=new Map(evaluationsAll.map(e=>[gcPairKey(e),e]));
 
   const byClient=new Map();
@@ -14407,10 +14435,38 @@ function openGcSuggestionGroup(code){
   document.getElementById('modalBg').classList.add('show');
 }
 
-function gcSuggestionHtml(row,model){
-  const safe=gcSafeCorrectionCodes(row,model);
-  if(!safe.length)return '<div class="gc-suggestion"><b>Sugestão de Correção:</b> nenhuma opção segura encontrada na janela de 30 dias.</div>';
-  return `<div class="gc-suggestion" title="Só são exibidos grupos que não criariam outra reincidência. Em causas multigrupo, vale o grupo efetivamente assumido pela sequência."><b>Sugestão de Correção:</b> ${safe.map(code=>`<button type="button" class="gc-suggestion-group-btn" onclick="event.stopPropagation();openGcSuggestionGroup('${code}')" title="Ver causas de ${code}">${gcGroupLogo(code,true,gcGroupLabel(code))}</button>`).join(' ')}</div>`;
+function gcDirectlyInvolvedInRecurrence(row,meta,model){
+  return !!(
+    meta?.recurrent ||
+    gcHasLaterRecurrent(row,model)
+  );
+}
+
+function gcAllSuggestionCodesAscending(){
+  return gcAllCorrectionCodes()
+    .filter(Boolean)
+    .sort((a,b)=>gcGroupNumber(a)-gcGroupNumber(b));
+}
+
+function gcSuggestionHtml(row,model,meta=null){
+  const direct=gcDirectlyInvolvedInRecurrence(row,meta,model);
+
+  // Casos que não são origem nem reincidente direto não precisam de
+  // restrição preventiva: exibir todas as possibilidades de grupos.
+  const options=direct
+    ? gcSafeCorrectionCodes(row,model)
+    : gcAllSuggestionCodesAscending();
+
+  if(!options.length){
+    return '<div class="gc-suggestion"><b>Sugestão de Correção:</b> nenhuma opção disponível.</div>';
+  }
+
+  const label=direct?'Sugestão de Correção:':'Grupos disponíveis:';
+
+  return `<div class="gc-suggestion" title="${direct?'Só são exibidos grupos que não criariam outra reincidência. Em causas multigrupo, vale o grupo efetivamente assumido pela sequência.':'Esta incidência não participa diretamente da reincidência do ciclo; todos os grupos ficam disponíveis para correção.'}">
+    <b>${label}</b>
+    ${options.map(code=>`<button type="button" class="gc-suggestion-group-btn" onclick="event.stopPropagation();openGcSuggestionGroup('${code}')" title="Ver causas de ${code}">${gcGroupLogo(code,true,gcGroupLabel(code))}</button>`).join(' ')}
+  </div>`;
 }
 function gcPreserveCorrectionViewport(callback){
   const y=window.scrollY;
@@ -14454,8 +14510,9 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
   const changedBadge=hasStoredCorrection
     ? '<span class="gc-changed-badge">ALTERADO</span>'
     : '';
-  const canShowCorrection=!validated&&!!(recurrent||gcHasLaterRecurrent(row,model)||hasSavedCorrection);
-  const canShowFeedback=!!(recurrent||gcHasLaterRecurrent(row,model)||hasSavedCorrection||validated);
+  // Toda incidência exibida pode receber Correção e Feedback.
+  const canShowCorrection=true;
+  const canShowFeedback=true;
   const process=row?.[COL.processo];
   const improdutivo=!!row?.__improdutivo;
   const improdutivoBadge=improdutivo?'<span class="gc-improdutivo-badge">IMPRODUTIVO</span>':'';
@@ -14509,7 +14566,7 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
     </div>
 
     ${canShowFeedback?`<div class="gc-action-box">
-      ${canShowCorrection?gcSuggestionHtml(row,model):''}
+      ${canShowCorrection?gcSuggestionHtml(row,model,meta):''}
       <div class="gc-action-row">
         ${canShowCorrection?`<div class="gc-action-control">
           <label>Correção</label>
@@ -14527,7 +14584,7 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
             <option ${feedback==='Não'?'selected':''}>Não</option>
           </select>
         </div>
-        ${validated?'<span class="gc-validated-lock">Causa validada — alteração bloqueada</span>':''}
+        ${validated?'<span class="gc-validated-lock">Causa previamente validada</span>':''}
         ${recurrent&&ev?`<span class="gc-muted">${fmtNum(ev.diasDesdeAnterior)} dia(s) desde o último atendimento de ${esc(ev.group)}</span>`:''}
       </div>
 
@@ -14820,6 +14877,21 @@ function gcClientTable(clients,kind,model){
 }
 
 
+
+function diagnosticoCompatibilidadeCorrecao(){
+  const model=gcBuildModel();
+  const officialKeys=gcOfficialConnectionGroupCurrentKeys();
+  return {
+    periodo:{
+      inicio:S.analiseGrupoCausaDateFrom||'Todos',
+      fim:S.analiseGrupoCausaDateTo||'Todos'
+    },
+    reincidenciasOficiaisNoUniverso:officialKeys.size,
+    reincidenciasNaCorrecaoPeriodo:model.confirmed.length,
+    clientesNaCorrecao:model.clients.filter(c=>c.group.length>0).length
+  };
+}
+
 function diagnosticoAbasCorrecao(){
   const model=gcBuildModel();
   const out={todos:0,semCorrecao:0,comCorrecao:0,acoesSalvas:0,clientesComAcao:[]};
@@ -15024,7 +15096,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     <section class="gc-card">
       <div class="gc-head"><div>
         <div class="gc-title">Correção de reincidências por Grupo</div>
-        <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · ao abrir um cliente, o anterior é fechado</div>
+        <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · ${fmtNum(model.confirmed.length)} reincidência(s) oficiais no período · ao abrir um cliente, o anterior é fechado</div>
       </div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <div class="gc-action-tabs" role="group" aria-label="Filtrar correções">
           <button type="button" data-gc-action-filter="todos" class="${actionFilter==='todos'?'active':''}">Todos</button>
