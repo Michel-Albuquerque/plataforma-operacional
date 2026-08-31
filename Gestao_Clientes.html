@@ -4714,6 +4714,7 @@ function getFiltered(){
 }
 const _equipe30Cache = new Map();
 function invalidateCache(allTabs){
+  if(typeof gcInvalidateCorrectionModel==='function')gcInvalidateCorrectionModel();
   S.__conexaoGrupoParallelCache=null;
   if(allTabs) _filteredCache.clear();
   _filteredReincCache.clear();
@@ -12724,6 +12725,17 @@ let GC_INC_STATE={};
 let GC_INC_STATE_SERVER_LOADED=false;
 let GC_INC_STATE_SERVER_LOADING=false;
 
+// Cache de desempenho da aba Correção.
+// Evita reconstruir toda a rede de reincidências ao abrir cliente,
+// ordenar tabela, pesquisar, alterar feedback ou redesenhar a tela.
+let GC_CORRECTION_MODEL_VERSION=0;
+let GC_CORRECTION_MODEL_CACHE={key:'',model:null};
+
+function gcInvalidateCorrectionModel(){
+  GC_CORRECTION_MODEL_VERSION++;
+  GC_CORRECTION_MODEL_CACHE={key:'',model:null};
+}
+
 function gcIncKey(row){return normalizeNumero(row?.[COL.numero])}
 function gcIncState(row){
   const key=gcIncKey(row);
@@ -12734,6 +12746,7 @@ function gcLoadIncStateLocal(){
     const saved=JSON.parse(localStorage.getItem(GC_INC_STATE_STORAGE_KEY)||'{}');
     GC_INC_STATE=saved&&typeof saved==='object'?saved:{};
   }catch(_){GC_INC_STATE={}}
+  gcInvalidateCorrectionModel();
 }
 function gcSaveIncStateLocal(){
   try{localStorage.setItem(GC_INC_STATE_STORAGE_KEY,JSON.stringify(GC_INC_STATE||{}))}catch(_){}
@@ -12757,6 +12770,7 @@ async function gcLoadIncStateServer(){
       };
     }
     gcSaveIncStateLocal();
+    gcInvalidateCorrectionModel();
   }catch(error){
     console.warn('Registros de Correção: Supabase ainda não configurado; usando armazenamento local.',error);
   }finally{
@@ -12775,6 +12789,17 @@ async function gcSaveIncState(row,patch={}){
   const next={...current,...patch,savedAt:new Date().toISOString()};
   GC_INC_STATE[key]=next;
   gcSaveIncStateLocal();
+
+  // Feedback não altera a lógica de reincidência; não há motivo para
+  // recalcular dezenas de milhares de registros nesse caso.
+  if(
+    Object.prototype.hasOwnProperty.call(patch,'correcao') ||
+    Object.prototype.hasOwnProperty.call(patch,'posteriorGroup') ||
+    Object.prototype.hasOwnProperty.call(patch,'posteriorCause')
+  ){
+    gcInvalidateCorrectionModel();
+  }
+
   try{
     await callbackSupabaseRpc('analise_causa_incidencia_salvar',{
       p_incidencia:key,
@@ -13396,11 +13421,22 @@ function gcBuildTimelineCycles(rows,confirmedEvents){
 }
 
 function gcBuildModel(){
+  const modelKey=[
+    S.processedAt||'',
+    S.baseCompleta.length,
+    S.analiseGrupoCausaDateFrom||'',
+    S.analiseGrupoCausaDateTo||'',
+    GC_CORRECTION_MODEL_VERSION
+  ].join('|');
+
+  if(GC_CORRECTION_MODEL_CACHE.key===modelKey && GC_CORRECTION_MODEL_CACHE.model){
+    return GC_CORRECTION_MODEL_CACHE.model;
+  }
+
   const generalAll=gcBuildGeneralEvents();
 
-  // Trabalha apenas com as incidências que efetivamente participam de uma
-  // janela de reincidência geral. Isso mantém toda a sequência necessária,
-  // mas evita reprocessar a base inteira ao abrir a Análise Causa.
+  // Trabalha apenas com incidências que participam de uma janela geral,
+  // reduzindo drasticamente o universo que entra no motor de grupos.
   const timelineRowsMap=new Map();
   for(const ev of generalAll){
     const prev=ev?.previous;
@@ -13458,15 +13494,48 @@ function gcBuildModel(){
   const clients=[...byClient.values()]
     .sort((a,b)=>b.group.length-a.group.length||b.general.length-a.general.length||String(a.cliente).localeCompare(String(b.cliente),'pt-BR'));
 
-  return {
+  // Índice O(1) por incidência. Antes várias rotinas faziam .find()
+  // sobre a Base Completa repetidamente para cada cliente/cartão.
+  const rowByInc=new Map();
+  for(const row of S.baseCompleta||[]){
+    const inc=normalizeNumero(row?.[COL.numero]);
+    if(inc&&!rowByInc.has(inc))rowByInc.set(inc,row);
+  }
+
+  // Contagem de correções pronta por cliente.
+  const correctionCountByClient=new Map();
+  for(const [inc,st] of Object.entries(GC_INC_STATE||{})){
+    if(st?.correcao!=='Sim'||!st.posteriorCause)continue;
+    const row=rowByInc.get(normalizeNumero(inc));
+    if(!row)continue;
+    const cli=gcClientKey(row?.[COL.nCliente]);
+    correctionCountByClient.set(cli,(correctionCountByClient.get(cli)||0)+1);
+  }
+
+  // Índice das incidências que são origem de reincidência posterior.
+  // Substitui .some() sobre todos os confirmados para cada cartão.
+  const hasLaterRecurrentSet=new Set();
+  for(const ev of confirmed){
+    const inc=normalizeNumero(ev?.previous?.[COL.numero]);
+    if(inc)hasLaterRecurrentSet.add(inc);
+  }
+
+  const model={
     general,
     evaluations,
     confirmed,
     evalByPair,
     clients,
     rowMeta:parallel.rowMeta,
-    rowsByClient:parallel.rowsByClient
+    rowsByClient:parallel.rowsByClient,
+    rowByInc,
+    correctionCountByClient,
+    hasLaterRecurrentSet,
+    dangerousCodesCache:new Map()
   };
+
+  GC_CORRECTION_MODEL_CACHE={key:modelKey,model};
+  return model;
 }
 
 /* ---------- Correções: local + Supabase ---------- */
@@ -13539,12 +13608,18 @@ async function gcSetCorrection(event,value){
 function gcIsValidated(row){
   return normalizeHeaderKey(row?.[COL.estado])==='VALIDADO';
 }
-function gcCorrectionCountForClient(client){
+function gcCorrectionCountForClient(client,model=null){
   const key=gcClientKey(client);
+  const activeModel=model||GC_CORRECTION_MODEL_CACHE.model;
+  if(activeModel?.correctionCountByClient){
+    return activeModel.correctionCountByClient.get(key)||0;
+  }
+
+  // Fallback apenas se a função for chamada antes da construção do modelo.
   let n=0;
   for(const [inc,st] of Object.entries(GC_INC_STATE||{})){
     if(st?.correcao!=='Sim'||!st.posteriorCause)continue;
-    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    const row=activeModel?.rowByInc?.get(normalizeNumero(inc));
     if(row&&gcClientKey(row?.[COL.nCliente])===key)n++;
   }
   return n;
@@ -13570,6 +13645,12 @@ function gcCorrectionRowTime(row){
 
 function gcDangerousCorrectionCodes(row,model){
   const currentInc=normalizeNumero(row?.[COL.numero]);
+  const cacheKey=currentInc||gcIncKey(row);
+
+  if(model?.dangerousCodesCache?.has(cacheKey)){
+    return model.dangerousCodesCache.get(cacheKey);
+  }
+
   const client=gcClientKey(row?.[COL.nCliente]);
   const t=gcCorrectionRowTime(row);
   const out=new Set(gcRowPossibleCodes(row));
@@ -13581,12 +13662,8 @@ function gcDangerousCorrectionCodes(row,model){
     if(!Number.isFinite(t)||!Number.isFinite(ot))continue;
     if(Math.abs(ot-t)>GROUP_REINCIDENCE_MAX_MS)continue;
 
-    // Qualquer grupo existente em outra incidência do mesmo cliente
-    // dentro de 30 dias torna esse grupo inseguro para a correção.
     for(const code of gcRowPossibleCodes(other))out.add(code);
 
-    // Se a outra incidência já foi corrigida, considerar também
-    // explicitamente o grupo posterior salvo.
     const st=gcIncState(other);
     if(st?.correcao==='Sim' && st?.posteriorGroup){
       const correctedCode=/^G\d+$/i.test(String(st.posteriorGroup))
@@ -13594,6 +13671,10 @@ function gcDangerousCorrectionCodes(row,model){
         : gcGroupCode(st.posteriorGroup,st.posteriorCause||'');
       if(correctedCode)out.add(correctedCode);
     }
+  }
+
+  if(model?.dangerousCodesCache){
+    model.dangerousCodesCache.set(cacheKey,out);
   }
   return out;
 }
@@ -13625,6 +13706,7 @@ function gcPreserveCorrectionViewport(callback){
 
 function gcHasLaterRecurrent(row,model){
   const inc=normalizeNumero(row?.[COL.numero]);
+  if(model?.hasLaterRecurrentSet)return model.hasLaterRecurrentSet.has(inc);
   return (model?.confirmed||[]).some(ev=>normalizeNumero(ev?.previous?.[COL.numero])===inc);
 }
 
@@ -13795,7 +13877,7 @@ function gcExportCauseChanges(model){
     const exported=[];
     for(const [inc,st] of Object.entries(GC_INC_STATE||{})){
       if(st?.correcao!=='Sim'||!st.posteriorGroup||!st.posteriorCause)continue;
-      const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+      const row=model?.rowByInc?.get(normalizeNumero(inc)) || (S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
       if(!row)continue;
       exported.push({
         'Cliente':gcClientKey(row?.[COL.nCliente]),
@@ -13882,7 +13964,7 @@ function gcClientTable(clients,kind,model){
     <th>${gcSortHeader('Correções','correcoes')}</th>
   </tr></thead><tbody>${sorted.map(c=>{
     const key=`${kind}:${c.cliente}`,open=S.analiseGrupoCausaExpanded.has(key);
-    const corr=gcCorrectionCountForClient(c.cliente);
+    const corr=gcCorrectionCountForClient(c.cliente,model);
     const detail=open?`<tr class="gc-detail"><td colspan="8">${gcDetailTable(c,model)}</td></tr>`:'';
     return `<tr class="gc-row" data-gc-client="${encodeURIComponent(c.cliente)}" data-gc-kind="${kind}">
       <td><b>${open?'▾':'▸'} ${esc(c.cliente)}</b></td>
@@ -13912,19 +13994,6 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   let clients=model.clients;
   if(q)clients=clients.filter(c=>String(c.cliente).toLowerCase().includes(q));
   const ativos=clients.filter(c=>c.group.length>0);
-  const totalGeneral=model.general.length,totalGroup=model.confirmed.length;
-  const reduction=totalGeneral?((totalGeneral-totalGroup)/totalGeneral*100):0;
-  const correctedPairs=new Set(
-    model.confirmed
-      .filter(e=>gcCorrectionValue(e)==='Sim')
-      .map(e=>gcPairKey(e))
-  );
-  const groupCounts={RAMAL:0,MEDIDOR:0,'VEGETAÇÃO':0,ANIMAIS:0,OUTROS:0};
-  for(const e of model.confirmed){
-    const gs=e.groups||[];let principal=false;
-    for(const g of gs){if(g in groupCounts){groupCounts[g]++;principal=true}}
-    if(!principal)groupCounts.OUTROS++;
-  }
   el.innerHTML=`<div class="gc-page">
     <div class="gc-filters">
       <div class="gc-filter-field"><label>Data inicial</label><input type="date" id="gcDateFrom" value="${esc(S.analiseGrupoCausaDateFrom||'')}"></div>
@@ -14020,7 +14089,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   el.querySelectorAll('[data-gc-inc-correction]').forEach(select=>select.onchange=async(event)=>{
     event.stopPropagation();
     const inc=select.dataset.gcIncCorrection;
-    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    const row=model?.rowByInc?.get(normalizeNumero(inc)) || (S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
     if(!row||gcIsValidated(row))return;
     const y=window.scrollY;
     const wrap=el.querySelector('.gc-correction-table-wrap');
@@ -14035,19 +14104,21 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     });
   });
 
-  el.querySelectorAll('[data-gc-feedback]').forEach(select=>select.onchange=async(event)=>{
+  el.querySelectorAll('[data-gc-feedback]').forEach(select=>select.onchange=(event)=>{
     event.stopPropagation();
     const inc=select.dataset.gcFeedback;
-    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    const row=model?.rowByInc?.get(normalizeNumero(inc)) || null;
     if(!row)return;
-    await gcSaveIncState(row,{feedback:select.value});
+
+    // Feedback não altera grupos/reincidências: salva sem reconstruir a tela.
+    gcSaveIncState(row,{feedback:select.value});
   });
 
   el.querySelectorAll('[data-gc-inc-group]').forEach(select=>select.onchange=(event)=>{
     event.stopPropagation();
     const inc=select.dataset.gcIncGroup;
     const causeSelect=el.querySelector(`[data-gc-inc-cause="${CSS.escape(inc)}"]`);
-    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    const row=model?.rowByInc?.get(normalizeNumero(inc)) || (S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
     const excludedCodes=row?[...gcDangerousCorrectionCodes(row,model)]:[];
     if(causeSelect)causeSelect.innerHTML=gcCauseOptionsForCategory(select.value,'',excludedCodes);
   });
@@ -14055,7 +14126,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   el.querySelectorAll('[data-gc-inc-save]').forEach(button=>button.onclick=async(event)=>{
     event.stopPropagation();
     const inc=button.dataset.gcIncSave;
-    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    const row=model?.rowByInc?.get(normalizeNumero(inc)) || (S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
     const groupSelect=el.querySelector(`[data-gc-inc-group="${CSS.escape(inc)}"]`);
     const causeSelect=el.querySelector(`[data-gc-inc-cause="${CSS.escape(inc)}"]`);
     if(!row||!groupSelect||!causeSelect||gcIsValidated(row))return;
@@ -14083,7 +14154,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   el.querySelectorAll('[data-gc-inc-undo]').forEach(button=>button.onclick=async(event)=>{
     event.stopPropagation();
     const inc=button.dataset.gcIncUndo;
-    const row=(S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
+    const row=model?.rowByInc?.get(normalizeNumero(inc)) || (S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
     if(!row||gcIsValidated(row))return;
     const y=window.scrollY;
     const wrap=el.querySelector('.gc-correction-table-wrap');
