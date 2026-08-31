@@ -4548,18 +4548,21 @@ function conexaoGrupoOfficialRecurrentNumbers(row){
 function conexaoGrupoParallelModel(){
   const cacheKey=[
     S.processedAt||'',
-    S.baseCompleta.length,
-    Object.keys(GC_INC_STATE||{}).length
+    S.baseCompleta.length
   ].join('|');
 
   if(!S.__conexaoGrupoParallelCache || S.__conexaoGrupoParallelCache.key!==cacheKey){
-    const model=gcBuildParallelGroupEvaluations(S.baseCompleta||[]);
+    // Mesmo motor da aba Correção, mas sempre com causa/grupo ORIGINAL da base.
+    // Correções posteriores do usuário nunca alteram o indicador histórico.
+    const model=gcBuildParallelGroupEvaluations(
+      S.baseCompleta||[],
+      {rowCause:gcOriginalRowCause,rowGroups:gcOriginalRowGroups}
+    );
     const byCurrent=new Map();
     const byClient=new Map();
 
     for(const ev of model.evaluations||[]){
       if(!ev.confirmada)continue;
-
       const currentKey=normalizeNumero(ev.current?.[COL.numero]);
       if(currentKey&&!byCurrent.has(currentKey))byCurrent.set(currentKey,ev);
 
@@ -6078,112 +6081,47 @@ function getEquipe30Ranking(){
    10B. DASHBOARD — visão executiva mês a mês
    ============================================================ */
 function computeMonthlyDashboard(filteredBase){
-  const byMonth = new Map();
+  const byMonth=new Map();
+
+  const ensure=(ano,mes)=>{
+    const key=ano+'-'+String(mes).padStart(2,'0');
+    if(!byMonth.has(key)){
+      byMonth.set(key,{key,ano,mes,rows:[],indicatorRows:[],recurrenceRows:[]});
+    }
+    return byMonth.get(key);
+  };
 
   for(const r of filteredBase){
-    if(r.__ano==null || r.__mes==null) continue;
-    if(!(r.__mes>=1 && r.__mes<=12)) continue;
-    if(!(r.__ano>=2000 && r.__ano<=2100)) continue;
-
-    const key = r.__ano+'-'+String(r.__mes).padStart(2,'0');
-    if(!byMonth.has(key)){
-      byMonth.set(key,{
-        ano:r.__ano,
-        mes:r.__mes,
-        rows:[],
-        indicatorRows:[],
-        recurrenceRows:[]
-      });
-    }
-    const bucket=byMonth.get(key);
+    if(r.__ano==null||r.__mes==null)continue;
+    const bucket=ensure(r.__ano,r.__mes);
     bucket.rows.push(r);
     if(isIndicatorRow(r))bucket.indicatorRows.push(r);
   }
 
   if(isConnectionBasedIndicator()){
     for(const r of getFilteredReincidenciaConexao()){
-      if(r.__ano==null || r.__mes==null) continue;
-      const key = r.__ano+'-'+String(r.__mes).padStart(2,'0');
-
-      if(!byMonth.has(key)){
-        byMonth.set(key,{
-          ano:r.__ano,
-          mes:r.__mes,
-          rows:[],
-          indicatorRows:[],
-          recurrenceRows:[]
-        });
-      }
-      byMonth.get(key).recurrenceRows.push(r);
+      if(r.__ano==null||r.__mes==null)continue;
+      ensure(r.__ano,r.__mes).recurrenceRows.push(r);
     }
-  } else if(S.filters.parametro === 'grupo'){
+  }else if(S.filters.parametro==='grupo'){
     for(const event of getFilteredGroupRecurrences()){
-      const r=event.row;
-      if(r.__ano==null || r.__mes==null)continue;
-      const key=r.__ano+'-'+String(r.__mes).padStart(2,'0');
-
-      if(!byMonth.has(key)){
-        byMonth.set(key,{
-          ano:r.__ano,
-          mes:r.__mes,
-          rows:[],
-          indicatorRows:[],
-          recurrenceRows:[]
-        });
-      }
-      const drillRow={...r,__grupoEvento:event,__grupoAtivo:event.group||''};
-      byMonth.get(key).recurrenceRows.push(drillRow);
+      const r=event.row||event.current;
+      if(!r||r.__ano==null||r.__mes==null)continue;
+      ensure(r.__ano,r.__mes).recurrenceRows.push({...r,__grupoEvento:event,__grupoAtivo:event.group||''});
     }
-  } else {
-    for(const [key,bucket] of byMonth){
-      const eligible=bucket.rows.filter(isReincElegivel);
-      const byCliente=new Map();
-
-      for(const r of eligible){
-        const cli=String(r[COL.nCliente]).trim();
-        if(!byCliente.has(cli))byCliente.set(cli,[]);
-        byCliente.get(cli).push(r);
-      }
-
-      for(const crows of byCliente.values()){
-        crows.sort((a,b)=>
-          (a.__dataFim-b.__dataFim) ||
-          String(a[COL.numero]).localeCompare(String(b[COL.numero]))
-        );
-
-        let buf=[];
-        const close=()=>{
-          if(buf.length>1){
-            // A primeira é a geradora; todas as seguintes são reincidentes.
-            bucket.recurrenceRows.push(...buf.slice(1));
-          }
-          buf=[];
-        };
-
-        for(const row of crows){
-          if(!buf.length){
-            buf.push(row);
-            continue;
-          }
-          const diff=row.__dataFim-buf[buf.length-1].__dataFim;
-          if(diff<=JANELA_TIMELINE_MS)buf.push(row);
-          else{
-            close();
-            buf.push(row);
-          }
-        }
-        close();
-      }
+  }else{
+    for(const r of filteredBase){
+      if(r.__classificacao!=='REINCIDENTE')continue;
+      if(r.__ano==null||r.__mes==null)continue;
+      ensure(r.__ano,r.__mes).recurrenceRows.push(r);
     }
   }
 
-  const out=[];
-  for(const [key,bucket] of byMonth){
+  const out=[...byMonth.values()].map(bucket=>{
     const indicador=bucket.indicatorRows.length;
     const reincidencias=bucket.recurrenceRows.length;
-
-    out.push({
-      key,
+    return {
+      key:bucket.key,
       ano:bucket.ano,
       mes:bucket.mes,
       indicador,
@@ -6191,8 +6129,8 @@ function computeMonthlyDashboard(filteredBase){
       pct:indicador?(reincidencias/indicador*100):0,
       indicatorRows:bucket.indicatorRows,
       recurrenceRows:bucket.recurrenceRows
-    });
-  }
+    };
+  });
 
   out.sort((a,b)=>a.ano-b.ano||a.mes-b.mes);
   return out;
@@ -13654,7 +13592,16 @@ function gcExpandableText(value,empty='—'){
   </details>`;
 }
 
-function gcBuildParallelGroupEvaluations(sourceRows){
+function gcOriginalRowCause(row){
+  return row?.[COL.causa];
+}
+function gcOriginalRowGroups(row){
+  return causeGroups(row?.[COL.causa]);
+}
+
+function gcBuildParallelGroupEvaluations(sourceRows,options={}){
+  const rowCause=options.rowCause||gcRowCause;
+  const rowGroups=options.rowGroups||gcRowGroups;
   const byClient=new Map();
   const evaluations=[];
   const rowMeta=new Map();
@@ -13684,7 +13631,7 @@ function gcBuildParallelGroupEvaluations(sourceRows){
         rowMeta.set(key,{
           client:gcClientKey(client),
           row,
-          possibleGroups:[...gcRowGroups(row)],
+          possibleGroups:[...rowGroups(row)],
           activeGroups:[],
           status:'ORIGEM',
           recurrent:false,
@@ -13697,13 +13644,13 @@ function gcBuildParallelGroupEvaluations(sourceRows){
     for(let i=0;i<rows.length;i++){
       const current=rows[i];
       const currentKey=rowKey(current);
-      const possible=[...gcRowGroups(current)];
+      const possible=[...rowGroups(current)];
       const currentMeta=ensureMeta(current);
 
       // Descarta referências vencidas apenas para a incidência atual.
       const candidates=[];
       for(const group of possible){
-        const groupCode=gcGroupCode(group,gcRowCause(current));
+        const groupCode=gcGroupCode(group,rowCause(current));
         const anchorKey=groupCode||group;
         const anchor=anchors.get(anchorKey);
         if(!anchor)continue;
@@ -13737,7 +13684,7 @@ function gcBuildParallelGroupEvaluations(sourceRows){
           }
         }
 
-        const previousPossible=[...gcRowGroups(previous)];
+        const previousPossible=[...rowGroups(previous)];
         const diffMs=chosen.diffMs;
         const diasDesdeAnterior=Math.floor(diffMs/86400000);
 
@@ -13774,7 +13721,7 @@ function gcBuildParallelGroupEvaluations(sourceRows){
 
         // Atualiza apenas a memória do grupo efetivamente usado.
         // As memórias dos outros grupos seguem vivas em paralelo.
-        anchors.set(gcGroupCode(group,gcRowCause(current))||group,{row:current,time:current.__dataFim,pending:false});
+        anchors.set(gcGroupCode(group,rowCause(current))||group,{row:current,time:current.__dataFim,pending:false});
       }else{
         // Não existe incidência anterior compatível em até 30 dias:
         // esta incidência passa a ser origem de uma nova cadeia de grupo.
@@ -13784,13 +13731,13 @@ function gcBuildParallelGroupEvaluations(sourceRows){
         if(possible.length===1){
           const group=possible[0];
           currentMeta.activeGroups=[group];
-          anchors.set(gcGroupCode(group,gcRowCause(current))||group,{row:current,time:current.__dataFim,pending:false});
+          anchors.set(gcGroupCode(group,rowCause(current))||group,{row:current,time:current.__dataFim,pending:false});
         }else{
           // Uma causa multigrupo sem contexto anterior fica "em aberto".
           // Ela pode ser resolvida pelo primeiro atendimento posterior compatível.
           currentMeta.activeGroups=[];
           for(const group of possible){
-            anchors.set(gcGroupCode(group,gcRowCause(current))||group,{row:current,time:current.__dataFim,pending:true});
+            anchors.set(gcGroupCode(group,rowCause(current))||group,{row:current,time:current.__dataFim,pending:true});
           }
         }
       }
@@ -14412,30 +14359,63 @@ function gcDetailTable(client,model){
 function gcExportCauseChanges(model){
   try{
     const exported=[];
-    for(const [inc,st] of Object.entries(GC_INC_STATE||{})){
-      if(st?.correcao!=='Sim'||!st.posteriorGroup||!st.posteriorCause)continue;
-      const row=model?.rowByInc?.get(normalizeNumero(inc)) || (S.baseCompleta||[]).find(r=>normalizeNumero(r?.[COL.numero])===normalizeNumero(inc));
-      if(!row)continue;
-      exported.push({
-        'Cliente':gcClientKey(row?.[COL.nCliente]),
-        'Incidência':formatNumero(row?.[COL.numero]),
-        'Data':gcDate(row?.__dataFim),
-        'Equipe':gcText(row?.[COL.equipeDesl]),
-        'Processo':gcText(row?.[COL.processo]),
-        'Causa original':gcText(row?.[COL.causa]),
-                'Observação Geonline':gcText(row?.[COL.observacao]),
-        'Busca Execução':gcEorderObs(row),
-        'Data Busca Execução':gcEorderDate(row),
-        'Grupo posterior':st.posteriorGroup,
-        'Causa posterior':st.posteriorCause,
-        'Correção':st.correcao,
-        'Feedback Operador':st.feedback||'Sem Feedback',
-        'Registrado em':st.savedAt||''
-      });
+    const seen=new Set();
+
+    for(const client of model.clients||[]){
+      const rows=model.rowsByClient?.get(gcClientKey(client.cliente))||[];
+
+      for(const row of rows){
+        if(!gcRowInPagePeriod(row))continue;
+        if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
+
+        const inc=normalizeNumero(row?.[COL.numero]);
+        if(!inc||seen.has(inc))continue;
+        seen.add(inc);
+
+        const st=gcIncState(row);
+        const posteriorGroup=String(st?.posteriorGroup||'').trim();
+        const posteriorCause=String(st?.posteriorCause||'').trim();
+        const houveCorrecao=!!posteriorGroup&&!!posteriorCause;
+        const decisao=String(st?.correcao||'Sem Ação');
+
+        const status=houveCorrecao
+          ? 'Com Correção'
+          : decisao==='Não'
+            ? 'Sem Correção'
+            : 'Sem Ação';
+
+        exported.push({
+          'Cliente':gcClientKey(row?.[COL.nCliente]),
+          'Incidência':formatNumero(row?.[COL.numero]),
+          'Data':gcDate(row?.__dataFim),
+          'Equipe':gcText(row?.[COL.equipeDesl]),
+          'Processo':gcText(row?.[COL.processo]),
+          'Causa original':gcText(row?.[COL.causa]),
+          'Observação Geonline':gcText(row?.[COL.observacao]),
+          'Busca Execução':gcEorderObs(row),
+          'Data Busca Execução':gcEorderDate(row),
+          'Houve Correção':houveCorrecao?'Sim':'Não',
+          'Status da análise':status,
+          'Grupo posterior':houveCorrecao?posteriorGroup:'',
+          'Causa posterior':houveCorrecao?posteriorCause:'',
+          'Feedback Operador':st?.feedback||'Sem Feedback',
+          'Registrado em':st?.savedAt||''
+        });
+      }
     }
-    if(!exported.length){alert('Não há correções de causa salvas para exportar.');return}
+
+    if(!exported.length){
+      alert('Não há casos da Correção para exportar neste filtro.');
+      return;
+    }
+
+    exported.sort((a,b)=>
+      String(a['Cliente']).localeCompare(String(b['Cliente']),'pt-BR',{numeric:true}) ||
+      String(a['Data']).localeCompare(String(b['Data']),'pt-BR')
+    );
+
     if(typeof XLSX!=='undefined' && typeof exportRowsXlsx==='function'){
-      exportRowsXlsx(exported,`correcao_causas_${stamp()}.xlsx`,'Correções');
+      exportRowsXlsx(exported,`base_correcao_reincidencias_${stamp()}.xlsx`,'Correção');
     }else{
       const headers=Object.keys(exported[0]||{});
       const escCsv=v=>{
@@ -14449,13 +14429,13 @@ function gcExportCauseChanges(model){
       const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
-      a.download=`correcao_causas_${stamp()}.csv`;
+      a.download=`base_correcao_reincidencias_${stamp()}.csv`;
       document.body.appendChild(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     }
   }catch(error){
-    console.error('Erro ao exportar Correção:',error);
-    alert('Não foi possível exportar a base de correções. '+(error?.message||String(error)));
+    console.error('Erro ao exportar base da Correção:',error);
+    alert('Não foi possível exportar a base da Correção. '+(error?.message||String(error)));
   }
 }
 
@@ -14683,7 +14663,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
           <button type="button" data-gc-action-filter="sem" class="${actionFilter==='sem'?'active':''}">Sem Correção</button>
           <button type="button" data-gc-action-filter="com" class="${actionFilter==='com'?'active':''}">Com Correção</button>
         </div>
-        <button type="button" class="gc-export-changes" id="gcExportCauseChanges">Exportar correções</button>
+        <button type="button" class="gc-export-changes" id="gcExportCauseChanges">Exportar base</button>
         <input class="gc-search" id="gcSearch" value="${esc(S.analiseGrupoCausaSearch||'')}" placeholder="Buscar número do cliente">
       </div></div>
       ${gcClientTable(ativos,'ativo',model)}
