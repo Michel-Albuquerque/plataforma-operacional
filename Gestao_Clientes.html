@@ -1642,6 +1642,25 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
   outline-offset:1px;
 }
 
+
+.gc-posterior-cause,
+.gc-posterior-group{
+  background:#f1ecff !important;
+  border-left:3px solid #6652c7;
+  border-radius:7px;
+  padding:8px 10px;
+}
+.dashboard-monthly-modal-tools{
+  display:flex;
+  justify-content:flex-end;
+  margin:0 0 10px;
+  position:sticky;
+  top:0;
+  z-index:5;
+  background:#fff;
+  padding:4px 0 6px;
+}
+
 </style>
 </head>
 <body>
@@ -4701,18 +4720,20 @@ function conexaoGrupoParallelModel(){
   return S.__conexaoGrupoParallelCache;
 }
 
-function conexaoGrupoResolveCurrent(official,parallel,mainByNumber){
+function conexaoGrupoResolveCurrent(official,parallel,mainByNumber,usedCurrentKeys=null){
   // 1. Melhor cenário: vínculo já criado pela Base de Reincidência.
   if(official?.__nextMain){
     const key=normalizeNumero(official.__nextMain?.[COL.numero]);
     const ev=parallel.byCurrent.get(key);
-    if(ev)return {current:official.__nextMain,event:ev,mode:'linked'};
+    if(ev && !(usedCurrentKeys&&usedCurrentKeys.has(key))){
+      return {current:official.__nextMain,event:ev,mode:'linked'};
+    }
   }
 
   // 2. Tenta todos os números de reincidente existentes na linha.
   for(const key of conexaoGrupoOfficialRecurrentNumbers(official)){
     const ev=parallel.byCurrent.get(key);
-    if(ev){
+    if(ev && !(usedCurrentKeys&&usedCurrentKeys.has(key))){
       return {current:mainByNumber.get(key)||ev.current,event:ev,mode:'number'};
     }
   }
@@ -4752,8 +4773,15 @@ function conexaoGrupoResolveCurrent(official,parallel,mainByNumber){
     const diff=d.getTime()-baseTime;
     if(diff<0 || diff>GROUP_REINCIDENCE_MAX_MS)continue;
 
+    const currentKey=normalizeNumero(current?.[COL.numero]);
+
     // Se conhecemos o número gerador oficial, não aceitar a própria linha.
-    if(normalizeNumero(current?.[COL.numero])===normalizeNumero(official?.[COL2.numero]))continue;
+    if(currentKey===normalizeNumero(official?.[COL2.numero]))continue;
+
+    // Uma reincidência já atribuída a outra linha oficial deste universo
+    // não pode ser reutilizada. Isso é essencial em sequências G1,G1,G1:
+    // a segunda e a terceira incidências precisam formar 2 reincidências.
+    if(usedCurrentKeys&&usedCurrentKeys.has(currentKey))continue;
 
     if(!best || diff<best.diff){
       best={current,event:ev,mode:'client_date',diff};
@@ -4773,9 +4801,42 @@ function buildConexaoGrupoUniverse(){
 
   const out=[];
   const seen=new Set();
+  const usedCurrentKeys=new Set();
 
-  for(const official of S.baseReincidencia||[]){
-    const resolved=conexaoGrupoResolveCurrent(official,parallel,mainByNumber);
+  // Processar cronologicamente evita que um fallback de uma linha posterior
+  // consuma a reincidência que pertence a uma linha anterior.
+  const officialRows=[...(S.baseReincidencia||[])].sort((a,b)=>{
+    const ac=gcClientKey(a?.[COL2.nCliente]||a?.__prevMain?.[COL.nCliente]);
+    const bc=gcClientKey(b?.[COL2.nCliente]||b?.__prevMain?.[COL.nCliente]);
+    const byClient=ac.localeCompare(bc,'pt-BR',{numeric:true});
+    if(byClient)return byClient;
+
+    const ad=
+      a?.__prevMain?.__dataFim ||
+      a?.__prevMain?.__dataInicio ||
+      a?.__dataFim ||
+      parseDateVal(a?.[COL2.dataFim]) ||
+      parseDateVal(a?.[COL2.dataInicio]) ||
+      new Date(0);
+
+    const bd=
+      b?.__prevMain?.__dataFim ||
+      b?.__prevMain?.__dataInicio ||
+      b?.__dataFim ||
+      parseDateVal(b?.[COL2.dataFim]) ||
+      parseDateVal(b?.[COL2.dataInicio]) ||
+      new Date(0);
+
+    return ad-bd;
+  });
+
+  for(const official of officialRows){
+    const resolved=conexaoGrupoResolveCurrent(
+      official,
+      parallel,
+      mainByNumber,
+      usedCurrentKeys
+    );
     if(!resolved)continue;
 
     const groupEvent=resolved.event;
@@ -4791,6 +4852,7 @@ function buildConexaoGrupoUniverse(){
 
     if(seen.has(dedupeKey))continue;
     seen.add(dedupeKey);
+    usedCurrentKeys.add(recurrentNumber);
 
     const row={...official};
     row.__officialReincidenceRow=official;
@@ -7061,6 +7123,9 @@ function openDashboardMonthlyBar(month,datasetType){
     `${tipo} — ${mesLabel} — ${fmtNum(rows.length)} registro(s)`;
 
   document.getElementById('modalBody').innerHTML=`
+    <div class="dashboard-monthly-modal-tools">
+      <button type="button" class="gc-export-changes" onclick="exportDashboardMonthlyDrill()">Exportar tabela</button>
+    </div>
     <div class="tag-note">
       Registros que compõem a barra de <b>${tipo}</b> de <b>${esc(mesLabel)}</b>,
       respeitando os filtros atualmente aplicados.
@@ -7276,6 +7341,72 @@ function dashboardMonthlyClickedBar(chart,event){
   return barHit||null;
 }
 
+const dashboardMonthlyClickPlugin={
+  id:'dashboardMonthlyClickPlugin',
+  afterEvent(chart,args){
+    const ev=args?.event;
+    if(!ev)return;
+
+    const type=ev.type;
+    if(!['mousemove','click'].includes(type))return;
+
+    const x=Number(ev.x),y=Number(ev.y);
+    if(!Number.isFinite(x)||!Number.isFinite(y))return;
+
+    const hits=[];
+
+    for(let datasetIndex=0;datasetIndex<(chart.data?.datasets||[]).length;datasetIndex++){
+      const dataset=chart.data.datasets[datasetIndex];
+      const barType=dashboardMonthlyBarType(dataset);
+      if(!barType)continue;
+
+      const meta=chart.getDatasetMeta(datasetIndex);
+      if(!meta||meta.hidden||meta.type!=='bar')continue;
+
+      (meta.data||[]).forEach((element,index)=>{
+        if(!element)return;
+        const props=typeof element.getProps==='function'
+          ? element.getProps(['x','y','base','width'],true)
+          : element;
+
+        const cx=Number(props.x);
+        const top=Math.min(Number(props.y),Number(props.base));
+        const bottom=Math.max(Number(props.y),Number(props.base));
+        const half=Math.max(3,Number(props.width||0)/2);
+
+        if(!Number.isFinite(cx)||!Number.isFinite(top)||!Number.isFinite(bottom))return;
+
+        const inX=x>=cx-half&&x<=cx+half;
+        const inY=y>=top-5&&y<=bottom+5;
+
+        if(inX&&inY){
+          hits.push({
+            datasetIndex,
+            index,
+            barType,
+            dx:Math.abs(x-cx)
+          });
+        }
+      });
+    }
+
+    hits.sort((a,b)=>a.dx-b.dx);
+    const hit=hits[0]||null;
+
+    if(chart.canvas){
+      chart.canvas.style.cursor=hit?'pointer':'default';
+    }
+
+    if(type==='click'&&hit){
+      const monthly=chart.__monthlyRows||[];
+      const month=monthly[hit.index];
+      if(month){
+        openDashboardMonthlyBar(month,hit.barType);
+      }
+    }
+  }
+};
+
 function renderDashboard(){
   if(!S.baseCompleta.length) return;
   const renderToken=++_dashboardRenderToken;
@@ -7425,6 +7556,7 @@ function renderDashboard(){
   `;
 
   wireDashboardTeamControls();
+  document.querySelectorAll('.dashboard-monthly-hotspots').forEach(el=>el.remove());
   destroyChart('chartDashboardMensal');
   const ctx = document.getElementById('chartDashboardMensal');
   if(ctx){
@@ -7455,13 +7587,12 @@ function renderDashboard(){
             onClick:()=>{},
             layout:{ padding:{top:18,bottom:9,left:3,right:3} }
           },
-          plugins:[dashboardDataLabelsPlugin]
+          plugins:[dashboardDataLabelsPlugin,dashboardMonthlyClickPlugin]
         });
 
         // Clique nativo no canvas: independente da linha de percentual e do
         // mecanismo de hit-test do Chart.js.
         S.charts.chartDashboardMensal.__monthlyRows=monthly;
-        requestAnimationFrame(()=>buildDashboardMonthlyBarHotspots(S.charts.chartDashboardMensal));
       }catch(err){
         console.error('Erro ao montar gráfico do dashboard:', err);
         const wrap = ctx.closest ? ctx.closest('.ppt-chart-wrap') : null;
@@ -14647,10 +14778,15 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
   const changedBadge=hasStoredCorrection
     ? '<span class="gc-changed-badge">ALTERADO</span>'
     : '';
-  // Toda incidência exibida pode receber Correção e Feedback.
-  const canShowCorrection=true;
+  // Todas as incidências exibidas podem receber Feedback.
+  // VALIDADO mantém a regra anterior: não permite nova Correção.
+  const canShowCorrection=!validated;
   const canShowFeedback=true;
   const process=row?.[COL.processo];
+  const originalCause=row?.[COL.causa];
+  const originalGroups=[...causeGroups(originalCause)];
+  const posteriorCause=hasStoredCorrection?String(st.posteriorCause||'').trim():'';
+  const posteriorGroup=hasStoredCorrection?String(st.posteriorGroup||'').trim():'';
   const improdutivo=!!row?.__improdutivo;
   const improdutivoBadge=improdutivo?'<span class="gc-improdutivo-badge">IMPRODUTIVO</span>':'';
 
@@ -14681,14 +14817,25 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
       <div class="gc-att-field"><label>Processo</label><div class="value">${esc(gcText(process))}</div></div>
 
       <div class="gc-att-field full ${(recurrent||!isFirst)?'gc-cause-highlight':''}">
-        <label>Causa</label>
-        <div class="value">${gcGroupLogosContext(allGroups,activeGroups,gcRowCause(row))} ${gcExpandableText(gcRowCause(row))}</div>
+        <label>${hasStoredCorrection?'Causa original':'Causa'}</label>
+        <div class="value">${gcGroupLogosContext(originalGroups,hasStoredCorrection?[]:activeGroups,originalCause)} ${gcExpandableText(originalCause)}</div>
       </div>
 
       <div class="gc-att-field full">
-        <label>Grupo causa</label>
-        <div class="value">${gcGroupBadgesContext(allGroups,activeGroups)}</div>
+        <label>${hasStoredCorrection?'Grupo original':'Grupo causa'}</label>
+        <div class="value">${gcGroupBadgesContext(originalGroups,hasStoredCorrection?[]:activeGroups)}</div>
       </div>
+
+      ${hasStoredCorrection?`
+        <div class="gc-att-field full gc-posterior-cause">
+          <label>Causa posterior</label>
+          <div class="value">${gcGroupLogo(gcGroupCode(posteriorGroup,posteriorCause),true,posteriorCause)} ${gcExpandableText(posteriorCause)}</div>
+        </div>
+        <div class="gc-att-field full gc-posterior-group">
+          <label>Grupo posterior</label>
+          <div class="value">${gcGroupBadge(posteriorGroup,posteriorCause)}</div>
+        </div>
+      `:''}
     </div>
 
     <div class="gc-geo-box">
@@ -14721,7 +14868,7 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
             <option ${feedback==='Não'?'selected':''}>Não</option>
           </select>
         </div>
-        ${validated?'<span class="gc-validated-lock">Causa previamente validada</span>':''}
+        ${validated?'<span class="gc-validated-lock">Causa validada — correção bloqueada</span>':''}
         ${recurrent&&ev?`<span class="gc-muted">${fmtNum(ev.diasDesdeAnterior)} dia(s) desde o último atendimento de ${esc(ev.group)}</span>`:''}
       </div>
 
