@@ -6358,6 +6358,9 @@ function openInstallationTypeDetail(code){
   document.getElementById('modalBox').classList.add('wide');
   document.getElementById('modalTitle').textContent=`${item.label} — ${fmtNum(item.count)} reincidência(s)`;
   document.getElementById('modalBody').innerHTML=`
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button type="button" class="gc-export-changes" onclick="exportDashboardMonthlyDrill()">Baixar tabela</button>
+    </div>
     <div class="tag-note">Registros que originaram o indicador, respeitando todos os filtros da Visão Geral. Clique em uma incidência para abrir a base completa.</div>
     <div class="table-scroll compact installation-detail-wrap">
       <table class="installation-detail-table">
@@ -6626,7 +6629,7 @@ const dashboardDataLabelsPlugin = {
         if(value==null) return;
         if(dataset.type==='line'){
           ctx.fillStyle = '#046b45';
-          ctx.fillText(Math.round(value)+'%', element.x, element.y - 12);
+          ctx.fillText(Number(value).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%', element.x, element.y - 12);
         } else {
           ctx.fillStyle = '#4c5a54';
           ctx.fillText(fmtNum(value), element.x, element.y - 8);
@@ -6959,6 +6962,46 @@ function openDashboardMonthlyRecord(index){
   document.getElementById('modalBg').classList.add('show');
 }
 
+let DASHBOARD_MONTHLY_DRILL_EXPORT_ROWS=[];
+let DASHBOARD_MONTHLY_DRILL_EXPORT_NAME='';
+
+function exportDashboardMonthlyDrill(){
+  const rows=DASHBOARD_MONTHLY_DRILL_EXPORT_ROWS||[];
+  if(!rows.length){
+    alert('Não há registros para exportar nesta tabela.');
+    return;
+  }
+
+  if(typeof XLSX!=='undefined'&&typeof exportRowsXlsx==='function'){
+    exportRowsXlsx(
+      rows,
+      `${DASHBOARD_MONTHLY_DRILL_EXPORT_NAME||'evolucao_mensal'}_${stamp()}.xlsx`,
+      'Registros'
+    );
+    return;
+  }
+
+  const headers=Object.keys(rows[0]||{});
+  const escCsv=v=>{
+    const s=String(v??'');
+    return /[;"\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+  };
+
+  const csv='\ufeff'+[
+    headers.map(escCsv).join(';'),
+    ...rows.map(row=>headers.map(h=>escCsv(row[h])).join(';'))
+  ].join('\r\n');
+
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`${DASHBOARD_MONTHLY_DRILL_EXPORT_NAME||'evolucao_mensal'}_${stamp()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
 function openDashboardMonthlyBar(month,datasetType){
   if(!month)return;
 
@@ -6971,6 +7014,34 @@ function openDashboardMonthlyBar(month,datasetType){
     : (month.indicatorRows||[]);
 
   _dashboardMonthlyDrillRows=rows;
+
+  DASHBOARD_MONTHLY_DRILL_EXPORT_NAME=
+    `${isRecurrence?'reincidencias':'incidencias'}_${month.ano}_${String(month.mes).padStart(2,'0')}`;
+
+  DASHBOARD_MONTHLY_DRILL_EXPORT_ROWS=rows.map(row=>{
+    const main=dashboardMonthlyDrillMainRow(row);
+    const cliente=main?.[COL.nCliente]??row?.[COL2.nCliente]??'—';
+    const numero=main?.[COL.numero]??row?.[COL2.numeroRein]??row?.[COL2.numero]??'—';
+    const dataFim=main?.__dataFim??row?.__dataFim??parseDateVal(main?.[COL.dataFim])??parseDateVal(row?.[COL2.dataFim]);
+    const equipe=main?.[COL.equipeDesl]??row?.__nextEquipeDesl??'—';
+    const processo=main?.[COL.processo]??row?.__nextProcesso??row?.[COL2.processo]??'—';
+    const causa=main?.[COL.causa]??row?.__nextCausa??row?.[COL2.causa]??'—';
+
+    const result={
+      'Cliente':cliente,
+      'Incidência':formatNumero(numero),
+      'Data Fim':dataFim?fmtDateTime(dataFim):'—',
+      'Equipe':equipe,
+      'Processo':processo,
+      'Causa':causa
+    };
+
+    if(['grupo','conexao_grupo'].includes(S.filters.parametro)){
+      result['Grupo']=dashboardMonthlyGroupLabel(row);
+    }
+
+    return result;
+  });
 
   const tipo=isRecurrence?'Reincidências':'Incidências';
   const mesLabel=(MESES_NOMES[month.mes]||String(month.mes))+'/'+month.ano;
@@ -7061,61 +7132,84 @@ function dashboardMonthlyNativeBarHit(chart,nativeEvent){
   if(!chart||!nativeEvent)return null;
 
   const rect=chart.canvas.getBoundingClientRect();
-
-  // Chart.js trabalha com coordenadas CSS do canvas.
-  // Não aplicar devicePixelRatio aqui.
   const x=nativeEvent.clientX-rect.left;
   const y=nativeEvent.clientY-rect.top;
 
-  const hits=[];
+  const labels=chart.data?.labels||[];
+  if(!labels.length)return null;
 
+  // Primeiro identifica o MÊS pela posição horizontal dos ticks.
+  // Assim o índice do mês nunca depende da ordem interna dos datasets.
+  let monthIndex=-1;
+  let monthDx=Infinity;
+  const xScale=chart.scales?.x;
+
+  for(let i=0;i<labels.length;i++){
+    const px=xScale?.getPixelForTick
+      ? xScale.getPixelForTick(i)
+      : chart.getDatasetMeta(0)?.data?.[i]?.x;
+
+    if(!Number.isFinite(px))continue;
+    const dx=Math.abs(x-px);
+    if(dx<monthDx){
+      monthDx=dx;
+      monthIndex=i;
+    }
+  }
+
+  if(monthIndex<0)return null;
+
+  const candidates=[];
+
+  // Depois identifica QUAL DAS DUAS BARRAS daquele mês foi clicada.
   for(let datasetIndex=0;datasetIndex<(chart.data?.datasets||[]).length;datasetIndex++){
     const dataset=chart.data.datasets[datasetIndex];
-    const type=dashboardMonthlyDatasetType(dataset);
+    const label=normalizeHeaderKey(dataset?.label||'');
+    const type=label.includes('REINCID')
+      ? 'reincidencias'
+      : label.includes('INCID')
+        ? 'incidencias'
+        : '';
+
     if(!type)continue;
 
     const meta=chart.getDatasetMeta(datasetIndex);
     if(!meta||meta.hidden||meta.type!=='bar')continue;
 
-    for(let index=0;index<(meta.data||[]).length;index++){
-      const element=meta.data[index];
-      if(!element)continue;
+    const element=meta.data?.[monthIndex];
+    if(!element)continue;
 
-      const props=typeof element.getProps==='function'
-        ? element.getProps(['x','y','base','width'],true)
-        : element;
+    const props=typeof element.getProps==='function'
+      ? element.getProps(['x','y','base','width'],true)
+      : element;
 
-      const cx=Number(props.x);
-      const top=Math.min(Number(props.y),Number(props.base));
-      const bottom=Math.max(Number(props.y),Number(props.base));
-      const half=Math.max(3,Number(props.width||0)/2);
+    const cx=Number(props.x);
+    const top=Math.min(Number(props.y),Number(props.base));
+    const bottom=Math.max(Number(props.y),Number(props.base));
+    const half=Math.max(3,Number(props.width||0)/2);
 
-      if(!Number.isFinite(cx)||!Number.isFinite(top)||!Number.isFinite(bottom))continue;
+    if(!Number.isFinite(cx)||!Number.isFinite(top)||!Number.isFinite(bottom))continue;
 
-      const withinX=x>=cx-half-2&&x<=cx+half+2;
-      const withinY=y>=top-5&&y<=bottom+5;
+    const withinX=x>=cx-half-4&&x<=cx+half+4;
+    const withinY=y>=top-8&&y<=bottom+8;
 
-      if(withinX&&withinY){
-        hits.push({
-          datasetIndex,
-          index,
-          type,
-          dx:Math.abs(x-cx),
-          dy:y<top?top-y:y>bottom?y-bottom:0
-        });
-      }
+    if(withinX&&withinY){
+      candidates.push({
+        type,
+        index:monthIndex,
+        datasetIndex,
+        dx:Math.abs(x-cx)
+      });
     }
   }
 
-  if(!hits.length)return null;
+  if(!candidates.length)return null;
 
-  // Em barras agrupadas, o centro horizontal identifica inequivocamente
-  // se o usuário clicou na barra verde ou na laranja.
-  hits.sort((a,b)=>a.dx-b.dx||a.dy-b.dy);
-  return hits[0];
+  candidates.sort((a,b)=>a.dx-b.dx);
+  return candidates[0];
 }
 
-function wireDashboardMonthlyNativeClick(chart,monthly){
+function wireDashboardMonthlyNativeClick(chart){
   if(!chart?.canvas)return;
 
   const canvas=chart.canvas;
@@ -7131,7 +7225,11 @@ function wireDashboardMonthlyNativeClick(chart,monthly){
     event.preventDefault();
     event.stopPropagation();
 
-    openDashboardMonthlyBar(monthly[hit.index],hit.type);
+    const monthly=chart.__monthlyRows||[];
+    const month=monthly[hit.index];
+    if(!month)return;
+
+    openDashboardMonthlyBar(month,hit.type);
   };
 
   canvas.__dashboardMonthlyClickHandler=handler;
@@ -7334,7 +7432,7 @@ function renderDashboard(){
             datasets: [
               {type:'bar', label:'Incidências', data:monthly.map(m=>m.indicador), backgroundColor:'#cfe3d9', yAxisID:'y', order:2, borderRadius:3},
               {type:'bar', label:'Reincidências', data:monthly.map(m=>m.reincidencias), backgroundColor:'#d97a29', yAxisID:'y', order:2, borderRadius:3},
-              {type:'line', label:'% Reincidência', data:monthly.map(m=>Math.round(m.pct||0)), borderColor:'#046b45', backgroundColor:'#046b45', yAxisID:'y1', tension:.3, borderWidth:2.5, pointRadius:3, order:1}
+              {type:'line', label:'% Reincidência', data:monthly.map(m=>Number((m.pct||0).toFixed(1))), borderColor:'#046b45', backgroundColor:'#046b45', yAxisID:'y1', tension:.3, borderWidth:2.5, pointRadius:3, order:1}
             ]
           },
           options: {
@@ -7361,10 +7459,8 @@ function renderDashboard(){
 
         // Clique nativo no canvas: independente da linha de percentual e do
         // mecanismo de hit-test do Chart.js.
-        wireDashboardMonthlyNativeClick(
-          S.charts.chartDashboardMensal,
-          monthly
-        );
+        S.charts.chartDashboardMensal.__monthlyRows=monthly;
+        wireDashboardMonthlyNativeClick(S.charts.chartDashboardMensal);
       }catch(err){
         console.error('Erro ao montar gráfico do dashboard:', err);
         const wrap = ctx.closest ? ctx.closest('.ppt-chart-wrap') : null;
@@ -7749,7 +7845,7 @@ async function exportFiscalizacaoPptx(){
     slide.addShape(pptx.ShapeType.roundRect,{x:.38,y:2.02,w:6.15,h:4.78,fill:{color:C.white},line:{color:C.border}});slide.addText('Tempo até nova reincidência',{x:.58,y:2.2,w:3.5,h:.24,fontSize:13,bold:true,color:C.ink,margin:0});
     const rangeMax=Math.max(1,...rangeData.map(item=>item.value));rangeData.forEach((item,index)=>{const y=2.67+index*.58;const tone=item.label==='Sem nova reincidência'?C.green:index<2?C.red:C.orange;slide.addText(item.label,{x:.6,y:y+.03,w:1.35,h:.17,fontSize:7.5,bold:true,color:C.ink,margin:0});slide.addShape(pptx.ShapeType.roundRect,{x:1.95,y:y,w:3.45,h:.18,fill:{color:'E6EEEA'},line:{color:'E6EEEA'}});slide.addShape(pptx.ShapeType.roundRect,{x:1.95,y:y,w:Math.max(.04,3.45*item.value/rangeMax),h:.18,fill:{color:tone},line:{color:tone}});slide.addText(`${fmtNum(item.value)} · ${fmtPct(total?item.value/total*100:0)}`,{x:5.45,y:y+.02,w:.75,h:.16,fontSize:7,bold:true,color:C.ink,align:'right',margin:0});});
     slide.addShape(pptx.ShapeType.roundRect,{x:6.72,y:2.02,w:6.23,h:4.78,fill:{color:C.white},line:{color:C.border}});slide.addText('Principais causas após a fiscalização',{x:6.92,y:2.2,w:3.9,h:.24,fontSize:13,bold:true,color:C.ink,margin:0});
-    const causeMax=Math.max(1,...causes.map(item=>item[1]));(causes.length?causes:[['Sem reincidência posterior',0]]).forEach((item,index)=>{const y=2.75+index*.68;slide.addText(item[0],{x:6.95,y:y,w:2.5,h:.24,fontSize:7.5,bold:true,color:C.ink,margin:0,breakLine:false,fit:'shrink'});slide.addShape(pptx.ShapeType.roundRect,{x:9.55,y:y+.02,w:2.4,h:.18,fill:{color:'E6EEEA'},line:{color:'E6EEEA'}});if(item[1])slide.addShape(pptx.ShapeType.roundRect,{x:9.55,y:y+.02,w:2.4*item[1]/causeMax,h:.18,fill:{color:C.blue},line:{color:C.blue}});slide.addText(fmtNum(item[1]),{x:12.02,y:y+.01,w:.55,h:.18,fontSize:7,bold:true,color:C.ink,align:'right',margin:0});});
+    const causeMax=Math.max(1,...causes.map(item=>item[1]));(causes.length?causes:[['Sem reincidência posterior',0]]).forEach((item,index)=>{const y=2.75+index*.68;slide.addText(item[0],{x:6.95,y:y,w:2.5,h:.24,fontSize:7.5,bold:true,color:C.ink,margin:0,breakLine:false,fit:'shrink'});slide.addShape(pptx.ShapeType.roundRect,{x:9.55,y:y+.02,w:2.4,h:.18,fill:{color:'E6EEEA'},line:{color:'E6EEEA'}});if(item[1])slide.addShape(pptx.ShapeType.roundRect,{x:9.55,y:y+.02,w:2.4*item[1]/causeMax,h:.18,fill:{color:C.blue},line:{color:C.blue}});slide.addText(fmtNum(item[1]),{x:11.92,y:y+.01,w:.55,h:.18,fontSize:7,bold:true,color:C.ink,align:'right',margin:0});});
     slide.addText(`Critério: ${indicatorLabel}, fonte ${sourceLabel}; vínculo pelo Número do Cliente. A incidência fiscalizada é a referência e fica excluída; somente outra incidência posterior é contabilizada.`,{x:.45,y:7.08,w:12.2,h:.18,fontSize:7,color:C.muted,italic:true,margin:0});
     const slide2=pptx.addSlide();addHeader(slide2,'Casos fiscalizados e resultado posterior',`${indicatorLabel} · registros priorizados para acompanhamento gerencial`);
     const tableRows=rows.slice(0,18).map(row=>[String(row[COLF.cliente]||''),fmtDate(row.__dataFiscalizacao),String(row[COLF.supervisor]||''),row.__matchQuality==='confirmado'?'Confirmado':row.__matchQuality==='provavel'?'Provável':'Revisão',row.__reincidiuApos?'Sim':'Não',fiscalizacaoIntervalLabel(row),String(row.__posteriorCause||'—')]);
@@ -7970,15 +8066,15 @@ async function exportDashboardPptx(){
     addText(`${annual.deltaPP>=0?'▲':'▼'} ${fmtPct(Math.abs(annual.deltaPP)).replace('%',' pp')}`,1.55,3.22,.43,.15,{fontSize:7,bold:true,color:'046B45',align:'right'});
     addCard(.10,3.64,2.05,3.68); addText('Causas mais reincidentes',.22,3.78,1.72,.16,{fontSize:9,bold:true});
     causas.forEach(([causa,q],i)=>{const y=4.08+i*.47;addText(causa,.22,y,1.50,.14,{fontSize:6.8,color:'59665F'});addText(fmtPct(q/totalCausas*100),1.73,y,.25,.14,{fontSize:6.8,bold:true,align:'right'});slide.addShape(SH.rect,{x:.22,y:y+.19,w:1.76,h:.025,fill:{color:'E7EEEA'},line:{color:'E7EEEA'}});slide.addShape(SH.rect,{x:.22,y:y+.19,w:1.76*(q/(causas[0]?.[1]||1)),h:.025,fill:{color:'046B45'},line:{color:'046B45'}});});
-    addCard(2.24,.92,8.02,2.62); addText('Evolução mensal',2.38,1.05,2.2,.16,{fontSize:9,bold:true});
+    addCard(2.24,.92,7.72,2.62); addText('Evolução mensal',2.38,1.05,2.2,.16,{fontSize:9,bold:true});
     if(labels.length){
-      slide.addChart(CT.bar,[{name:'Incidências',labels,values:monthly.map(m=>m.indicador)},{name:'Reincidências',labels,values:monthly.map(m=>m.reincidencias)}],{x:2.37,y:1.26,w:7.72,h:2.08,catAxisLabelPos:'low',catAxisLabelFontSize:7,catAxisLineShow:false,valAxisHidden:true,showLegend:false,showValue:true,dataLabelPosition:'outEnd',dataLabelColor:'59665F',dataLabelFontSize:7,dataLabelFormatCode:'0',chartColors:['CFE3D9','D97A29'],catGridLine:{style:'none'},valGridLine:{style:'none'},showTitle:false,showBorder:false,gapWidthPct:65});
-      slide.addChart(CT.line,[{name:'% Reincidência',labels,values:monthly.map(m=>(m.pct||0)/100)}],{x:2.37,y:1.26,w:7.72,h:1.83,catAxisLabelPos:'none',catAxisLineShow:false,valAxisHidden:true,showLegend:false,showValue:true,dataLabelPosition:'t',dataLabelColor:'046B45',dataLabelFontSize:7,dataLabelFormatCode:'0%',chartColors:['046B45'],lineSize:2,lineSmooth:true,lineDataSymbol:'circle',lineDataSymbolSize:4,catGridLine:{style:'none'},valGridLine:{style:'none'},showTitle:false,showBorder:false,chartArea:{fill:{color:'FFFFFF',transparency:100},border:{color:'FFFFFF',transparency:100}},plotArea:{fill:{color:'FFFFFF',transparency:100},border:{color:'FFFFFF',transparency:100}}});
+      slide.addChart(CT.bar,[{name:'Incidências',labels,values:monthly.map(m=>m.indicador)},{name:'Reincidências',labels,values:monthly.map(m=>m.reincidencias)}],{x:2.37,y:1.26,w:7.42,h:2.08,catAxisLabelPos:'low',catAxisLabelFontSize:7,catAxisLineShow:false,valAxisHidden:true,showLegend:false,showValue:true,dataLabelPosition:'outEnd',dataLabelColor:'59665F',dataLabelFontSize:7,dataLabelFormatCode:'0',chartColors:['CFE3D9','D97A29'],catGridLine:{style:'none'},valGridLine:{style:'none'},showTitle:false,showBorder:false,gapWidthPct:65});
+      slide.addChart(CT.line,[{name:'% Reincidência',labels,values:monthly.map(m=>(m.pct||0)/100)}],{x:2.37,y:1.26,w:7.42,h:1.83,catAxisLabelPos:'none',catAxisLineShow:false,valAxisHidden:true,showLegend:false,showValue:true,dataLabelPosition:'t',dataLabelColor:'046B45',dataLabelFontSize:7,dataLabelFormatCode:'0.0%',chartColors:['046B45'],lineSize:2,lineSmooth:true,lineDataSymbol:'circle',lineDataSymbolSize:4,catGridLine:{style:'none'},valGridLine:{style:'none'},showTitle:false,showBorder:false,chartArea:{fill:{color:'FFFFFF',transparency:100},border:{color:'FFFFFF',transparency:100}},plotArea:{fill:{color:'FFFFFF',transparency:100},border:{color:'FFFFFF',transparency:100}}});
     }
     addCard(2.24,3.62,3.34,1.55); addText('Top 5 clientes mais reincidentes',2.38,3.75,2.7,.15,{fontSize:8.5,bold:true});
     topClientes.forEach((c,i)=>{const y=4.03+i*.20;addText(c.cliente,2.38,y,1.35,.12,{fontSize:6.8,color:'59665F'});addText(`${fmtNum(c.reincidencias)} · ${fmtPct(c.pctReincidencia)}`,4.13,y,1.20,.12,{fontSize:6.8,bold:true,align:'right'});});
-    addCard(5.66,3.62,4.60,1.55); addText(`Ranking de equipes · ${dashboardTeamSort.label}`,5.80,3.75,4.05,.15,{fontSize:8.2,bold:true});
-    topEquipes.forEach((e,i)=>{const y=4.03+i*.20;addText(e.equipe,5.80,y,1.55,.12,{fontSize:6.8,color:'59665F'});addText(`${fmtNum(e.totalAtendimentos)} inc. · ${fmtNum(e.reincidenciasGeradas)} reinc. · ${fmtPct(e.pctReincidencia)} · ${fmtNum(e.daysWorked||0)}d`,7.40,y,2.60,.12,{fontSize:6.3,bold:true,align:'right'});});
+    addCard(5.66,3.62,4.30,1.55); addText(`Ranking de equipes · ${dashboardTeamSort.label}`,5.80,3.75,3.75,.15,{fontSize:8.2,bold:true});
+    topEquipes.forEach((e,i)=>{const y=4.03+i*.20;addText(e.equipe,5.80,y,1.55,.12,{fontSize:6.8,color:'59665F'});addText(`${fmtNum(e.totalAtendimentos)} inc. · ${fmtNum(e.reincidenciasGeradas)} reinc. · ${fmtPct(e.pctReincidencia)} · ${fmtNum(e.daysWorked||0)}d`,7.30,y,2.42,.12,{fontSize:6.3,bold:true,align:'right'});});
     addCard(2.24,5.25,3.96,2.07); addText('Reincidência por turno — evolução mensal (%)',2.38,5.38,3.45,.16,{fontSize:8.5,bold:true});
     if(turnLabels.length){
       const turnos=['Turno A','Turno B','Turno C'];
@@ -7997,22 +8093,22 @@ async function exportDashboardPptx(){
     });
     addText('Base oficial de reincidência · campos complementados pela base principal',6.42,7.10,3.55,.11,{fontSize:5.8,color:'75837D'});
     const turnos=['Turno A','Turno B','Turno C'],turnColors=['00AEEF','003B7A','046B45'];
-    turnos.forEach((turno,i)=>{const y=.92+i*.72,q=turnoDash.totals.get(turno)||0,t=turnoDash.incidentTotals.get(turno)||0;addCard(10.35,y,2.88,.63);slide.addShape(SH.rect,{x:10.35,y,w:.05,h:.63,fill:{color:turnColors[i]},line:{color:turnColors[i]}});addText(turno.toUpperCase(),10.53,y+.10,1.0,.10,{fontSize:7,bold:true,color:'7B8A83'});addText(fmtPct(t?q/t*100:0),10.53,y+.23,.85,.23,{fontSize:16,bold:true});addText(`${fmtNum(q)} reincidências de ${fmtNum(t)} incidências`,11.35,y+.31,1.62,.12,{fontSize:6.5,color:'59665F',align:'right'});});
-    addCard(10.35,3.15,2.88,4.17);addText('Reincidência por Processo',10.53,3.28,2.36,.16,{fontSize:9,bold:true});
+    turnos.forEach((turno,i)=>{const y=.92+i*.72,q=turnoDash.totals.get(turno)||0,t=turnoDash.incidentTotals.get(turno)||0;addCard(10.05,y,3.08,.63);slide.addShape(SH.rect,{x:10.05,y,w:.05,h:.63,fill:{color:turnColors[i]},line:{color:turnColors[i]}});addText(turno.toUpperCase(),10.23,y+.10,1.0,.10,{fontSize:7,bold:true,color:'7B8A83'});addText(fmtPct(t?q/t*100:0),10.23,y+.23,.85,.23,{fontSize:16,bold:true});addText(`${fmtNum(q)} reincidências de ${fmtNum(t)} incidências`,11.05,y+.31,1.62,.12,{fontSize:6.5,color:'59665F',align:'right'});});
+    addCard(10.05,3.15,3.08,4.17);addText('Reincidência por Processo',10.23,3.28,2.36,.16,{fontSize:9,bold:true});
     const pptProcessSort=processSortConfig();
-    addText(`Ordenação: ${pptProcessSort.label}`,10.53,3.47,2.36,.12,{fontSize:5.8,color:'75837D'});
+    addText(`Ordenação: ${pptProcessSort.label}`,10.23,3.47,2.36,.12,{fontSize:5.8,color:'75837D'});
     const pptProcesses=processAnalysis.items.slice(0,5);
     const maxPptProcess=pptProcesses.length?Math.max(0.01,...pptProcesses.map(item=>Number(item[pptProcessSort.metric]||0))):1;
     pptProcesses.forEach((item,i)=>{
       const y=3.76+i*.63;
       const primary=pptProcessSort.metric==='pctReincidence'?fmtPct(item.pctReincidence):fmtNum(item[pptProcessSort.metric]);
-      addText(item.process,10.53,y,1.42,.12,{fontSize:6.8,bold:true,color:'263630'});
-      addText(primary,12.02,y,.83,.12,{fontSize:6.8,bold:true,align:'right'});
-      addText(`${fmtNum(item.totalIncidences)} inc. · ${fmtNum(item.recurrenceCount)} reinc. · ${fmtPct(item.pctReincidence)} · ${fmtPct(item.operationShare)} op.`,10.53,y+.16,2.32,.11,{fontSize:5.7,color:'68756F'});
-      slide.addShape(SH.roundRect,{x:10.53,y:y+.34,w:2.33,h:.045,rectRadius:.02,fill:{color:'E7EEEA'},line:{color:'E7EEEA'}});
-      slide.addShape(SH.roundRect,{x:10.53,y:y+.34,w:2.33*(Number(item[pptProcessSort.metric]||0)/maxPptProcess),h:.045,rectRadius:.02,fill:{color:'008556'},line:{color:'008556'}});
+      addText(item.process,10.23,y,1.42,.12,{fontSize:6.8,bold:true,color:'263630'});
+      addText(primary,11.92,y,.83,.12,{fontSize:6.8,bold:true,align:'right'});
+      addText(`${fmtNum(item.totalIncidences)} inc. · ${fmtNum(item.recurrenceCount)} reinc. · ${fmtPct(item.pctReincidence)} · ${fmtPct(item.operationShare)} op.`,10.23,y+.16,2.32,.11,{fontSize:5.7,color:'68756F'});
+      slide.addShape(SH.roundRect,{x:10.23,y:y+.34,w:2.33,h:.045,rectRadius:.02,fill:{color:'E7EEEA'},line:{color:'E7EEEA'}});
+      slide.addShape(SH.roundRect,{x:10.23,y:y+.34,w:2.33*(Number(item[pptProcessSort.metric]||0)/maxPptProcess),h:.045,rectRadius:.02,fill:{color:'008556'},line:{color:'008556'}});
     });
-    if(!pptProcesses.length)addText('Sem processos no filtro atual.',10.53,3.76,2.3,.2,{fontSize:8,color:'75837D'});
+    if(!pptProcesses.length)addText('Sem processos no filtro atual.',10.23,3.76,2.3,.2,{fontSize:8,color:'75837D'});
     setLoading(true,'Finalizando PowerPoint…','Salvando o slide com gráficos editáveis e alta definição',82);
     await pptx.writeFile({fileName:`Acompanhamento_Reincidencia_${stamp()}.pptx`,compression:true});
     setLoading(false);
@@ -11274,7 +11370,7 @@ async function exportValidationPptx(){
   try{
     setLoading(true,'Gerando apresentação…','Validação Pós-Atendimento em formato 16:9',20);await yieldUI();
     const a=getValidationAnalysis(),pptx=new PptxGenJS();pptx.layout='LAYOUT_WIDE';pptx.author='Enel Brasil';pptx.company='Enel Brasil';pptx.subject='Validação Pós-Atendimento';pptx.title='Validação Pós-Atendimento';pptx.lang='pt-BR';
-    const SH=pptx.ShapeType,slide=pptx.addSlide();slide.background={color:'F3F7F5'};slide.addShape(SH.rect,{x:0,y:0,w:13.333,h:.08,fill:{color:'008556'},line:{color:'008556'}});slide.addText('Validação Pós-Atendimento',{x:.42,y:.22,w:7.5,h:.32,fontFace:'Aptos Display',fontSize:21,bold:true,color:'071A4B',margin:0});slide.addText(`Auditoria da efetividade real · ${fmtNum(a.rows.length)} registros no filtro · ${fmtDate(new Date())}`,{x:.42,y:.57,w:9.5,h:.16,fontFace:'Aptos',fontSize:8,color:'68756F',margin:0});slide.addImage({data:ENEL_LOGO_DATA,x:12.02,y:.16,w:1.0,h:.55});
+    const SH=pptx.ShapeType,slide=pptx.addSlide();slide.background={color:'F3F7F5'};slide.addShape(SH.rect,{x:0,y:0,w:13.333,h:.08,fill:{color:'008556'},line:{color:'008556'}});slide.addText('Validação Pós-Atendimento',{x:.42,y:.22,w:7.5,h:.32,fontFace:'Aptos Display',fontSize:21,bold:true,color:'071A4B',margin:0});slide.addText(`Auditoria da efetividade real · ${fmtNum(a.rows.length)} registros no filtro · ${fmtDate(new Date())}`,{x:.42,y:.57,w:9.5,h:.16,fontFace:'Aptos',fontSize:8,color:'68756F',margin:0});slide.addImage({data:ENEL_LOGO_DATA,x:11.92,y:.16,w:1.0,h:.55});
     const vals=[['CLIENTES NA BASE',a.rows.length,'0B68D7'],['CONTATADOS',a.contacted.length,'008556'],['NÃO CONTATADOS',a.nonContacted.length,'EF7B13'],['TAXA DE CONTATO',fmtPct(a.rows.length?a.contacted.length/a.rows.length*100:0),'008556'],['PROBLEMA RESOLVIDO',fmtPct(a.conclusive.length?a.resolved.length/a.conclusive.length*100:0),'008556'],['PROBLEMA PERSISTE',a.persists.length,'DC2F2F']];
     vals.forEach((k,i)=>{const x=.42+i*2.1;slide.addShape(SH.roundRect,{x,y:.92,w:1.92,h:.75,rectRadius:.05,fill:{color:'FFFFFF'},line:{color:'D7E0E7',width:.7}});slide.addShape(SH.rect,{x,y:.92,w:.05,h:.75,fill:{color:k[2]},line:{color:k[2]}});slide.addText(k[0],{x:x+.14,y:1.04,w:1.58,h:.11,fontSize:6.4,bold:true,color:'6D7C76',margin:0,fit:'shrink'});slide.addText(String(k[1]),{x:x+.14,y:1.21,w:1.55,h:.25,fontSize:17,bold:true,color:k[2],margin:0,fit:'shrink'});});
     slide.addShape(SH.roundRect,{x:.42,y:1.92,w:7.85,h:4.95,rectRadius:.05,fill:{color:'FFFFFF'},line:{color:'D7E0E7',width:.7}});slide.addText('Evolução diária dos contatos e da resolução',{x:.62,y:2.13,w:4.3,h:.18,fontSize:10,bold:true,color:'071A4B',margin:0});
