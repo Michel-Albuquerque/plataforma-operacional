@@ -1695,6 +1695,10 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
   padding:8px 12px !important;
 }
 
+
+/* V52 — barra de reincidência: área vertical maior, mês continua exato */
+#chartDashboardMensal{cursor:default}
+
 </style>
 </head>
 <body>
@@ -7412,13 +7416,18 @@ function dashboardMonthlyExactHit(chart,nativeEvent){
 
       if(!Number.isFinite(cx)||!Number.isFinite(top)||!Number.isFinite(bottom))return;
 
-      // A área clicável fica presa à própria barra.
-      // Só há tolerância vertical de 4 px para barras laranjas muito baixas.
+      // A área horizontal fica EXATAMENTE presa à barra/mês.
+      // Reincidências têm barras muito baixas; permitir clique também
+      // sobre o número exibido logo acima da barra, sem avançar para
+      // nenhuma coluna vizinha.
+      const extraTop=barType==='reincidencias'?34:4;
+      const extraBottom=barType==='reincidencias'?8:4;
+
       if(
         x>=cx-half &&
         x<=cx+half &&
-        y>=top-4 &&
-        y<=bottom+4
+        y>=top-extraTop &&
+        y<=bottom+extraBottom
       ){
         hits.push({datasetIndex,index,barType,dx:Math.abs(x-cx)});
       }
@@ -14403,6 +14412,10 @@ function gcBuildModel(){
     const current=official?.__nextMain||ev?.current||null;
     if(!ev||!current)continue;
 
+    // Mesma exclusão estrutural do indicador da Visão Geral/Cliente.
+    // A linha analítica já representa a incidência reincidente atual.
+    if(isAtendimentoRemoto(official,COL2.causa))continue;
+
     if(!gcInPagePeriod({current}))continue;
     if(S.filters?.nts?.size && !S.filters.nts.has(String(current?.[COL.nt]||'').trim()))continue;
 
@@ -15185,6 +15198,31 @@ function gcClientTable(clients,kind,model){
 
 
 
+
+
+function diagnosticoAgostoCorrecaoVsIndicador(ano=2026,mes=8){
+  const universe=buildConexaoGrupoUniverse()||[];
+
+  const indicador=universe.filter(row=>{
+    if(isAtendimentoRemoto(row,COL2.causa))return false;
+    return Number(row.__ano)===Number(ano)&&Number(row.__mes)===Number(mes);
+  });
+
+  const model=gcBuildModel();
+  const correcao=model.confirmed.filter(ev=>{
+    const d=ev?.current?.__dataFim;
+    return d instanceof Date &&
+      d.getFullYear()===Number(ano) &&
+      d.getMonth()+1===Number(mes);
+  });
+
+  return {
+    ano,mes,
+    indicador:indicador.length,
+    correcao:correcao.length,
+    diferenca:correcao.length-indicador.length
+  };
+}
 
 function diagnosticoCorrecaoVsDashboard(){
   const model=gcBuildModel();
