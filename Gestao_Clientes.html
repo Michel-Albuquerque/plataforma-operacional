@@ -1537,6 +1537,39 @@ body.groupcause-mode #content{padding:0;background:#eef4f1}
   background:#fff0df;border:1px solid #e77a17;color:#a94b00;font-size:8px;font-weight:900;letter-spacing:.04em
 }
 
+
+/* V33 — ações sincronizadas */
+.gc-att-card.changed{
+  border:2px solid #5b4db2 !important;
+  box-shadow:0 0 0 2px rgba(91,77,178,.08),0 4px 14px rgba(37,46,42,.06);
+}
+.gc-att-card.changed:not(.recurrent){
+  background:#fbfaff;
+}
+.gc-changed-badge{
+  display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;
+  background:#5b4db2;color:#fff;font-size:8px;font-weight:900;letter-spacing:.04em;
+}
+.gc-saved-change-strong{
+  display:flex;align-items:center;flex-wrap:wrap;gap:6px;
+  margin-top:8px;padding:9px 10px;border:1px solid #bdb5e9;
+  border-radius:8px;background:#f5f2ff;color:#332b72;font-size:10.5px;
+}
+.gc-saved-change-strong small{margin-left:auto;color:#716a91;font-size:8.5px}
+.gc-client-actions-summary{
+  margin:0 0 10px;padding:9px 11px;border:1px solid #c9c2eb;
+  border-radius:9px;background:#f8f6ff;
+}
+.gc-client-actions-title{
+  margin-bottom:6px;font-size:10px;font-weight:900;color:#403679;
+}
+.gc-client-actions-list{display:flex;flex-wrap:wrap;gap:6px}
+.gc-client-action-item{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 8px;
+  border:1px solid #ddd8f4;border-radius:7px;background:#fff;font-size:9.5px;
+}
+.gc-client-action-inc{font-weight:900;color:#30286b}
+
 </style>
 </head>
 <body>
@@ -13073,11 +13106,13 @@ async function gcLoadIncStateServer(){
     for(const item of rows){
       const key=normalizeNumero(item.incidencia||'');
       if(!key)continue;
+      const posteriorGroup=String(item.grupo_posterior||'').trim();
+      const posteriorCause=String(item.causa_posterior||'').trim();
       GC_INC_STATE[key]={
-        correcao:String(item.correcao||'Sem Ação'),
+        correcao:(posteriorGroup&&posteriorCause)?'Sim':String(item.correcao||'Sem Ação'),
         feedback:String(item.feedback_operador||'Sem Feedback'),
-        posteriorGroup:String(item.grupo_posterior||''),
-        posteriorCause:String(item.causa_posterior||''),
+        posteriorGroup,
+        posteriorCause,
         savedAt:item.updated_at||item.created_at||''
       };
     }
@@ -13816,14 +13851,44 @@ function gcBuildModel(){
     if(inc&&!rowByInc.has(inc))rowByInc.set(inc,row);
   }
 
-  // Contagem de correções pronta por cliente.
+  // Ações registradas por cliente, limitadas ao mesmo universo/período
+  // que a tela da Correção está exibindo. Antes, uma ação antiga do cliente
+  // podia fazê-lo aparecer em "Com Ação" mesmo sem nenhuma ação nos cartões
+  // atualmente visíveis.
   const correctionCountByClient=new Map();
+  const correctionRowsByClient=new Map();
+  const visibleRowKeys=new Set();
+
+  for(const rows of parallel.rowsByClient.values()){
+    for(const row of rows){
+      if(!gcInPagePeriod(row))continue;
+      if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
+      const inc=normalizeNumero(row?.[COL.numero]);
+      if(inc)visibleRowKeys.add(inc);
+    }
+  }
+
   for(const [inc,st] of Object.entries(GC_INC_STATE||{})){
-    if(st?.correcao!=='Sim'||!st.posteriorCause)continue;
-    const row=rowByInc.get(normalizeNumero(inc));
+    const hasAction=
+      st?.correcao==='Sim' &&
+      !!String(st?.posteriorCause||'').trim();
+
+    if(!hasAction)continue;
+
+    const key=normalizeNumero(inc);
+    if(!visibleRowKeys.has(key))continue;
+
+    const row=rowByInc.get(key);
     if(!row)continue;
+
     const cli=gcClientKey(row?.[COL.nCliente]);
     correctionCountByClient.set(cli,(correctionCountByClient.get(cli)||0)+1);
+
+    if(!correctionRowsByClient.has(cli))correctionRowsByClient.set(cli,[]);
+    correctionRowsByClient.get(cli).push({
+      row,
+      state:st
+    });
   }
 
   // Índice das incidências que são origem de reincidência posterior.
@@ -13844,6 +13909,7 @@ function gcBuildModel(){
     rowsByClient:parallel.rowsByClient,
     rowByInc,
     correctionCountByClient,
+    correctionRowsByClient,
     hasLaterRecurrentSet,
     dangerousCodesCache:new Map()
   };
@@ -14095,12 +14161,22 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
   const validated=gcIsValidated(row);
   const activeGroups=meta?.activeGroups||[];
   const st=gcIncState(row);
-  const correction=st.correcao||'Sem Ação';
+  const hasStoredCorrection=
+    !!String(st.posteriorGroup||'').trim() &&
+    !!String(st.posteriorCause||'').trim();
+
+  // Se grupo e causa posterior existem no Supabase, a incidência é
+  // necessariamente "Com Ação", mesmo que algum registro antigo tenha
+  // deixado o campo correcao inconsistente.
+  const correction=hasStoredCorrection?'Sim':(st.correcao||'Sem Ação');
   const feedback=st.feedback||'Sem Feedback';
   const currentCategory=st.posteriorGroup?gcGroupCode(st.posteriorGroup):'';
   const activeCategoryCodes=[...new Set((activeGroups||[]).map(g=>gcGroupCode(g,gcRowCause(row))).filter(Boolean))];
   const excludedCategoryCodes=[...gcDangerousCorrectionCodes(row,model)];
   const hasSavedCorrection=!!(st.posteriorGroup||st.posteriorCause||correction==='Sim');
+  const changedBadge=hasStoredCorrection
+    ? '<span class="gc-changed-badge">ALTERADO</span>'
+    : '';
   const canShowCorrection=!validated&&!!(recurrent||gcHasLaterRecurrent(row,model)||hasSavedCorrection);
   const canShowFeedback=!!(recurrent||gcHasLaterRecurrent(row,model)||hasSavedCorrection||validated);
   const process=row?.[COL.processo];
@@ -14119,14 +14195,14 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
   }
 
   const inc=formatNumero(row?.[COL.numero]);
-  return `<article class="gc-att-card ${cardClass} ${validated?'validated':''}" data-gc-inc="${esc(gcIncKey(row))}">
+  return `<article class="gc-att-card ${cardClass} ${validated?'validated':''} ${hasStoredCorrection?'changed':''}" data-gc-inc="${esc(gcIncKey(row))}">
     <div class="gc-att-top">
       <div>
         <div class="gc-att-order">${esc(inc)} <button class="gc-inc-copy" type="button" data-copy-inc="${esc(inc)}" title="Copiar incidência">⧉</button></div>
         <div class="gc-client-inside">Cliente ${esc(gcClientKey(row?.[COL.nCliente]))}</div>
         <div class="gc-att-date">${esc(gcDate(row?.__dataFim))}</div>
       </div>
-      ${badge}${improdutivoBadge}${validated?'<span class="gc-validated-badge">VALIDADO</span>':''}
+      ${badge}${changedBadge}${improdutivoBadge}${validated?'<span class="gc-validated-badge">VALIDADO</span>':''}
     </div>
 
     <div class="gc-att-grid">
@@ -14190,7 +14266,12 @@ function gcAttendanceCard(row,meta,model,cycleNo,isFirst=false){
           </div>
           <button type="button" class="gc-save-change" data-gc-inc-save="${esc(gcIncKey(row))}">Salvar correção</button>
         </div>
-        ${st.posteriorGroup&&st.posteriorCause?`<div class="gc-saved-change">Correção registrada: ${gcGroupLogo(gcGroupCode(st.posteriorGroup,st.posteriorCause),true,st.posteriorCause)} ${esc(st.posteriorCause)}</div>`:''}
+        ${hasStoredCorrection?`<div class="gc-saved-change gc-saved-change-strong">
+          <b>Ação registrada:</b>
+          ${gcGroupLogo(gcGroupCode(st.posteriorGroup,st.posteriorCause),true,st.posteriorCause)}
+          <span>${esc(st.posteriorCause)}</span>
+          ${st.savedAt?`<small>Salva em ${esc(gcDateTime(st.savedAt))}</small>`:''}
+        </div>`:''}
         ${hasSavedCorrection?`<button type="button" class="gc-undo-change" data-gc-inc-undo="${esc(gcIncKey(row))}">Desfazer correção</button>`:''}
       </div>`:''}
       ${canShowCorrection&&correction!=='Sim'&&hasSavedCorrection?`<button type="button" class="gc-undo-change" data-gc-inc-undo="${esc(gcIncKey(row))}">Desfazer correção</button>`:''}
@@ -14212,7 +14293,28 @@ function gcDetailTable(client,model){
 
   const confirmedCurrentKeys=new Set(clientConfirmed.map(e=>normalizeNumero(e.current?.[COL.numero])));
 
-  let html='<div class="gc-cycle-cards">';
+  const clientActionRows=model?.correctionRowsByClient?.get(gcClientKey(client.cliente))||[];
+
+  let html='';
+  if(clientActionRows.length){
+    html+=`<div class="gc-client-actions-summary">
+      <div class="gc-client-actions-title">Ações registradas neste filtro</div>
+      <div class="gc-client-actions-list">
+        ${clientActionRows.map(item=>{
+          const r=item.row,st=item.state;
+          const code=gcGroupCode(st.posteriorGroup,st.posteriorCause);
+          return `<div class="gc-client-action-item">
+            <span class="gc-client-action-inc">${esc(formatNumero(r?.[COL.numero]))}</span>
+            <span>→</span>
+            ${gcGroupLogo(code,true,st.posteriorCause)}
+            <span>${esc(st.posteriorCause||'—')}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  html+='<div class="gc-cycle-cards">';
 
   cycles.forEach((cycleRows,index)=>{
     const cycleNo=index+1;
