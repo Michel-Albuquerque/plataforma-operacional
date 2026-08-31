@@ -14181,41 +14181,56 @@ function gcBuildModel(){
     return GC_CORRECTION_MODEL_CACHE.model;
   }
 
-  const generalAll=gcBuildGeneralEvents();
+  /*
+    DUAS CAMADAS, PROPOSITALMENTE SEPARADAS:
 
-  // Trabalha apenas com incidências que participam de uma janela geral,
-  // reduzindo drasticamente o universo que entra no motor de grupos.
-  const timelineRowsMap=new Map();
-  for(const ev of generalAll){
-    const prev=ev?.previous;
-    const cur=ev?.current;
-    if(prev){
-      const key=gcClientKey(prev?.[COL.nCliente])+'|'+normalizeNumero(prev?.[COL.numero]);
-      timelineRowsMap.set(key,prev);
-    }
-    if(cur){
-      const key=gcClientKey(cur?.[COL.nCliente])+'|'+normalizeNumero(cur?.[COL.numero]);
-      timelineRowsMap.set(key,cur);
-    }
+    1) IDENTIFICAÇÃO HISTÓRICA:
+       vem diretamente de buildConexaoGrupoUniverse(), que é a mesma base
+       usada pelo indicador "Reincidência Conexão por Grupo".
+       Assim, uma correção posterior nunca apaga a reincidência original.
+
+    2) APOIO À CORREÇÃO:
+       usa o motor atual para sugestões/estado visual, mas sem decidir
+       quantas reincidências existem.
+  */
+  const officialUniverse=buildConexaoGrupoUniverse()||[];
+
+  const confirmed=[];
+  const confirmedSeen=new Set();
+
+  for(const official of officialUniverse){
+    const ev=official?.__grupoEvento;
+    const current=official?.__nextMain||ev?.current||null;
+    if(!ev||!current)continue;
+
+    // Mesmo critério temporal do evento reincidente que alimenta o mês
+    // no dashboard: a incidência posterior/atual.
+    if(!gcInPagePeriod({current}))continue;
+
+    if(S.filters?.nts?.size && !S.filters.nts.has(String(current?.[COL.nt]||'').trim()))continue;
+
+    const inc=normalizeNumero(current?.[COL.numero]);
+    if(!inc||confirmedSeen.has(inc))continue;
+    confirmedSeen.add(inc);
+
+    confirmed.push({
+      ...ev,
+      row:current,
+      current,
+      confirmada:true
+    });
   }
 
-  const parallel=gcBuildParallelGroupEvaluations([...timelineRowsMap.values()]);
-  const evaluationsAll=parallel.evaluations;
-
-  const officialConnectionGroupKeys=gcOfficialConnectionGroupCurrentKeys();
-
-  const general=generalAll.filter(gcInPagePeriod);
+  // Modelo auxiliar para cartões/sugestões. Ele pode refletir alterações
+  // salvas, mas NÃO define o universo histórico confirmado acima.
+  const parallel=gcBuildParallelGroupEvaluations(S.baseCompleta||[]);
+  const evaluationsAll=parallel.evaluations||[];
   const evaluations=evaluationsAll.filter(gcInPagePeriod);
-
-  // A lógica de grupos continua sendo a mesma da Correção, mas a lista
-  // de reincidências confirmadas precisa pertencer ao mesmo universo
-  // oficial usado pelo indicador Reincidência Conexão por Grupo.
-  const confirmed=evaluations.filter(e=>
-    e.confirmada &&
-    officialConnectionGroupKeys.has(normalizeNumero(e?.current?.[COL.numero]))
-  );
-
   const evalByPair=new Map(evaluationsAll.map(e=>[gcPairKey(e),e]));
+
+  // Eventos gerais são mantidos apenas para compatibilidade interna.
+  const generalAll=gcBuildGeneralEvents();
+  const general=generalAll.filter(gcInPagePeriod);
 
   const byClient=new Map();
   function ensure(client){
@@ -14241,7 +14256,8 @@ function gcBuildModel(){
   for(const e of confirmed){
     const c=ensure(e.client);
     c.group.push(e);
-    const gs=e.groups||[];
+
+    const gs=e.groups||e.currentEffectiveGroups||[];
     if(gs.includes('RAMAL'))c.ramal++;
     if(gs.includes('MEDIDOR'))c.medidor++;
     if(gs.includes('VEGETAÇÃO'))c.vegetacao++;
@@ -14250,55 +14266,57 @@ function gcBuildModel(){
   }
 
   const clients=[...byClient.values()]
-    .sort((a,b)=>b.group.length-a.group.length||b.general.length-a.general.length||String(a.cliente).localeCompare(String(b.cliente),'pt-BR'));
+    .sort((a,b)=>
+      b.group.length-a.group.length ||
+      b.general.length-a.general.length ||
+      String(a.cliente).localeCompare(String(b.cliente),'pt-BR')
+    );
 
-  // Índice O(1) por incidência. Antes várias rotinas faziam .find()
-  // sobre a Base Completa repetidamente para cada cliente/cartão.
   const rowByInc=new Map();
   for(const row of S.baseCompleta||[]){
     const inc=normalizeNumero(row?.[COL.numero]);
     if(inc&&!rowByInc.has(inc))rowByInc.set(inc,row);
   }
 
-  // Ações registradas por cliente, limitadas ao mesmo universo/período
-  // que a tela da Correção está exibindo. Antes, uma ação antiga do cliente
-  // podia fazê-lo aparecer em "Com Ação" mesmo sem nenhuma ação nos cartões
-  // atualmente visíveis.
-  const correctionCountByClient=new Map();
-  const correctionRowsByClient=new Map();
-  const visibleRowKeys=new Set();
+  /*
+    Clientes oficialmente presentes na Correção.
+    As ações podem estar em qualquer incidência exibida no histórico desses
+    clientes, porque todos os containers agora permitem Correção/Feedback.
+  */
+  const officialClientKeys=new Set(
+    clients.filter(c=>c.group.length>0).map(c=>gcClientKey(c.cliente))
+  );
 
-  for(const rows of parallel.rowsByClient.values()){
-    for(const row of rows){
+  const visibleRowKeys=new Set();
+  const visibleRows=[];
+
+  for(const clientKey of officialClientKeys){
+    for(const row of parallel.rowsByClient.get(clientKey)||[]){
       if(!gcRowInPagePeriod(row))continue;
       if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
+
       const inc=normalizeNumero(row?.[COL.numero]);
-      if(inc)visibleRowKeys.add(inc);
+      if(!inc||visibleRowKeys.has(inc))continue;
+
+      visibleRowKeys.add(inc);
+      visibleRows.push(row);
     }
   }
 
-  for(const [inc,st] of Object.entries(GC_INC_STATE||{})){
-    const hasAction=String(st?.correcao||'')==='Sim';
-    if(!hasAction)continue;
+  const correctionCountByClient=new Map();
+  const correctionRowsByClient=new Map();
 
-    const key=normalizeNumero(inc);
-    if(!visibleRowKeys.has(key))continue;
-
-    const row=rowByInc.get(key);
-    if(!row)continue;
+  for(const row of visibleRows){
+    const st=gcIncState(row);
+    if(String(st?.correcao||'')!=='Sim')continue;
 
     const cli=gcClientKey(row?.[COL.nCliente]);
     correctionCountByClient.set(cli,(correctionCountByClient.get(cli)||0)+1);
 
     if(!correctionRowsByClient.has(cli))correctionRowsByClient.set(cli,[]);
-    correctionRowsByClient.get(cli).push({
-      row,
-      state:st
-    });
+    correctionRowsByClient.get(cli).push({row,state:st});
   }
 
-  // Índice das incidências que são origem de reincidência posterior.
-  // Substitui .some() sobre todos os confirmados para cada cartão.
   const hasLaterRecurrentSet=new Set();
   for(const ev of confirmed){
     const inc=normalizeNumero(ev?.previous?.[COL.numero]);
@@ -14314,6 +14332,9 @@ function gcBuildModel(){
     rowMeta:parallel.rowMeta,
     rowsByClient:parallel.rowsByClient,
     rowByInc,
+    officialClientKeys,
+    visibleRows,
+    visibleRowKeys,
     correctionCountByClient,
     correctionRowsByClient,
     hasLaterRecurrentSet,
@@ -14787,49 +14808,35 @@ function gcDetailTable(client,model){
 function gcExportCauseChanges(model){
   try{
     const exported=[];
-    const seen=new Set();
 
-    for(const client of model.clients||[]){
-      const rows=model.rowsByClient?.get(gcClientKey(client.cliente))||[];
+    for(const row of gcCorrectionReportRows(model)){
+      const status=gcCorrectionReportStatus(row);
+      const st=status.state||{};
+      const posteriorGroup=String(st.posteriorGroup||'').trim();
+      const posteriorCause=String(st.posteriorCause||'').trim();
 
-      for(const row of rows){
-        if(!gcRowInPagePeriod(row))continue;
-        if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
+      exported.push({
+        'Cliente':gcClientKey(row?.[COL.nCliente]),
+        'Incidência':formatNumero(row?.[COL.numero]),
+        'Data':gcDate(row?.__dataFim),
+        'Equipe':gcText(row?.[COL.equipeDesl]),
+        'Processo':gcText(row?.[COL.processo]),
+        'Causa original':gcText(row?.[COL.causa]),
+        'Observação Geonline':gcText(row?.[COL.observacao]),
+        'Busca Execução':gcEorderObs(row),
+        'Data Busca Execução':gcEorderDate(row),
 
-        const inc=normalizeNumero(row?.[COL.numero]);
-        if(!inc||seen.has(inc))continue;
-        seen.add(inc);
+        // "Houve Correção" acompanha a decisão operacional:
+        // clicou Sim = Com Correção, mesmo sem conclusão.
+        'Houve Correção':status.bucket==='com'?'Sim':'Não',
+        'Status da análise':status.label,
+        'Correção concluída':status.bucket==='com'&&status.complete?'Sim':'Não',
 
-        const st=gcIncState(row);
-        const posteriorGroup=String(st?.posteriorGroup||'').trim();
-        const posteriorCause=String(st?.posteriorCause||'').trim();
-        const houveCorrecao=!!posteriorGroup&&!!posteriorCause;
-        const decisao=String(st?.correcao||'Sem Ação');
-
-        const status=houveCorrecao
-          ? 'Com Correção'
-          : decisao==='Não'
-            ? 'Sem Correção'
-            : 'Sem Ação';
-
-        exported.push({
-          'Cliente':gcClientKey(row?.[COL.nCliente]),
-          'Incidência':formatNumero(row?.[COL.numero]),
-          'Data':gcDate(row?.__dataFim),
-          'Equipe':gcText(row?.[COL.equipeDesl]),
-          'Processo':gcText(row?.[COL.processo]),
-          'Causa original':gcText(row?.[COL.causa]),
-          'Observação Geonline':gcText(row?.[COL.observacao]),
-          'Busca Execução':gcEorderObs(row),
-          'Data Busca Execução':gcEorderDate(row),
-          'Houve Correção':houveCorrecao?'Sim':'Não',
-          'Status da análise':status,
-          'Grupo posterior':houveCorrecao?posteriorGroup:'',
-          'Causa posterior':houveCorrecao?posteriorCause:'',
-          'Feedback Operador':st?.feedback||'Sem Feedback',
-          'Registrado em':st?.savedAt||''
-        });
-      }
+        'Grupo posterior':posteriorGroup,
+        'Causa posterior':posteriorCause,
+        'Feedback Operador':st.feedback||'Sem Feedback',
+        'Registrado em':st.savedAt||''
+      });
     }
 
     if(!exported.length){
@@ -14854,11 +14861,14 @@ function gcExportCauseChanges(model){
         headers.map(escCsv).join(';'),
         ...exported.map(row=>headers.map(h=>escCsv(row[h])).join(';'))
       ].join('\r\n');
+
       const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
       a.download=`base_correcao_reincidencias_${stamp()}.csv`;
-      document.body.appendChild(a);a.click();a.remove();
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     }
   }catch(error){
@@ -14974,6 +14984,27 @@ function gcClientTable(clients,kind,model){
 
 
 
+
+function diagnosticoCorrecaoVsDashboard(){
+  const model=gcBuildModel();
+  const reports=gcCorrectionReportRows(model);
+  const status=gcCorrectionStatusStats(model);
+
+  return {
+    periodoCorrecao:{
+      inicio:S.analiseGrupoCausaDateFrom||'Todos',
+      fim:S.analiseGrupoCausaDateTo||'Todos'
+    },
+    reincidenciasCorrecao:model.confirmed.length,
+    clientesReincidentes:new Set(model.confirmed.map(e=>gcClientKey(e.client))).size,
+    reportesVisiveis:reports.length,
+    semCorrecao:status.semCorrecao,
+    comCorrecao:status.comCorrecao,
+    comCorrecaoSemConclusao:status.comSemConclusao,
+    comCorrecaoConcluida:status.comConcluida
+  };
+}
+
 function diagnosticoCompatibilidadeCorrecao(){
   const model=gcBuildModel();
   const officialKeys=gcOfficialConnectionGroupCurrentKeys();
@@ -15060,32 +15091,68 @@ async function gcCancelClientReport(client,kind,model){
   return true;
 }
 
+function gcCorrectionReportRows(model){
+  return model?.visibleRows||[];
+}
+
+function gcCorrectionReportStatus(row){
+  const st=gcIncState(row);
+  const decision=String(st?.correcao||'Sem Ação');
+  const pg=String(st?.posteriorGroup||'').trim();
+  const pc=String(st?.posteriorCause||'').trim();
+
+  if(decision==='Sim'){
+    return {
+      bucket:'com',
+      complete:!!pg&&!!pc,
+      label:(pg&&pc)?'Com Correção - Concluída':'Com Correção - Sem Conclusão',
+      state:st
+    };
+  }
+
+  if(decision==='Não'){
+    return {
+      bucket:'sem',
+      complete:false,
+      label:'Sem Correção',
+      state:st
+    };
+  }
+
+  return {
+    bucket:'todos',
+    complete:false,
+    label:'Sem Ação',
+    state:st
+  };
+}
+
 function gcCorrectionStatusStats(model){
-  let semCorrecao=0,comCorrecao=0,comSemConclusao=0,comConcluida=0;
+  let semCorrecao=0;
+  let comCorrecao=0;
+  let comSemConclusao=0;
+  let comConcluida=0;
 
-  for(const client of model.clients.filter(c=>c.group.length>0)){
-    const rows=model.rowsByClient?.get(gcClientKey(client.cliente))||[];
-    let hasNo=false,hasIncomplete=false,hasComplete=false;
+  for(const row of gcCorrectionReportRows(model)){
+    const status=gcCorrectionReportStatus(row);
 
-    for(const row of rows){
-      if(!gcRowInPagePeriod(row))continue;
-      if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
-      const st=gcIncState(row);
-      const pg=String(st?.posteriorGroup||'').trim(),pc=String(st?.posteriorCause||'').trim();
-      const decision=String(st?.correcao||'Sem Ação');
-      if(pg&&pc)hasComplete=true;
-      else if(decision==='Sim')hasIncomplete=true;
-      else if(decision==='Não')hasNo=true;
+    if(status.bucket==='sem'){
+      semCorrecao++;
+    }else if(status.bucket==='com'){
+      comCorrecao++;
+      if(status.complete)comConcluida++;
+      else comSemConclusao++;
     }
-
-    if(hasComplete){comCorrecao++;comConcluida++}
-    else if(hasIncomplete){comCorrecao++;comSemConclusao++}
-    else if(hasNo)semCorrecao++;
   }
 
   const total=semCorrecao+comCorrecao;
+
   return {
-    semCorrecao,comCorrecao,comSemConclusao,comConcluida,
+    semCorrecao,
+    comCorrecao,
+    comSemConclusao,
+    comConcluida,
+    total,
     pctSem:total?semCorrecao/total*100:0,
     pctCom:total?comCorrecao/total*100:0
   };
@@ -15114,32 +15181,36 @@ function renderAnaliseGrupoCausa(fromAsync=false){
   // - Sem Correção: ação registrada como 'Não'
   // - Com Correção: correção concluída com grupo + causa posterior salvos
   const gcClientActionBucket=(client)=>{
-    const rows=model?.rowsByClient?.get(gcClientKey(client))||[];
-    let hasNoCorrection=false,hasCorrectionComplete=false,hasCorrectionIncomplete=false;
+    const clientKey=gcClientKey(client);
+    const rows=(model?.visibleRows||[]).filter(
+      row=>gcClientKey(row?.[COL.nCliente])===clientKey
+    );
+
+    let hasNo=false;
+    let hasIncomplete=false;
+    let hasComplete=false;
 
     for(const row of rows){
-      if(!gcRowInPagePeriod(row))continue;
-      if(S.filters?.nts?.size && !S.filters.nts.has(String(row?.[COL.nt]||'').trim()))continue;
-      const st=gcIncState(row);
-      const pg=String(st?.posteriorGroup||'').trim();
-      const pc=String(st?.posteriorCause||'').trim();
-      const decision=String(st?.correcao||'Sem Ação');
-
-      if(pg&&pc){hasCorrectionComplete=true;continue}
-      if(decision==='Sim'){hasCorrectionIncomplete=true;continue}
-      if(decision==='Não')hasNoCorrection=true;
+      const status=gcCorrectionReportStatus(row);
+      if(status.bucket==='com'){
+        if(status.complete)hasComplete=true;
+        else hasIncomplete=true;
+      }else if(status.bucket==='sem'){
+        hasNo=true;
+      }
     }
 
-    if(hasCorrectionComplete)return 'com';
+    if(hasComplete)return 'com';
 
-    if(hasCorrectionIncomplete){
+    if(hasIncomplete){
       const currentOpen=
         String(S.analiseGrupoCausaCurrentClient||'')===String(client) &&
         [...S.analiseGrupoCausaExpanded].some(k=>k===`todos:${client}`);
+
       return currentOpen?'todos':'com';
     }
 
-    if(hasNoCorrection)return 'sem';
+    if(hasNo)return 'sem';
     return 'todos';
   };
 
@@ -15192,7 +15263,7 @@ function renderAnaliseGrupoCausa(fromAsync=false){
     <section class="gc-card">
       <div class="gc-head"><div>
         <div class="gc-title">Correção de reincidências por Grupo</div>
-        <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · ${fmtNum(model.confirmed.length)} reincidência(s) oficiais no período · ao abrir um cliente, o anterior é fechado</div>
+        <div class="gc-sub">${fmtNum(ativos.length)} cliente(s) · ${fmtNum(model.confirmed.length)} reincidência(s) · mesmo universo do indicador Reincidência Conexão por Grupo · ao abrir um cliente, o anterior é fechado</div>
       </div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <div class="gc-action-tabs" role="group" aria-label="Filtrar correções">
           <button type="button" data-gc-action-filter="todos" class="${actionFilter==='todos'?'active':''}">Todos</button>
