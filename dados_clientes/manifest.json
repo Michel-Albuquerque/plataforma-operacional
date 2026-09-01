@@ -1,25 +1,25 @@
 {
-  "gerado_em": "2026-09-01T08:53:41",
+  "gerado_em": "2026-09-01T09:03:50",
   "versao": 11,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 133,
-      "tamanho_bytes": 19777,
+      "linhas": 140,
+      "tamanho_bytes": 20904,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-09-01T08:53:40"
+      "fonte_modificada_em": "2026-09-01T09:03:48"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
       "linhas": 47999,
-      "tamanho_bytes": 8698302,
+      "tamanho_bytes": 8698303,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
       "fonte_modificada_em": "2026-08-31T18:43:25"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
       "linhas": 238635,
-      "tamanho_bytes": 24141245,
+      "tamanho_bytes": 24141404,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
       "fonte_modificada_em": "2026-09-01T08:49:53",
       "linhas_origem": 238635,
@@ -31,7 +31,7 @@
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4628,
-      "tamanho_bytes": 510808,
+      "tamanho_bytes": 510803,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
       "fonte_modificada_em": "2026-09-01T08:55:44",
       "vinculadas_principal": 4628,
@@ -41,7 +41,7 @@
     "analise_grupo_causa": {
       "arquivo": "analise_grupo_causa.json.gz",
       "linhas": 25307,
-      "tamanho_bytes": 1921599,
+      "tamanho_bytes": 1921600,
       "metodologia": "grupo_causa_contextual_v4_consulta_incidencia_mestre",
       "fonte_mestre": "Base_Final_Incidencia / Consulta Incidência",
       "janela_reincidencia_dias": 30,
@@ -66,7 +66,8 @@
         "Produt_Resultado_Mes_2026-08_17_091830.xlsx::Execução",
         "Busca_Exec_Julho_2026_20260803_101856.xlsx::Execução",
         "Produtividade_Busca execução_Marco_2026.xlsx::Execução",
-        "Produt_Resultado_Mes_2026-08.xlsx::Execução"
+        "Produt_Resultado_Mes_2026-08.xlsx::Execução",
+        "Produt_Resultado_Mes_2026-09.xlsx::Execução"
       ],
       "observacoes_janela_dias": 30,
       "execucao_modo_vinculo": "LEFT JOIN complementar: Consulta.Numero+Equipe = Execucao.Numero da Incidencia+Recurso/Equipe",
