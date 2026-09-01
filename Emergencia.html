@@ -510,6 +510,155 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
 /* DIA_ATUAL_ESTOQUE_HISTORICO_ATE_HORA_ANTERIOR_V1 */
 
 /* DIA_ATUAL_ESTOQUE_POR_INTERVALO_INICIO_FIM_V2 */
+
+/* TEMPO_REAL_RETIRADA_INCIDENCIA_E_OBSERVACAO_V3 */
+#rtImpactTable td.rt-observation-cell{
+  min-width:620px!important;
+  width:620px!important;
+  max-width:none!important;
+  white-space:normal!important;
+  vertical-align:top;
+  overflow:visible!important;
+}
+#rtImpactTable .rt-observation-display,
+#rtImpactTable .rt-observation-wrap{
+  min-width:590px!important;
+  width:100%;
+  align-items:flex-start;
+  overflow:visible!important;
+}
+#rtImpactTable .rt-observation-content{
+  min-width:500px!important;
+  overflow:visible!important;
+}
+#rtImpactTable .rt-observation-text{
+  white-space:pre-wrap!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+  overflow:visible!important;
+  max-height:none!important;
+  height:auto!important;
+  display:block!important;
+}
+
+.rt-removal-panel{
+  margin:0 0 12px;
+  border:1px solid #cbd8e1;
+  border-left:5px solid var(--enel-red);
+  border-radius:11px;
+  background:#fff;
+  padding:10px 12px;
+  box-shadow:var(--shadow);
+}
+.rt-removal-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.rt-removal-title{
+  font-size:12px;
+  font-weight:850;
+  color:var(--enel-navy);
+  text-transform:uppercase;
+  letter-spacing:.25px;
+}
+.rt-removal-help{
+  margin-top:3px;
+  font-size:10.5px;
+  color:var(--muted);
+}
+.rt-removal-controls{
+  display:flex;
+  gap:7px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.rt-removal-dropdown{
+  position:relative;
+}
+.rt-removal-trigger{
+  min-width:255px;
+  justify-content:space-between;
+}
+.rt-removal-menu{
+  position:absolute;
+  z-index:120;
+  top:calc(100% + 6px);
+  right:0;
+  width:min(520px,82vw);
+  max-height:420px;
+  overflow:auto;
+  background:#fff;
+  border:1px solid #c8d5de;
+  border-radius:10px;
+  box-shadow:0 12px 34px rgba(24,54,74,.20);
+  padding:9px;
+}
+.rt-removal-search{
+  width:100%;
+  border:1px solid #cbd8df;
+  border-radius:7px;
+  padding:8px 9px;
+  margin-bottom:7px;
+  outline:none;
+}
+.rt-removal-search:focus{
+  border-color:var(--enel-blue-2);
+  box-shadow:0 0 0 2px rgba(0,117,201,.12);
+}
+.rt-removal-options{
+  display:grid;
+  gap:4px;
+}
+.rt-removal-option{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:8px;
+  padding:7px 8px;
+  border-radius:7px;
+  cursor:pointer;
+  font-size:11px;
+}
+.rt-removal-option:hover{background:#eef6fb}
+.rt-removal-option input{margin:0}
+.rt-removal-number{font-weight:850;color:var(--enel-navy)}
+.rt-removal-meta{font-size:9.5px;color:var(--muted);white-space:nowrap}
+.rt-removal-selected{
+  display:flex;
+  gap:5px;
+  flex-wrap:wrap;
+  margin-top:8px;
+}
+.rt-removal-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  border-radius:999px;
+  background:#fdeaf0;
+  color:#a60036;
+  border:1px solid #efabc0;
+  padding:4px 8px;
+  font-size:10px;
+  font-weight:800;
+}
+.rt-removal-chip button{
+  border:0;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+  padding:0;
+  font-weight:900;
+}
+.rt-removal-empty{
+  padding:12px;
+  text-align:center;
+  color:var(--muted);
+  font-size:10.5px;
+}
+
 </style>
 </head>
 <body>
@@ -696,6 +845,29 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
           <button class="btn small" data-export="rtBacklog">⇩ Backlog D-1+ CSV</button>
           <button class="btn small" data-export="rtNoTeam">⇩ Sem equipe CSV</button>
         </div>
+      </div>
+
+      <div class="rt-removal-panel" id="rtRemovalPanel">
+        <div class="rt-removal-head">
+          <div>
+            <div class="rt-removal-title">Retirada de incidência</div>
+            <div class="rt-removal-help">Selecione uma ou várias incidências para retirá-las de toda a análise da página Tempo Real.</div>
+          </div>
+          <div class="rt-removal-controls">
+            <div class="rt-removal-dropdown">
+              <button type="button" class="btn small rt-removal-trigger" id="rtRemovalTrigger">
+                <span id="rtRemovalTriggerText">Selecionar incidências</span>
+                <span>▾</span>
+              </button>
+              <div class="rt-removal-menu hidden" id="rtRemovalMenu">
+                <input type="search" class="rt-removal-search" id="rtRemovalSearch" placeholder="Buscar número da incidência">
+                <div class="rt-removal-options" id="rtRemovalOptions"></div>
+              </div>
+            </div>
+            <button type="button" class="btn small danger" id="rtRemovalClear">Limpar retirada</button>
+          </div>
+        </div>
+        <div class="rt-removal-selected" id="rtRemovalSelected"></div>
       </div>
 
       <div class="grid kpi-grid" id="rtKpis"></div>
@@ -4992,7 +5164,8 @@ const state = {
   filters:{dateStart:'',dateEnd:'',tension:'ALL',service:'ALL',shift:'ALL',shiftBasis:'END',process:'ALL',cause:'ALL',team:'ALL',feeder:'ALL',set:'ALL'},
   activeTab:'realtime', pending:{incidents:null,tma:null,modal:null,callbacks:null},
   actions:[], alerts:[], quality:{}, renderTimer:null, detailRows:[], detailExportRows:[], detailFile:'detalhamento',
-  tableSort:{rtProcessSummary:{index:1,dir:'desc'},rtVehicleSummary:{index:1,dir:'desc'},rtCallbackStatus:{index:1,dir:'asc'}}, rtCallbackFilter:'ALL', rtCallbackSearch:''
+  tableSort:{rtProcessSummary:{index:1,dir:'desc'},rtVehicleSummary:{index:1,dir:'desc'},rtCallbackStatus:{index:1,dir:'asc'}}, rtCallbackFilter:'ALL', rtCallbackSearch:'',
+  rtExcludedIncidents:new Set()
 };
 
 const $ = (id) => document.getElementById(id);
@@ -6865,9 +7038,133 @@ function renderPareto(id,items,detailFn){
   ],{margin:{l:210,r:85,t:20,b:45},xaxis:{title:'Excesso de TMA',rangemode:'tozero'},xaxis2:{overlaying:'x',side:'top',range:[0,110],ticksuffix:'%',showgrid:false},yaxis:{automargin:true},legend:{orientation:'h',y:-.12}},ev=>{const k=ev.points[0].customdata;openDetails(`Causa: ${k}`,detailFn(k));});
 }
 
-function realtimeRows(){
+
+const RT_EXCLUDED_STORAGE_KEY='emergency_realtime_excluded_incidents_v1';
+
+function loadRealtimeExcludedIncidents(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(RT_EXCLUDED_STORAGE_KEY)||'[]');
+    state.rtExcludedIncidents=new Set(
+      (Array.isArray(saved)?saved:[])
+        .map(v=>String(v??'').trim())
+        .filter(Boolean)
+    );
+  }catch(_){
+    state.rtExcludedIncidents=new Set();
+  }
+}
+
+function saveRealtimeExcludedIncidents(){
+  try{
+    localStorage.setItem(
+      RT_EXCLUDED_STORAGE_KEY,
+      JSON.stringify([...state.rtExcludedIncidents])
+    );
+  }catch(_){}
+}
+
+function realtimeRowsBeforeRemoval(){
   const source=state.modal.length?state.modal:state.incidents;
-  return source.filter(passesCommon).filter(r=>state.modal.length?r.active:isActiveRecord(r)).map(r=>state.modal.length?enrichRealtimeRecord(r):r);
+  return source
+    .filter(passesCommon)
+    .filter(r=>state.modal.length?r.active:isActiveRecord(r))
+    .map(r=>state.modal.length?enrichRealtimeRecord(r):r);
+}
+
+function realtimeIncidentNumber(r){
+  return String(r?.number??'').trim();
+}
+
+function realtimeRemovalOptionLabel(r){
+  const number=realtimeIncidentNumber(r);
+  const nt=String(r?.ntRaw||r?.tension||'').trim();
+  const af=Number(r?.clientsCurrent);
+  const equipe=String(r?.team||r?.teamAssigned||'').trim();
+  return {
+    number,
+    meta:[
+      nt||null,
+      equipe||null,
+      Number.isFinite(af)?`${fmtInt(af)} afet.`:null
+    ].filter(Boolean).join(' • ')
+  };
+}
+
+function renderRealtimeRemovalFilter(){
+  const triggerText=$('rtRemovalTriggerText');
+  const optionsEl=$('rtRemovalOptions');
+  const selectedEl=$('rtRemovalSelected');
+  const search=$('rtRemovalSearch');
+  if(!triggerText||!optionsEl||!selectedEl)return;
+
+  const selected=state.rtExcludedIncidents||new Set();
+  triggerText.textContent=selected.size
+    ? `${fmtInt(selected.size)} incidência(s) retirada(s)`
+    : 'Selecionar incidências';
+
+  const allRows=realtimeRowsBeforeRemoval();
+  const byNumber=new Map();
+  allRows.forEach(r=>{
+    const n=realtimeIncidentNumber(r);
+    if(n&&!byNumber.has(n))byNumber.set(n,r);
+  });
+
+  const query=norm(search?.value||'');
+  const options=[...byNumber.values()]
+    .filter(r=>{
+      if(!query)return true;
+      const info=realtimeRemovalOptionLabel(r);
+      return norm(`${info.number} ${info.meta}`).includes(query);
+    })
+    .sort((a,b)=>{
+      const ai=Number(state.rtExcludedIncidents.has(realtimeIncidentNumber(a)));
+      const bi=Number(state.rtExcludedIncidents.has(realtimeIncidentNumber(b)));
+      if(ai!==bi)return bi-ai;
+      return realtimeIncidentNumber(a).localeCompare(realtimeIncidentNumber(b),'pt-BR',{numeric:true});
+    });
+
+  optionsEl.innerHTML=options.length
+    ? options.map(r=>{
+        const info=realtimeRemovalOptionLabel(r);
+        const checked=selected.has(info.number);
+        return `<label class="rt-removal-option">
+          <input type="checkbox" data-rt-remove-number="${esc(info.number)}" ${checked?'checked':''}>
+          <span class="rt-removal-number">${esc(info.number)}</span>
+          <span class="rt-removal-meta">${esc(info.meta)}</span>
+        </label>`;
+      }).join('')
+    : `<div class="rt-removal-empty">Nenhuma incidência encontrada.</div>`;
+
+  selectedEl.innerHTML=selected.size
+    ? [...selected].map(number=>`<span class="rt-removal-chip">
+        ${esc(number)}
+        <button type="button" data-rt-removal-chip="${esc(number)}" title="Reincluir incidência">×</button>
+      </span>`).join('')
+    : `<span class="rt-removal-help">Nenhuma incidência retirada da análise.</span>`;
+
+  optionsEl.onchange=e=>{
+    const input=e.target.closest?.('[data-rt-remove-number]');
+    if(!input)return;
+    const number=String(input.dataset.rtRemoveNumber||'').trim();
+    if(!number)return;
+    if(input.checked)state.rtExcludedIncidents.add(number);
+    else state.rtExcludedIncidents.delete(number);
+    saveRealtimeExcludedIncidents();
+    renderRealtime();
+  };
+
+  selectedEl.onclick=e=>{
+    const button=e.target.closest?.('[data-rt-removal-chip]');
+    if(!button)return;
+    state.rtExcludedIncidents.delete(String(button.dataset.rtRemovalChip||'').trim());
+    saveRealtimeExcludedIncidents();
+    renderRealtime();
+  };
+}
+
+function realtimeRows(){
+  const excluded=state.rtExcludedIncidents||new Set();
+  return realtimeRowsBeforeRemoval().filter(r=>!excluded.has(realtimeIncidentNumber(r)));
 }
 
 function realtimeAgeHours(r,now=new Date()){
@@ -6939,6 +7236,7 @@ function durationBinLabel(start,end){
 }
 
 function renderRealtime(){
+  renderRealtimeRemovalFilter();
   const rows=realtimeRows(),now=new Date(),backlog=realtimeBacklogRows(rows,now);const withTeam=rows.filter(r=>r.service==='WITH'),without=rows.filter(r=>r.service!=='WITH'),teams=unique(withTeam.map(r=>r.team));
   const crit50=rows.filter(r=>r.affected>=50);const statusCount=(label)=>rows.filter(r=>norm(r.executionStatus)===norm(label)).length;const callbackDoneRows=rows.filter(r=>callbackSummary(r).count>0);const osmRows=rows.filter(isOsm);
   const totalClients=sum(rows.map(r=>r.clientsCurrent));const totalConh=sum(rows.map(r=>realtimeConH(r,now)));const oldest=backlog.length?Math.max(...backlog.map(r=>realtimeAgeHours(r,now))):0;
@@ -8140,6 +8438,38 @@ function bindEvents(){
   $('btnImport').addEventListener('click',openImport);$('btnEmptyImport').addEventListener('click',openImport);$('closeImport').addEventListener('click',closeImport);$('cancelImport').addEventListener('click',closeImport);
   $('applyImports').addEventListener('click',applyImports);$('saveTargetsOnly').addEventListener('click',saveTargetsOnly);$('btnEditTargets').addEventListener('click',openImport);
   $('btnRealtimeRefresh').addEventListener('click',renderRealtime);
+
+  const rtRemovalTrigger=$('rtRemovalTrigger');
+  const rtRemovalMenu=$('rtRemovalMenu');
+  const rtRemovalSearch=$('rtRemovalSearch');
+  const rtRemovalClear=$('rtRemovalClear');
+
+  if(rtRemovalTrigger&&rtRemovalMenu){
+    rtRemovalTrigger.addEventListener('click',e=>{
+      e.stopPropagation();
+      rtRemovalMenu.classList.toggle('hidden');
+      if(!rtRemovalMenu.classList.contains('hidden')){
+        renderRealtimeRemovalFilter();
+        setTimeout(()=>rtRemovalSearch?.focus(),0);
+      }
+    });
+    rtRemovalMenu.addEventListener('click',e=>e.stopPropagation());
+    document.addEventListener('click',()=>rtRemovalMenu.classList.add('hidden'));
+  }
+
+  if(rtRemovalSearch){
+    rtRemovalSearch.addEventListener('input',()=>renderRealtimeRemovalFilter());
+  }
+
+  if(rtRemovalClear){
+    rtRemovalClear.addEventListener('click',()=>{
+      state.rtExcludedIncidents.clear();
+      saveRealtimeExcludedIncidents();
+      renderRealtime();
+      toast('Todas as incidências retiradas foram reincluídas.','success');
+    });
+  }
+
   const btnTodayApply=$('btnTodayApply');
   if(btnTodayApply)btnTodayApply.addEventListener('click',()=>{renderToday();toast('Filtros de Dia Atual aplicados.','success')});
   const btnTodayReset=$('btnTodayReset');
@@ -8692,6 +9022,7 @@ async function atualizarCallbackOperViewPublicado(){
 
 
 async function init(){
+  loadRealtimeExcludedIncidents();
   state.activeTab='realtime';
   bindEvents();
   updateClock();
