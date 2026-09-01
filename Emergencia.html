@@ -508,6 +508,8 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
 
 
 /* DIA_ATUAL_ESTOQUE_HISTORICO_ATE_HORA_ANTERIOR_V1 */
+
+/* DIA_ATUAL_ESTOQUE_POR_INTERVALO_INICIO_FIM_V2 */
 </style>
 </head>
 <body>
@@ -639,7 +641,7 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
         <div class="panel-head blue">
           <div>
             <h3>Incidências abertas ao longo do período</h3>
-            <small>Histórico até a hora anterior: base de incidências • Hora atual: quantidade da base de Tempo Real</small>
+            <small>Histórico por hora: incidência conta em todas as horas entre Data Início e Data Fim • Hora atual: base de Tempo Real</small>
           </div>
         </div>
         <div class="panel-body"><div id="chartTodayOpenStock" class="chart tall"></div></div>
@@ -6378,6 +6380,38 @@ function todayBaseRows(){
   });
 }
 
+function todayOpenRowsForHourBucket(rows,hourStart,range){
+  if(!(hourStart instanceof Date)||isNaN(hourStart))return [];
+
+  const hourEnd=new Date(hourStart.getTime()+60*60*1000);
+
+  return (rows||[]).filter(r=>{
+    if(!(r.startDate instanceof Date)||isNaN(r.startDate))return false;
+
+    // Precisa ter aberto em algum momento antes do fim desta hora.
+    // Assim, 13:25 conta no bucket "13h".
+    if(r.startDate>=hourEnd)return false;
+
+    const hasEnd=(r.endDate instanceof Date)&&!isNaN(r.endDate);
+
+    if(hasEnd){
+      // Se fechou às 18:10, aparece em "18h".
+      // Se fechou exatamente às 18:00, também aparece em "18h",
+      // conforme a regra operacional solicitada.
+      return r.endDate>=hourStart;
+    }
+
+    // Sem Data Fim, só entra se ainda for considerada ativa.
+    if(!isActiveRecord(r))return false;
+
+    const forcedEnd=new Date(
+      r.startDate.getTime()+TODAY_OPEN_MAX_AGE_DAYS*24*60*60*1000
+    );
+
+    return forcedEnd>=hourStart;
+  });
+}
+
 function todayOpenAt(rows,instant){
   return todayOpenStockAt(rows,instant);
 }
@@ -6514,15 +6548,17 @@ function renderToday(){
   ].join('');
 
   // ----------------------------------------------------------------
-  // 1º gráfico: horas inteiras pela base histórica + ÚLTIMO ponto
-  // pela Tabela Modal/Tempo Real, no minuto real de atualização.
+  // 1º gráfico:
+  // cada hora histórica é um INTERVALO de 60 minutos.
+  // Uma incidência aparece em todas as horas sobrepostas entre
+  // Data Início e Data Fim. A hora atual vem da base Tempo Real.
   // ----------------------------------------------------------------
   const stockPoints=todayHistoricalHourlyPoints(range);
   const stockY=[];
   const stockRows=[];
 
   stockPoints.forEach(point=>{
-    const abertas=todayOpenStockAt(rows,point,range);
+    const abertas=todayOpenRowsForHourBucket(rows,point,range);
     stockY.push(abertas.length);
     stockRows.push(abertas);
   });
