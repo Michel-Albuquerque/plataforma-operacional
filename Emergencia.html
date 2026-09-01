@@ -506,6 +506,8 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
 #rtImpactTable td{white-space:nowrap}
 #rtImpactTable td.rt-observation-cell{white-space:normal!important}
 
+
+/* DIA_ATUAL_ESTOQUE_HISTORICO_ATE_HORA_ANTERIOR_V1 */
 </style>
 </head>
 <body>
@@ -637,7 +639,7 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
         <div class="panel-head blue">
           <div>
             <h3>Incidências abertas ao longo do período</h3>
-            <small>Histórico: regra de estoque da base de incidências • Último ponto do dia: quantidade da base de Tempo Real</small>
+            <small>Histórico até a hora anterior: base de incidências • Hora atual: quantidade da base de Tempo Real</small>
           </div>
         </div>
         <div class="panel-body"><div id="chartTodayOpenStock" class="chart tall"></div></div>
@@ -6240,6 +6242,33 @@ function todayHourlyPoints(range){
   return points;
 }
 
+function todayHistoricalHourlyPoints(range){
+  const points=todayHourlyPoints(range);
+
+  // Quando o período termina "agora", a base histórica vai somente
+  // até a hora anterior. A hora corrente é exclusiva da base Tempo Real.
+  const rangeEndsNow=Math.abs(range.now-range.end)<60*1000;
+  if(!rangeEndsNow)return points;
+
+  const currentHour=new Date(range.now);
+  currentHour.setMinutes(0,0,0);
+
+  return points.filter(point=>point<currentHour);
+}
+
+function todayRealtimeAvailableForRange(range){
+  const loadedAt=state.meta?.modal?.loadedAt;
+  return !!(
+    state.modal.length>0 &&
+    Math.abs(range.now-range.end)<60*1000 &&
+    loadedAt instanceof Date &&
+    !isNaN(loadedAt) &&
+    loadedAt>=range.start &&
+    loadedAt<=range.now &&
+    todaySameDate(loadedAt,range.now)
+  );
+}
+
 function todayHourText(d,exactMinute=false){
   const h=d.getHours();
   const m=d.getMinutes();
@@ -6366,7 +6395,10 @@ function todayOpenStockAt(rows,instant,range){
     const hasEnd=(r.endDate instanceof Date)&&!isNaN(r.endDate);
     if(hasEnd)return r.endDate>instant;
 
-    if(norm(r.state)!=='ACTIVO')return false;
+    // Sem Data Fim: usar a mesma regra geral de registro ativo.
+    // Antes havia comparação EXATA com "ACTIVO", o que descartava
+    // estados equivalentes/linhas sem fim e derrubava artificialmente o estoque.
+    if(!isActiveRecord(r))return false;
 
     const forcedEnd=new Date(
       r.startDate.getTime()+TODAY_OPEN_MAX_AGE_DAYS*24*60*60*1000
@@ -6380,7 +6412,7 @@ function todayCurrentOpenFromIncidents(rows,instant){
   // Estado ACTIVO + Data Fim ausente + emergência válida + até 5 dias.
   return (rows||[]).filter(r=>{
     if(!todayIsEmergencyIncident(r))return false;
-    if(norm(r.state)!=='ACTIVO')return false;
+    if(!isActiveRecord(r))return false;
     if((r.endDate instanceof Date)&&!isNaN(r.endDate))return false;
     if(!(r.startDate instanceof Date)||isNaN(r.startDate)||r.startDate>instant)return false;
     return (instant-r.startDate)<=TODAY_OPEN_MAX_AGE_DAYS*24*60*60*1000;
@@ -6435,12 +6467,17 @@ function renderToday(){
   const entered=rows.filter(r=>todayInRange(r.startDate,range));
   const finalized=rows.filter(r=>todayInRange(r.endDate,range));
 
-  // Para o estoque no fim do período, quando o recorte termina agora,
-  // usa a regra validada de réplica da Modal na extração histórica.
   const rangeEndsNow=Math.abs(range.now-range.end)<60*1000;
-  const openEnd=rangeEndsNow
-    ? todayCurrentOpenFromIncidents(rows,range.end)
-    : todayOpenEndRows(rows,range);
+  const canUseRealtime=todayRealtimeAvailableForRange(range);
+
+  // No instante atual, a fonte correta é a base Tempo Real.
+  // A base de incidências fica responsável somente pelo histórico
+  // até a hora anterior.
+  const openEnd=canUseRealtime
+    ? todayRealtimeOpenRows()
+    : (rangeEndsNow
+        ? todayCurrentOpenFromIncidents(rows,range.end)
+        : todayOpenEndRows(rows,range));
 
   const pct=entered.length?finalized.length/entered.length*100:0;
 
@@ -6466,14 +6503,21 @@ function renderToday(){
     kpiHtml('Serviços que entraram',fmtInt(entered.length),'Entradas no período selecionado','red'),
     kpiHtml('Serviços finalizados',fmtInt(finalized.length),'Finalizações no período selecionado','green'),
     kpiHtml('Finalizadas / entradas',`${pct.toFixed(1).replace('.',',')}%`,'Relação observada no recorte','blue'),
-    kpiHtml('Incidências abertas',fmtInt(openEnd.length),`Extração histórica pela regra validada em ${range.end.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`,'orange')
+    kpiHtml(
+      'Incidências abertas',
+      fmtInt(openEnd.length),
+      canUseRealtime
+        ? `Tempo Real em ${state.meta.modal.loadedAt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`
+        : `Extração histórica em ${range.end.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`,
+      'orange'
+    )
   ].join('');
 
   // ----------------------------------------------------------------
   // 1º gráfico: horas inteiras pela base histórica + ÚLTIMO ponto
   // pela Tabela Modal/Tempo Real, no minuto real de atualização.
   // ----------------------------------------------------------------
-  const stockPoints=todayHourlyPoints(range);
+  const stockPoints=todayHistoricalHourlyPoints(range);
   const stockY=[];
   const stockRows=[];
 
@@ -6488,27 +6532,16 @@ function renderToday(){
     ? state.meta.modal.loadedAt
     : null;
 
-  const canUseRealtime=
-    state.modal.length>0 &&
-    rangeEndsNow &&
-    modalLoadedAt instanceof Date &&
-    !isNaN(modalLoadedAt) &&
-    modalLoadedAt>=range.start &&
-    modalLoadedAt<=range.now &&
-    todaySameDate(modalLoadedAt,range.now);
-
   if(canUseRealtime){
     const realPoint=new Date(modalLoadedAt);
     realPoint.setSeconds(0,0);
     const realRows=todayRealtimeOpenRows();
 
     const last=stockPoints.length?stockPoints[stockPoints.length-1]:null;
-    if(last && Math.abs(last-realPoint)<60*1000){
-      stockPoints[stockPoints.length-1]=realPoint;
-      stockY[stockY.length-1]=realRows.length;
-      stockRows[stockRows.length-1]=realRows;
-      realtimeIndex=stockPoints.length-1;
-    }else if(!last || realPoint>last){
+
+    // Como o histórico termina na hora ANTERIOR, normalmente o ponto
+    // Tempo Real sempre será acrescentado como novo último ponto.
+    if(!last || realPoint>last){
       stockPoints.push(realPoint);
       stockY.push(realRows.length);
       stockRows.push(realRows);
