@@ -1,84 +1,45 @@
 {
-  "gerado_em": "2026-09-01T09:19:42",
+  "gerado_em": "2026-09-01T15:14:54",
   "versao": 11,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 145,
-      "tamanho_bytes": 21465,
+      "linhas": 385,
+      "tamanho_bytes": 56784,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-09-01T09:13:39"
+      "fonte_modificada_em": "2026-09-01T14:55:30"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
-      "linhas": 47999,
-      "tamanho_bytes": 8698308,
+      "linhas": 48046,
+      "tamanho_bytes": 8648334,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
-      "fonte_modificada_em": "2026-08-31T18:43:25"
+      "fonte_modificada_em": "2026-09-01T15:14:48"
     },
     "reincidencia_principal": {
       "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 238635,
-      "tamanho_bytes": 24141405,
+      "linhas": 238889,
+      "tamanho_bytes": 24171064,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
-      "fonte_modificada_em": "2026-09-01T08:49:53",
-      "linhas_origem": 238635,
-      "linhas_publicadas": 238635,
+      "fonte_modificada_em": "2026-09-01T14:49:46",
+      "linhas_origem": 238889,
+      "linhas_publicadas": 238889,
       "clientes_oficiais": 3731,
       "modo": "universo_completo_denominador",
-      "denominador_elegivel": 101524
+      "denominador_elegivel": 101631
     },
     "reincidencia_oficial": {
       "arquivo": "reincidencia_oficial.json.gz",
       "linhas": 4628,
-      "tamanho_bytes": 510803,
+      "tamanho_bytes": 510804,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-09-01T08:55:44",
+      "fonte_modificada_em": "2026-09-01T15:05:42",
       "vinculadas_principal": 4628,
       "sem_vinculo_principal": 0,
       "modo": "oficial_enriquecida"
-    },
-    "analise_grupo_causa": {
-      "arquivo": "analise_grupo_causa.json.gz",
-      "linhas": 25307,
-      "tamanho_bytes": 1921604,
-      "metodologia": "grupo_causa_contextual_v4_consulta_incidencia_mestre",
-      "fonte_mestre": "Base_Final_Incidencia / Consulta Incidência",
-      "janela_reincidencia_dias": 30,
-      "linhas_consulta_total": 238635,
-      "linhas_consulta_elegiveis": 101524,
-      "duplicidades_numero_removidas": 0,
-      "origens_identificadas": 76217,
-      "ciclos_identificados": 76217,
-      "linhas_antiga": 25307,
-      "linhas_nova": 8913,
-      "clientes_antiga": 11949,
-      "clientes_nova": 4695,
-      "referencia_base_reincidencia_oficial": 4628,
-      "diferenca_antiga_vs_oficial": 20679,
-      "ambiguas_sem_contexto": 108,
-      "execucao_arquivos": [
-        "Produtividade_Busca execução_Maio_2026.xlsx::Execução",
-        "Produtividade_Busca execução_Abril_2026.xlsx::Execução",
-        "Produtividade_Busca execução_Janeiro_2026.xlsx::Execução",
-        "base_fevereiro_20260630_182351.xlsx::Execução",
-        "base_junho_20260703_114500.xlsx::Execução",
-        "Produt_Resultado_Mes_2026-08_17_091830.xlsx::Execução",
-        "Busca_Exec_Julho_2026_20260803_101856.xlsx::Execução",
-        "Produtividade_Busca execução_Marco_2026.xlsx::Execução",
-        "Produt_Resultado_Mes_2026-08.xlsx::Execução",
-        "Produt_Resultado_Mes_2026-09.xlsx::Execução"
-      ],
-      "observacoes_janela_dias": 30,
-      "execucao_modo_vinculo": "LEFT JOIN complementar: Consulta.Numero+Equipe = Execucao.Numero da Incidencia+Recurso/Equipe",
-      "execucao_matches": 18553,
-      "execucao_sem_match": 32061,
-      "execucao_fora_janela_30d": 0,
-      "reincidencias_ramal": 1966,
-      "reincidencias_medidor": 2059,
-      "reincidencias_vegetacao": 481,
-      "reincidencias_animais": 10
     }
   },
-  "erros": {}
+  "erros": {
+    "reincidencia": "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\BR0143306567\\\\OneDrive - Enel Spa\\\\Documentos\\\\Michel\\\\BUSCA EXECUÇÃO\\\\downloads\\\\Produt_Resultado_Mes_2026-08.xlsx'"
+  }
 }
