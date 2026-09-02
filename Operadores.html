@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Operadores CDI</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+:root{--bg:#f0f2f7;--panel:#fff;--surface:#f7f8fc;--border:#d4d8e8;--text:#1a1f35;--muted:#7a82a0;--hi:#002060;--hi2:#0048a8;--green:#087f5b;--orange:#a85f00;--red:#b42318;--mono:'DM Mono',monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px}.top{background:#fff;border-bottom:2px solid var(--border);padding:13px 18px;position:sticky;top:0;z-index:50}.top h1{font:700 22px 'Rajdhani',sans-serif;text-transform:uppercase;letter-spacing:.04em;margin:0}.top h1 em{color:var(--hi);font-style:normal}.top p{margin:2px 0 0;color:var(--muted);font:11px var(--mono)}.wrap{padding:12px 16px 30px;max-width:1900px;margin:auto}.filters{display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end;background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:12px}.fg{display:flex;flex-direction:column;gap:3px}.fg label{font:9px var(--mono);color:var(--muted);text-transform:uppercase}.fg select{background:#fff;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;min-width:135px;font:11px var(--mono)}.fg select[multiple]{min-height:85px;min-width:220px}.note{background:#eef3fb;border:1px solid #cdd9ee;border-radius:8px;padding:8px 10px;color:#33415d;font-size:11px;margin-bottom:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{background:#fff;border:1px solid var(--border);border-radius:9px;padding:11px;box-shadow:0 1px 4px rgba(0,0,0,.05);min-width:0}.card.full{grid-column:1/-1}.card h2{font:700 16px 'Rajdhani',sans-serif;margin:0 0 2px;color:#25313c}.card .sub{font:10px var(--mono);color:var(--muted);margin-bottom:8px}.chartbox{height:390px}.chartbox.tall{height:430px}.tw{overflow:auto;max-height:520px;border:1px solid var(--border);border-radius:8px;background:#fff}table{border-collapse:collapse;width:100%;min-width:1680px;font-size:10px}th{position:sticky;top:0;background:#eef1f7;color:#5d6680;text-transform:uppercase;font:9px var(--mono);padding:7px 6px;border-bottom:1px solid var(--border);text-align:center;z-index:2}td{padding:6px;border-bottom:1px solid #edf0f5;text-align:center;white-space:nowrap}td.left{text-align:left}tbody tr:nth-child(even){background:#fafbfe}.pill{display:inline-block;border-radius:999px;padding:3px 7px;font-size:9px;font-weight:700}.ok{background:#e8f6ef;color:var(--green)}.amb{background:#fff3dc;color:var(--orange)}.bad{background:#fdecec;color:var(--red)}.audit{margin-top:12px}.audit table{min-width:1050px}.third{max-width:500px;overflow:hidden;text-overflow:ellipsis;color:#6d7485}.count{font:10px var(--mono);color:var(--muted);float:right}.metric-meta{font:10px var(--mono);color:var(--muted);margin-left:6px}@media(max-width:1000px){.grid{grid-template-columns:1fr}.card.full{grid-column:auto}}
+</style></head><body>
+<div class="top"><h1>Análise de <em>Operadores CDI</em></h1><p>Equipe × dia vinculada por evidência de BR nas incidências. Indicadores calculados com as mesmas fórmulas do Ranking.</p></div>
+<div class="wrap">
+<div class="note"><b>Regra de vínculo:</b> quantidade de incidências com BR da equipe no dia é a evidência principal. Horário/turno não decide o operador. Empates reais permanecem como <b>Compartilhado/Ambíguo</b> e não recebem KPI duplicado.</div>
+<div class="filters">
+  <div class="fg"><label>Data início</label><select id="di"></select></div>
+  <div class="fg"><label>Data fim</label><select id="df"></select></div>
+  <div class="fg"><label>Empresa</label><select id="empresa"><option value="Enel" selected>Enel</option><option value="">Todas</option><option>Parceira</option></select></div>
+  <div class="fg"><label>Variável</label><select id="metrica"></select></div>
+  <div class="fg"><label>Operadores na evolução</label><select id="ops" multiple></select></div>
+</div>
+<div class="grid">
+  <div class="card"><h2>Comparação entre operadores <span class="metric-meta" id="cmpmeta"></span></h2><div class="sub">Todos os operadores com vínculo identificado no período.</div><div class="chartbox"><canvas id="cmp"></canvas></div></div>
+  <div class="card"><h2>Evolução ao longo do tempo <span class="metric-meta" id="evmeta"></span></h2><div class="sub">Selecione um ou mais operadores acima.</div><div class="chartbox"><canvas id="evol"></canvas></div></div>
+  <div class="card full"><h2>Tabela detalhada <span class="count" id="tabcount"></span></h2><div class="sub">Mesmos nomes e unidades do Ranking. Os campos crus usados nas fórmulas não são exibidos.</div><div class="tw"><table><thead><tr>
+  <th>Operador</th><th>BR</th><th>Equipes</th><th>Equipe×Dia</th><th>Classificação / Score</th><th>Eficiência</th><th>Utilização</th><th>Task Time</th><th>Ativ/Equipe/Dia</th><th>TMR Secundário</th><th>TMR Improdutivo</th><th>1º Login</th><th>1º Despacho</th><th>1º Deslocamento</th><th>Retorno à Base</th><th>TML</th><th>Improdutivos/dia</th><th>Reincidentes/dia</th><th>Ordem 2/dia</th>
+  </tr></thead><tbody id="tb"></tbody></table></div></div>
+</div>
+<div class="card full audit"><h2>Auditoria Equipe × Dia <span class="count" id="auditcount"></span></h2><div class="sub">Mantida para conferência do vínculo; não é usada como tabela principal de desempenho.</div><div class="tw"><table><thead><tr><th>Data</th><th>Equipe</th><th>Empresa</th><th>Turno</th><th>Status vínculo</th><th>Operador</th><th>Candidatos / evidências</th><th>Ativ/Equipe/Dia</th></tr></thead><tbody id="audit"></tbody></table></div></div>
+</div>
+<script>
+if(window.Chart&&window.ChartDataLabels)Chart.register(window.ChartDataLabels);
+const DB={"linhas":[{"data":"2026-08-01","equipe":"SG001SOE-B","chave":"SG001*OE-B","empresa":"Enel","turno":"B","status_vinculo":"Identificado","operador":"TESTE OPERADOR","br":"BR000","candidatos":[],"TP":300,"TR":250,"HT":400,"HD":480,"TT":250,"ativ":5,"ts":30,"ti":10,"login":5,"despacho":8,"desloc":20,"retorno":30,"tml":22,"TLs":110,"TLq":5,"ord2":1,"rei":0,"imp":1}],"operadores":[{"br":"BR000","operador":"TESTE OPERADOR"}],"meta":{}};
+const METRICAS={
+ classif:{label:'Classificação / Score',unit:'',dec:1,dir:'up'},
+ efic:{label:'Eficiência',unit:'%',dec:1,dir:'up'},util:{label:'Utilização',unit:'%',dec:1,dir:'up'},tt:{label:'Task Time',unit:'%',dec:1,dir:'up'},
+ ativ:{label:'Ativ/Equipe/Dia',unit:'',dec:2,dir:'up'},ts:{label:'TMR Secundário',unit:' min',dec:1,dir:'down'},ti:{label:'TMR Improdutivo',unit:' min',dec:1,dir:'down'},
+ login:{label:'1º Login',unit:' min',dec:1,dir:'down'},despacho:{label:'1º Despacho',unit:' min',dec:1,dir:'down'},desloc:{label:'1º Deslocamento',unit:' min',dec:1,dir:'down'},retorno:{label:'Retorno à Base',unit:' min',dec:1,dir:'down'},tml:{label:'TML',unit:' min',dec:1,dir:'down'},
+ imp:{label:'Improdutivos/dia',unit:'',dec:2,dir:'down'},rei:{label:'Reincidentes/dia',unit:'',dec:2,dir:'down'},ord2:{label:'Ordem 2/dia',unit:'',dec:2,dir:'down'}
+};
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const valid=v=>v!=null&&!Number.isNaN(Number(v))&&Number.isFinite(Number(v));
+const av=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
+const fmt=(v,k)=>!valid(v)?'—':Number(v).toLocaleString('pt-BR',{minimumFractionDigits:METRICAS[k]?.dec??1,maximumFractionDigits:METRICAS[k]?.dec??1})+(METRICAS[k]?.unit||'');
+
+// Mesmas fórmulas OFICIAIS do Ranking V192.
+const SC={
+ efic:v=>v==null?0:v<=80?0:v>=115?11.7:v*0.5-40,
+ util:v=>v==null?0:v<=60?0:v>=88?11.2:v*0.4-24,
+ ativ:v=>v==null?0:v<=1?0:v>=5.5?16.5:v*4.412-4.413,
+ tt:v=>v==null?0:v<=40?0:v>=65?23.33:v*1.5-60,
+ ts:v=>v==null?0:v>=72?0:v<=45?18.41:v*(-0.682)+49.1,
+ ti:v=>v==null?0:v>=28?0:v<=17?13.75:v*(-1.25)+35,
+ login:v=>v==null?0:v>=12?0:v<=7?13.6:v*(-2.72)+32.64,
+ desloc:v=>v==null?0:v>=30?0:v<=20?13.6:v*(-1.36)+40.8,
+ retorno:v=>v==null?0:v>=50?0:v<=35?7.5:v*(-0.5)+25
+};
+function score(m){return SC.efic(m.efic)+SC.util(m.util)+SC.ativ(m.ativ)+SC.tt(m.tt)+SC.ts(m.ts)+SC.ti(m.ti)+SC.login(m.login)+SC.desloc(m.desloc)+SC.retorno(m.retorno)}
+function aggregate(rows){
+ const s={TP:0,TR:0,HT:0,HD:0,TT:0,TLs:0,TLq:0,a:[],ts:[],ti:[],lg:[],dp:[],dl:[],rt:[],tm:[],imp:[],rei:[],ord2:[]};
+ for(const r of rows){
+  if(valid(r.TP))s.TP+=+r.TP;if(valid(r.TR))s.TR+=+r.TR;if(valid(r.HT))s.HT+=+r.HT;if(valid(r.HD))s.HD+=+r.HD;if(valid(r.TT))s.TT+=+r.TT;
+  if(valid(r.TLs))s.TLs+=+r.TLs;if(valid(r.TLq))s.TLq+=+r.TLq;
+  [['ativ','a'],['ts','ts'],['ti','ti'],['login','lg'],['despacho','dp'],['desloc','dl'],['retorno','rt'],['tml','tm'],['imp','imp'],['rei','rei'],['ord2','ord2']].forEach(([f,k])=>{if(valid(r[f]))s[k].push(+r[f])});
+ }
+ const m={efic:s.TR>0?s.TP/s.TR*100:null,util:s.HD>0?s.HT/s.HD*100:null,tt:s.HD>0?s.TT/s.HD*100:null,ativ:av(s.a),ts:av(s.ts),ti:av(s.ti),login:av(s.lg),despacho:av(s.dp),desloc:av(s.dl),retorno:av(s.rt),tml:s.TLq>0?s.TLs/s.TLq:av(s.tm),imp:av(s.imp),rei:av(s.rei),ord2:av(s.ord2)};
+ m.classif=score(m); return m;
+}
+const dates=[...new Set(DB.linhas.map(x=>x.data).filter(Boolean))].sort();
+const opnames=[...new Set(DB.operadores.map(x=>x.operador))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+const di=document.getElementById('di'),df=document.getElementById('df'),empresa=document.getElementById('empresa'),metrica=document.getElementById('metrica'),ops=document.getElementById('ops');
+di.innerHTML=dates.map(x=>`<option>${x}</option>`).join('');df.innerHTML=dates.map(x=>`<option>${x}</option>`).join('');if(dates.length){di.value=dates[0];df.value=dates[dates.length-1]}
+metrica.innerHTML=Object.entries(METRICAS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');metrica.value='util';
+ops.innerHTML=opnames.map((x,i)=>`<option ${i<5?'selected':''}>${esc(x)}</option>`).join('');
+function baseRows(){return DB.linhas.filter(x=>x.status_vinculo==='Identificado'&&x.data>=di.value&&x.data<=df.value&&(!empresa.value||x.empresa===empresa.value))}
+function opRows(name,rows){return rows.filter(x=>x.operador===name)}
+function candidatos(x){if(!x.candidatos?.length)return '—';return x.candidatos.map(c=>`${c.operador}: ${c.exclusivas} exclusiva(s), ${c.total} incidência(s), ${c.mencoes} menção(ões)`).join(' | ')}
+function pill(s){const c=s==='Identificado'?'ok':s==='Compartilhado/Ambíguo'?'amb':'bad';return `<span class="pill ${c}">${esc(s)}</span>`}
+let cCmp=null,cEvol=null;
+function render(){
+ const rows=baseRows(), k=metrica.value, meta=METRICAS[k];
+ const agg=opnames.map(name=>{const rr=opRows(name,rows);return {name,rr,m:aggregate(rr),br:DB.operadores.find(o=>o.operador===name)?.br||''}}).filter(x=>x.rr.length);
+ agg.sort((a,b)=>meta.dir==='down'?((a.m[k]??Infinity)-(b.m[k]??Infinity)):((b.m[k]??-Infinity)-(a.m[k]??-Infinity)));
+ document.getElementById('cmpmeta').textContent=`· ${meta.label}`;document.getElementById('evmeta').textContent=`· ${meta.label}`;
+ if(cCmp)cCmp.destroy();cCmp=new Chart(document.getElementById('cmp'),{type:'bar',data:{labels:agg.map(x=>x.name.split(' ')[0]),datasets:[{label:meta.label,data:agg.map(x=>x.m[k])}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',formatter:v=>fmt(v,k),font:{size:9}}},scales:{x:{beginAtZero:true,title:{display:true,text:meta.label+(meta.unit||'')}}}}});
+ const sel=[...ops.selectedOptions].map(o=>o.value), edates=dates.filter(d=>d>=di.value&&d<=df.value);
+ const datasets=sel.map(name=>({label:name.split(' ')[0],data:edates.map(d=>aggregate(rows.filter(x=>x.operador===name&&x.data===d))[k]),spanGaps:true,tension:.22,pointRadius:2,pointHoverRadius:4}));
+ if(cEvol)cEvol.destroy();cEvol=new Chart(document.getElementById('evol'),{type:'line',data:{labels:edates.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{display:false}},scales:{y:{beginAtZero:false,title:{display:true,text:meta.label+(meta.unit||'')}}}}});
+ document.getElementById('tabcount').textContent=`${agg.length} operador(es)`;
+ document.getElementById('tb').innerHTML=agg.map(o=>{const m=o.m, eq=new Set(o.rr.map(r=>r.chave)).size;return `<tr><td class="left"><b>${esc(o.name)}</b></td><td>${esc(o.br)}</td><td>${eq}</td><td>${o.rr.length}</td><td>${fmt(m.classif,'classif')}</td><td>${fmt(m.efic,'efic')}</td><td>${fmt(m.util,'util')}</td><td>${fmt(m.tt,'tt')}</td><td>${fmt(m.ativ,'ativ')}</td><td>${fmt(m.ts,'ts')}</td><td>${fmt(m.ti,'ti')}</td><td>${fmt(m.login,'login')}</td><td>${fmt(m.despacho,'despacho')}</td><td>${fmt(m.desloc,'desloc')}</td><td>${fmt(m.retorno,'retorno')}</td><td>${fmt(m.tml,'tml')}</td><td>${fmt(m.imp,'imp')}</td><td>${fmt(m.rei,'rei')}</td><td>${fmt(m.ord2,'ord2')}</td></tr>`}).join('');
+ const audit=DB.linhas.filter(x=>x.data>=di.value&&x.data<=df.value&&(!empresa.value||x.empresa===empresa.value));document.getElementById('auditcount').textContent=`${audit.length.toLocaleString('pt-BR')} linha(s)`;document.getElementById('audit').innerHTML=audit.map(x=>`<tr><td>${x.data}</td><td class="left"><b>${esc(x.equipe)}</b></td><td>${esc(x.empresa)}</td><td>${esc(x.turno||'—')}</td><td>${pill(x.status_vinculo)}</td><td class="left">${esc(x.operador||'—')}</td><td class="left third" title="${esc(candidatos(x))}">${esc(candidatos(x))}</td><td>${valid(x.ativ)?Number(x.ativ).toLocaleString('pt-BR',{maximumFractionDigits:2}):'—'}</td></tr>`).join('');
+}
+[di,df,empresa,metrica,ops].forEach(x=>x.addEventListener('change',render));render();
+</script></body></html>
