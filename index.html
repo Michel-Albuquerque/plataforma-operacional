@@ -578,7 +578,33 @@
         inset: 6px;
       }
     }
-  </style>
+  
+    /* Ícone Operadores — SVG monocromático para alta legibilidade */
+    .nav-item[data-file="Operadores.html"] .nav-icon {
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-item[data-file="Operadores.html"] .operadores-menu-svg {
+      display: block;
+      width: 21px;
+      height: 21px;
+      color: currentColor;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
+    }
+
+    .nav-item[data-file="Operadores.html"].active .nav-icon {
+      color: #ffffff;
+    }
+
+    .app.collapsed .nav-item[data-file="Operadores.html"] .operadores-menu-svg {
+      width: 22px;
+      height: 22px;
+    }
+
+</style>
 </head>
 
 <body>
@@ -721,7 +747,19 @@
           data-subtitle="Desempenho dos operadores por equipe e dia"
         >
           <span class="nav-icon">
-            👥
+            <svg
+              class="operadores-menu-svg"
+              viewBox="0 0 24 24"
+              width="21"
+              height="21"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm6.5-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 20v-2.1c0-3.2 3-5.4 6.5-5.4s6.5 2.2 6.5 5.4V20h-13Zm13.7 0v-2.1c0-1.6-.6-3-1.7-4.1.4-.1.8-.1 1.2-.1 3.1 0 5.8 1.9 5.8 4.7V20h-5.3Z"
+                fill="currentColor"
+              />
+            </svg>
           </span>
 
           <span class="nav-text">
