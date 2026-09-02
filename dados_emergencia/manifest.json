@@ -1,12 +1,12 @@
 {
-  "gerado_em": "2026-09-02T08:23:21",
+  "gerado_em": "2026-09-02T08:25:57",
   "versao": 1,
   "callback_disponivel": false,
   "arquivos": {
     "incidents": {
       "arquivo": "incidents.json.gz",
       "linhas": 239304,
-      "tamanho_bytes": 26269522,
+      "tamanho_bytes": 26269526,
       "modificado_em": "2026-09-02T08:23:19"
     },
     "tma": {
