@@ -659,6 +659,10 @@ tr.risk24-watch:hover td{filter:brightness(.97)}
   font-size:10.5px;
 }
 
+
+/* TOP5_EXPORTACAO_OPERACIONAL_V4 */
+
+/* TOP5_EXPORTACAO_RESUMO_CLIENTES_V5 */
 </style>
 </head>
 <body>
@@ -5836,6 +5840,36 @@ function excelSafeFileName(value){
     .toLowerCase()||'tabela';
 }
 
+
+function realtimeImpactExportDuration(row){
+  const hours=Number(realtimeAgeHours(row,new Date()));
+  if(!Number.isFinite(hours)||hours<0)return '';
+  const totalMinutes=Math.max(0,Math.round(hours*60));
+  const h=Math.floor(totalMinutes/60);
+  const m=totalMinutes%60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function realtimeImpactExportColumns(){
+  return [
+    {label:'Número',exportValue:r=>String(r?.number??'').trim()},
+    {label:'Duração',exportValue:r=>realtimeImpactExportDuration(r)},
+    {label:'Alimentador',exportValue:r=>String(r?.feeder||'').trim()},
+    {label:'Nível de Tensão',exportValue:r=>String(r?.ntRaw||'').trim()},
+    {label:'Cli Af Atual',exportValue:r=>Number.isFinite(Number(r?.clientsCurrent))?Number(r.clientsCurrent):''},
+    {label:'Equipes',exportValue:r=>String(r?.team||r?.teamAssigned||'').trim()},
+    {label:'OSM',exportValue:r=>isOsm(r)?'SIM':'NÃO'},
+    {
+      label:'Observação',
+      exportValue:r=>{
+        const texto=String(observacaoEmergenciaValor(r?.number)||'').trim();
+        return texto||'Sem observação';
+      }
+    },
+    {label:'PREVISÃO',exportValue:()=>''}
+  ];
+}
+
 async function downloadTableXlsx(containerId){
   const config=tableExportRegistry.get(containerId);
   if(!config){
@@ -5848,9 +5882,16 @@ async function downloadTableXlsx(containerId){
   }
 
   const {columns,rows,title}=config;
-  const exportColumns=columns.filter(column=>column.exportable!==false);
+
+  // O Top 5 mantém a tabela visual atual, mas possui uma estrutura
+  // específica de exportação para o material operacional.
+  const exportColumns=containerId==='rtImpactTable'
+    ? realtimeImpactExportColumns()
+    : columns.filter(column=>column.exportable!==false);
+
   const ordered=orderedTableRows(containerId,columns,rows);
-  const sheetName=excelSafeSheetName(title);
+  const exportTitle=containerId==='rtImpactTable'?'TOP 5 - BLOCO DE CARGA':title;
+  const sheetName=excelSafeSheetName(exportTitle);
 
   const headerCells=exportColumns.map((column,index)=>{
     const ref=`${excelColumnName(index)}1`;
@@ -5874,18 +5915,51 @@ async function downloadTableXlsx(containerId){
   }).join('');
 
   const lastColumn=excelColumnName(Math.max(0,exportColumns.length-1));
-  const lastRow=Math.max(1,ordered.length+1);
+  const tableLastRow=Math.max(1,ordered.length+1);
+
+  let summaryRowsXml='';
+  let worksheetLastRow=tableLastRow;
+
+  if(containerId==='rtImpactTable'){
+    const totalClients=sum(
+      realtimeRows().map(r=>Number(r?.clientsCurrent)||0)
+    );
+    const topClients=sum(
+      ordered.map(r=>Number(r?.clientsCurrent)||0)
+    );
+    const topPct=totalClients>0?(topClients/totalClients)*100:0;
+
+    const summaryStart=tableLastRow+2;
+    const topLabel=ordered.length===5?'Cliente Top 05':`Cliente Top ${String(ordered.length).padStart(2,'0')}`;
+
+    summaryRowsXml=`
+      <row r="${summaryStart}">
+        <c r="A${summaryStart}" t="inlineStr" s="2"><is><t>Clientes Totais</t></is></c>
+        <c r="B${summaryStart}" t="n" s="3"><v>${totalClients}</v></c>
+      </row>
+      <row r="${summaryStart+1}">
+        <c r="A${summaryStart+1}" t="inlineStr" s="2"><is><t>${xmlEscape(topLabel)}</t></is></c>
+        <c r="B${summaryStart+1}" t="n" s="3"><v>${topClients}</v></c>
+      </row>
+      <row r="${summaryStart+2}">
+        <c r="A${summaryStart+2}" t="inlineStr" s="4"><is><t>% Top ${ordered.length}</t></is></c>
+        <c r="B${summaryStart+2}" t="inlineStr" s="4"><is><t>${xmlEscape(topPct.toLocaleString('pt-BR',{maximumFractionDigits:1}))}%</t></is></c>
+      </row>`;
+
+    worksheetLastRow=summaryStart+2;
+  }
 
   const worksheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <dimension ref="A1:${lastColumn}${lastRow}"/>
+  <dimension ref="A1:${lastColumn}${worksheetLastRow}"/>
   <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
   <sheetFormatPr defaultRowHeight="15"/>
   <sheetData>
     <row r="1">${headerCells}</row>
     ${dataRows}
+    ${summaryRowsXml}
   </sheetData>
-  <autoFilter ref="A1:${lastColumn}${lastRow}"/>
+  <autoFilter ref="A1:${lastColumn}${tableLastRow}"/>
 </worksheet>`;
 
   const workbook=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -5896,20 +5970,26 @@ async function downloadTableXlsx(containerId){
 
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="2">
+  <fonts count="3">
     <font><sz val="11"/><name val="Calibri"/></font>
     <font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><name val="Calibri"/></font>
   </fonts>
-  <fills count="3">
+  <fills count="5">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FF173D5B"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFDDEBF7"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
   <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="2">
+  <cellXfs count="5">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
     <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+    <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+    <xf numFmtId="0" fontId="2" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
   </cellXfs>
   <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
@@ -5945,13 +6025,18 @@ async function downloadTableXlsx(containerId){
 
   const link=document.createElement('a');
   link.href=URL.createObjectURL(blob);
-  link.download=`${excelSafeFileName(title)}_${isoDate(new Date())}.xlsx`;
+  link.download=`${excelSafeFileName(exportTitle)}_${isoDate(new Date())}.xlsx`;
   document.body.appendChild(link);
   link.click();
   const objectUrl=link.href;
   link.remove();
   setTimeout(()=>URL.revokeObjectURL(objectUrl),1500);
-  toast(`Excel exportado: ${fmtInt(ordered.length)} registro(s).`,'success');
+  toast(
+    containerId==='rtImpactTable'
+      ? `Excel do Top ${fmtInt(ordered.length)} exportado com resumo de clientes.`
+      : `Excel exportado: ${fmtInt(ordered.length)} registro(s).`,
+    'success'
+  );
 }
 
 function realtimeTableTitle(containerId){
