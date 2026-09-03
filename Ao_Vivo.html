@@ -104,6 +104,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Sego
 .tl-outer:fullscreen .tl-tvbtn{position:sticky;top:0;right:0;}
 .tl-outer:fullscreen .tl-panel{min-height:calc(100vh - 62px);}
 .tl-outer:fullscreen .tl-col-labels,.tl-outer:fullscreen .tl-col-canvas{min-height:0;}
+.tl-outer:fullscreen .tl-bar.tl-alertbar .tl-blbl{font-size:clamp(11px, calc(var(--tl-row-h,38px) * 0.24), 16px);font-weight:700;padding:0 4px;line-height:1;}
 </style>
 </head>
 <body>
@@ -525,7 +526,7 @@ function tlDraw(recs){
     r.bars.forEach(b=>{
       const x1=px(b.i,r),x2=px(b.f,r);if(x1==null||x2==null)return;
       const w=Math.max(x2-x1,1);
-      const bar=document.createElement('div');bar.className='tl-bar';
+      const bar=document.createElement('div');bar.className='tl-bar'+(b.bd?' tl-alertbar':'');
       bar.style.left=x1+'px';bar.style.width=w+'px';
       bar.style.background=(b.tr?TL_COLOR_TR:TL_COLOR)[b.tp]||'#999';
       if(b.tp==='Retorno a Base')bar.style.opacity='0.78';
