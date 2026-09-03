@@ -108,10 +108,10 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Sego
   max-width:none;
   min-width:0;
   margin:0;
-  grid-template-columns:190px minmax(0,1fr);
+  grid-template-columns:220px minmax(0,1fr);
 }
 .tl-outer:fullscreen .tl-col-labels,.tl-outer:fullscreen .tl-col-canvas{min-height:0;}
-.tl-outer:fullscreen .tl-rlabel{font-size:clamp(16px, calc(var(--tl-row-h,38px) * 0.34), 24px);font-weight:800;padding-right:16px;letter-spacing:.01em;line-height:1;}
+.tl-outer:fullscreen .tl-rlabel{font-size:clamp(20px, calc(var(--tl-row-h,38px) * 0.50), 34px);font-weight:850;padding-right:18px;letter-spacing:.015em;line-height:.95;}
 .tl-outer:fullscreen .tl-bar.tl-alertbar .tl-blbl{font-size:clamp(11px, calc(var(--tl-row-h,38px) * 0.24), 16px);font-weight:700;padding:0 4px;line-height:1;}
 </style>
 </head>
@@ -500,7 +500,7 @@ function tlDraw(recs){
   const outerEl=document.querySelector('.tl-outer');
   const outerW=Math.max(820,(outerEl&&outerEl.clientWidth)||window.innerWidth||1100);
   const emTelaCheia=!!document.fullscreenElement;
-  const labelW=emTelaCheia?190:138;
+  const labelW=emTelaCheia?220:138;
   const lateralExtra=emTelaCheia?8:56;
   const usableW=Math.max(560,outerW-(labelW+lateralExtra));
   let cW,PPM;
