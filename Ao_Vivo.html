@@ -54,7 +54,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Sego
 .tl-outer{overflow:auto;padding:10px 18px 28px;min-height:560px;max-height:calc(100vh - 262px);}
 .tl-panel{display:grid;grid-template-columns:150px 1fr;grid-template-rows:1fr auto;
           background:var(--panel);border:1px solid var(--border);border-radius:6px;
-          box-shadow:0 1px 6px rgba(0,0,0,.05);min-width:1100px;min-height:520px;}
+          box-shadow:0 1px 6px rgba(0,0,0,.05);min-width:980px;min-height:520px;
+          width:max-content;margin:0 auto;}
 .tl-col-labels{grid-column:1;grid-row:1;border-right:2px solid #dde1f0;display:flex;flex-direction:column;min-height:490px;}
 .tl-col-labels-ax{grid-column:1;grid-row:2;border-right:2px solid #dde1f0;border-top:1px solid var(--border);
                   height:28px;background:var(--surface);border-radius:0 0 0 6px;}
@@ -484,9 +485,18 @@ function tlDraw(recs){
   tMin=Math.floor(tMin/60)*60;tMax=Math.ceil(tMax/60)*60;
   if(tMax<=tMin)tMax=tMin+60;
   const totM=tMax-tMin;
-  const panW=document.getElementById('tlPanel').offsetWidth||1100;
-  const PPM=Math.max((panW-150)/totM,1.35);
-  const cW=Math.max(900,Math.round(totM*PPM));
+  const outerEl=document.querySelector('.tl-outer');
+  const outerW=Math.max(980,(outerEl&&outerEl.clientWidth)||window.innerWidth||1100);
+  const usableW=Math.max(760,outerW-190);
+  const eqCap=recs.length<=2
+    ? (document.fullscreenElement?1220:1100)
+    : (recs.length<=4 ? (document.fullscreenElement?1450:1300) : (document.fullscreenElement?1700:1500));
+  const maxCanvasW=Math.max(900,Math.min(eqCap,Math.round(usableW*1.02)));
+  const minCanvasW=Math.min(maxCanvasW,Math.max(760,Math.round(usableW*0.58)));
+  const targetFillW=Math.round(Math.min(maxCanvasW,Math.max(minCanvasW,usableW*0.86)));
+  const ppmSuggested=targetFillW/totM;
+  const PPM=Math.min(2.6,Math.max(1.25,ppmSuggested));
+  const cW=Math.round(Math.min(maxCanvasW,Math.max(minCanvasW,totM*PPM)));
   const bodyH=Math.max(490,recs.length*38);
   canEl.style.width=cW+'px';axEl.style.width=cW+'px';
   canEl.style.minHeight=bodyH+'px';labEl.style.minHeight=bodyH+'px';
