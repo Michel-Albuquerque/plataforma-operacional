@@ -1,45 +1,23 @@
 {
-  "gerado_em": "2026-09-01T15:14:54",
+  "gerado_em": "2026-09-03T09:15:36",
   "versao": 11,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
-      "linhas": 385,
-      "tamanho_bytes": 56784,
+      "linhas": 824,
+      "tamanho_bytes": 127769,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
-      "fonte_modificada_em": "2026-09-01T14:55:30"
+      "fonte_modificada_em": "2026-09-03T09:00:22"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
-      "linhas": 48046,
-      "tamanho_bytes": 8648334,
+      "linhas": 48271,
+      "tamanho_bytes": 8706544,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
-      "fonte_modificada_em": "2026-09-01T15:14:48"
-    },
-    "reincidencia_principal": {
-      "arquivo": "reincidencia_principal.json.gz",
-      "linhas": 238889,
-      "tamanho_bytes": 24171064,
-      "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\download geonline\\downloads\\Bases_Finais\\Base_Final_Incidencia.parquet",
-      "fonte_modificada_em": "2026-09-01T14:49:46",
-      "linhas_origem": 238889,
-      "linhas_publicadas": 238889,
-      "clientes_oficiais": 3731,
-      "modo": "universo_completo_denominador",
-      "denominador_elegivel": 101631
-    },
-    "reincidencia_oficial": {
-      "arquivo": "reincidencia_oficial.json.gz",
-      "linhas": 4628,
-      "tamanho_bytes": 510804,
-      "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\BUSCA EXECUÇÃO\\plataforma_dados\\Base_Reincidencia_Plataforma.xlsx",
-      "fonte_modificada_em": "2026-09-01T15:05:42",
-      "vinculadas_principal": 4628,
-      "sem_vinculo_principal": 0,
-      "modo": "oficial_enriquecida"
+      "fonte_modificada_em": "2026-09-03T09:04:51"
     }
   },
   "erros": {
-    "reincidencia": "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\BR0143306567\\\\OneDrive - Enel Spa\\\\Documentos\\\\Michel\\\\BUSCA EXECUÇÃO\\\\downloads\\\\Produt_Resultado_Mes_2026-08.xlsx'"
+    "reincidencia": "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\BR0143306567\\\\OneDrive - Enel Spa\\\\Documentos\\\\Michel\\\\BUSCA EXECUÇÃO\\\\downloads\\\\Produt_Resultado_Mes_2026-09.xlsx'"
   }
 }
