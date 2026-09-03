@@ -1,20 +1,20 @@
 {
-  "gerado_em": "2026-09-03T16:06:52",
+  "gerado_em": "2026-09-03T16:15:58",
   "versao": 11,
   "arquivos": {
     "callback": {
       "arquivo": "callback.json.gz",
       "linhas": 981,
-      "tamanho_bytes": 154406,
+      "tamanho_bytes": 154405,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_callback\\saida\\base_pronta_html.xlsx",
       "fonte_modificada_em": "2026-09-03T16:06:49"
     },
     "validacao": {
       "arquivo": "validacao.json.gz",
-      "linhas": 48302,
-      "tamanho_bytes": 8714962,
+      "linhas": 48307,
+      "tamanho_bytes": 8715967,
       "fonte": "C:\\Users\\BR0143306567\\OneDrive - Enel Spa\\Documentos\\Michel\\Auto_Geonline\\processamento_validacao\\saida\\base_validacao_pos_atendimento.xlsx",
-      "fonte_modificada_em": "2026-09-03T15:14:40"
+      "fonte_modificada_em": "2026-09-03T16:15:52"
     }
   },
   "erros": {
