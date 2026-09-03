@@ -3384,32 +3384,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   const BASE_PRESET=defaultBaseSelection();
 
-  // V193 — filtros padrão globais: mês atual até ontem, Empresa Enel e Tipo Equipe Operação.
-  function _isoLocalDate(d){
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-  const _hojeFiltro=new Date();
-  const _ontemFiltro=new Date(_hojeFiltro.getFullYear(),_hojeFiltro.getMonth(),_hojeFiltro.getDate()-1);
-  const _inicioMesFiltro=new Date(_hojeFiltro.getFullYear(),_hojeFiltro.getMonth(),1);
-  const DEFAULT_DATE_START=_isoLocalDate(_inicioMesFiltro);
-  const DEFAULT_DATE_END=_isoLocalDate(_ontemFiltro);
-
-  function _dateStartAvailable(){
-    if(allDates.includes(DEFAULT_DATE_START))return DEFAULT_DATE_START;
-    return allDates.find(d=>d>=DEFAULT_DATE_START&&d<=DEFAULT_DATE_END)||allDates[0]||'';
-  }
-  function _dateEndAvailable(){
-    if(allDates.includes(DEFAULT_DATE_END))return DEFAULT_DATE_END;
-    const ok=allDates.filter(d=>d<=DEFAULT_DATE_END);
-    return ok.length?ok[ok.length-1]:(allDates[allDates.length-1]||'');
-  }
-  const DEFAULT_DATE_START_AVAILABLE=_dateStartAvailable();
-  const DEFAULT_DATE_END_AVAILABLE=_dateEndAvailable();
-  const EMP_PRESET=allEmps.filter(v=>_normTxt(v)==='enel');
-  const TIPO_EQ_PRESET=allTipoEqs.filter(v=>_normTxt(v)==='operacao');
-  const DEFAULT_EMP_SELECTION=EMP_PRESET.length?EMP_PRESET:allEmps;
-  const DEFAULT_TIPO_EQ_SELECTION=TIPO_EQ_PRESET.length?TIPO_EQ_PRESET:allTipoEqs;
-
   // Garante que o filtro Período da página Por Equipes preserve Diário, Semanal e Mensal.
   const _p2periodInit=document.getElementById('p2period');
   if(_p2periodInit){
@@ -3422,16 +3396,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     dates.forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=dtd[d]||d;s.appendChild(o);});
     s.value=dates[def<0?dates.length+def:def]||dates[0];
   }
-  const _datePairs=[
-    ['fi','ff'],['p2i','p2f'],['p3i','p3f'],['p5i','p5f'],['p6i','p6f'],
-    ['p8i','p8f'],['p9i','p9f'],['p10i','p10f'],['p11i','p11f'],['p12i','p12f'],['p13i','p13f']
-  ];
-  _datePairs.forEach(([iId,fId])=>{
-    fillSel(iId,allDates,0); fillSel(fId,allDates,-1);
-    const iEl=document.getElementById(iId),fEl=document.getElementById(fId);
-    if(iEl&&DEFAULT_DATE_START_AVAILABLE)iEl.value=DEFAULT_DATE_START_AVAILABLE;
-    if(fEl&&DEFAULT_DATE_END_AVAILABLE)fEl.value=DEFAULT_DATE_END_AVAILABLE;
-  });
+  ['fi','ff','p2i','p2f','p3i','p3f','p4i','p4f','p5i','p5f','p6i','p6f','p8i','p8f','p9i','p9f','p10i','p10f','p11i','p11f','p12i','p12f','p13i','p13f'].forEach((id,i)=>fillSel(id,allDates,i%2===0?0:-1));
 
   const MAX_DIAS_GLOBAL=Math.max(1,allDates.length||1);
   function _syncDiasFilter(minId,maxId){
@@ -3639,44 +3604,44 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   setMultiOptions('fbasems',allBases,BASE_PRESET,p1R);
   setMultiOptions('ftms',allTurnos,allTurnos,p1R);
-  setMultiOptions('fems',allEmps,DEFAULT_EMP_SELECTION,p1R);
+  setMultiOptions('fems',allEmps,allEmps,p1R);
   setMultiOptions('fvms',allTiposFinal,allTiposFinal,p1R);
-  setMultiOptions('fteqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,p1R);
+  setMultiOptions('fteqms',allTipoEqs,allTipoEqs,p1R);
   setMultiOptions('fdesems',DESEMPENHO_OPTS,DESEMPENHO_OPTS,p1R);
   refreshP1DateOptions();
   setMultiOptions('p2basems',allBases,BASE_PRESET,()=>p2R(true));
   setMultiOptions('p2tms',allTurnos,allTurnos,()=>p2R(true));
-  setMultiOptions('p2ems',allEmps,DEFAULT_EMP_SELECTION,()=>p2R(true));
+  setMultiOptions('p2ems',allEmps,allEmps,()=>p2R(true));
   setMultiOptions('p2vms',allTiposFinal,allTiposFinal,()=>p2R(true));
-  setMultiOptions('p2teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,()=>p2R(true));
+  setMultiOptions('p2teqms',allTipoEqs,allTipoEqs,()=>p2R(true));
   setMultiOptions('p2desems',DESEMPENHO_OPTS,DESEMPENHO_OPTS,()=>p2R(true));
   setMultiOptions('p2indicms',P2_TABLE_METRIC_LABELS,P2_TABLE_METRIC_LABELS,()=>p2R(false));
   setMultiOptions('p3basems',allBases,BASE_PRESET,p3R);
   setMultiOptions('p3turnoms',allTurnos,allTurnos,p3R);
-  setMultiOptions('p3ems',allEmps,DEFAULT_EMP_SELECTION,p3R);
+  setMultiOptions('p3ems',allEmps,allEmps,p3R);
   setMultiOptions('p3vms',allTiposFinal,allTiposFinal,p3R);
-  setMultiOptions('p3teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,p3R);
+  setMultiOptions('p3teqms',allTipoEqs,allTipoEqs,p3R);
   setMultiOptions('p4basems',allBases,BASE_PRESET,p4R);
   setMultiOptions('p4tms',allTurnos,allTurnos,p4R);
-  setMultiOptions('p4ems',allEmps,DEFAULT_EMP_SELECTION,p4R);
+  setMultiOptions('p4ems',allEmps,allEmps,p4R);
   setMultiOptions('p4vms',allTiposFinal,allTiposFinal,p4R);
-  setMultiOptions('p4teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,p4R);
+  setMultiOptions('p4teqms',allTipoEqs,allTipoEqs,p4R);
   setMultiOptions('fqms',allEqs,allEqs,p1R);
   setMultiOptions('p4eqms',allEqs,[],p4R);
   setMultiOptions('p5tms',allTurnos,allTurnos,p5R);
-  setMultiOptions('p5ems',allEmps,DEFAULT_EMP_SELECTION,p5R);
+  setMultiOptions('p5ems',allEmps,allEmps,p5R);
   setMultiOptions('p5vms',allTiposFinal,allTiposFinal,p5R);
-  setMultiOptions('p5teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,p5R);
+  setMultiOptions('p5teqms',allTipoEqs,allTipoEqs,p5R);
   setMultiOptions('p5focusms',allBases,[],p5R);
   setMultiOptions('p6basems',allBases,BASE_PRESET,p6R);
-  setMultiOptions('p6empms',allEmps,DEFAULT_EMP_SELECTION,p6R);
-  setMultiOptions('p6teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,p6R);
+  setMultiOptions('p6empms',allEmps,allEmps,p6R);
+  setMultiOptions('p6teqms',allTipoEqs,allTipoEqs,p6R);
   setMultiOptions('p6eqms',allEqs,allEqs,p6R);
   setMultiOptions('p8basems',allBases,BASE_PRESET,()=>p8R(true));
   setMultiOptions('p8tms',allTurnos,allTurnos,()=>p8R(true));
-  setMultiOptions('p8ems',allEmps,DEFAULT_EMP_SELECTION,()=>p8R(true));
+  setMultiOptions('p8ems',allEmps,allEmps,()=>p8R(true));
   setMultiOptions('p8vms',allTiposFinal,allTiposFinal,()=>p8R(true));
-  setMultiOptions('p8teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,()=>p8R(true));
+  setMultiOptions('p8teqms',allTipoEqs,allTipoEqs,()=>p8R(true));
   setMultiOptions('p8eqms',allEqs,allEqs,p8R);
   setMultiOptions('p8desems',DESEMPENHO_OPTS,DESEMPENHO_OPTS,p8R);
 
@@ -3696,37 +3661,37 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Inicialização reforçada — Apresentação e Tabela Variáveis
   setMultiOptions('p9basems',allBases,BASE_PRESET,p9R);
   setMultiOptions('p9tms',allTurnos,allTurnos,p9R);
-  setMultiOptions('p9ems',allEmps,DEFAULT_EMP_SELECTION,p9R);
+  setMultiOptions('p9ems',allEmps,allEmps,p9R);
   setMultiOptions('p9vms',allTiposFinal,allTiposFinal,p9R);
-  setMultiOptions('p9teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,p9R);
+  setMultiOptions('p9teqms',allTipoEqs,allTipoEqs,p9R);
   setMultiOptions('p9desems',DESEMPENHO_OPTS,DESEMPENHO_OPTS,p9R);
   setMultiOptions('p9eqms',allEqs,allEqs,p9R);
 
   setMultiOptions('p10basems',allBases,BASE_PRESET,p10R);
   setMultiOptions('p10tms',allTurnos,allTurnos,p10R);
-  setMultiOptions('p10ems',allEmps,DEFAULT_EMP_SELECTION,p10R);
+  setMultiOptions('p10ems',allEmps,allEmps,p10R);
   setMultiOptions('p10vms',allTiposFinal,allTiposFinal,p10R);
-  setMultiOptions('p10teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,p10R);
+  setMultiOptions('p10teqms',allTipoEqs,allTipoEqs,p10R);
   setMultiOptions('p10desems',DESEMPENHO_OPTS,DESEMPENHO_OPTS,p10R);
   setMultiOptions('p10indicms',P2_TABLE_METRIC_LABELS,P2_TABLE_METRIC_LABELS,p10R);
   setMultiOptions('p10eqms',allEqs,allEqs,p10R);
   setMultiOptions('p11basems',allBases,(typeof BASE_PRESET!=='undefined'?BASE_PRESET:allBases),p11R);
   setMultiOptions('p11tms',allTurnos,allTurnos,p11R);
-  setMultiOptions('p11ems',allEmps,DEFAULT_EMP_SELECTION,p11R);
-  setMultiOptions('p11teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,p11R);
+  setMultiOptions('p11ems',allEmps,allEmps,p11R);
+  setMultiOptions('p11teqms',allTipoEqs,allTipoEqs,p11R);
   setMultiOptions('p11eqms',allEqs,allEqs,p11R);
   setMultiOptions('p12basems',allBases,BASE_PRESET,()=>p12R(false));
   setMultiOptions('p12tms',allTurnos,allTurnos,()=>p12R(false));
-  setMultiOptions('p12ems',allEmps,DEFAULT_EMP_SELECTION,()=>p12R(false));
+  setMultiOptions('p12ems',allEmps,allEmps,()=>p12R(false));
   setMultiOptions('p12vms',allTiposFinal,allTiposFinal,()=>p12R(false));
-  setMultiOptions('p12teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,()=>p12R(false));
+  setMultiOptions('p12teqms',allTipoEqs,allTipoEqs,()=>p12R(false));
   setMultiOptions('p12statusms',['Produtiva','Improdutiva'],['Produtiva','Improdutiva'],()=>p12R(false));
   setMultiOptions('p12eqms',allEqs,allEqs,()=>p12R(true));
   setMultiOptions('p13basems',allBases,BASE_PRESET,()=>p13R(false));
   setMultiOptions('p13tms',allTurnos,allTurnos,()=>p13R(false));
-  setMultiOptions('p13ems',allEmps,DEFAULT_EMP_SELECTION,()=>p13R(false));
+  setMultiOptions('p13ems',allEmps,allEmps,()=>p13R(false));
   setMultiOptions('p13vms',allTiposFinal,allTiposFinal,()=>p13R(false));
-  setMultiOptions('p13teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,()=>p13R(false));
+  setMultiOptions('p13teqms',allTipoEqs,allTipoEqs,()=>p13R(false));
   setMultiOptions('p13desems',DESEMPENHO_OPTS,DESEMPENHO_OPTS,()=>p13R(false));
   setMultiOptions('p13indicms',['Classificação / Score','Eficiência','Utilização','Task Time','Ativ/Equipe/Dia','1º Login','1º Despacho','1º Deslocamento','Retorno à Base','TMR Secundário','TMR Improdutivo','TML','Improdutivos/dia','Reincidentes/dia','Ordem 2/dia'],['Classificação / Score','Eficiência','Utilização','Task Time','Ativ/Equipe/Dia','1º Login','1º Despacho','1º Deslocamento','Retorno à Base','TMR Secundário','TMR Improdutivo','TML','Improdutivos/dia','Reincidentes/dia','Ordem 2/dia'],()=>p13R(true));
   setMultiOptions('p13eqms',allEqs,allEqs,()=>p13R(true));
@@ -6725,17 +6690,18 @@ function mkP9TrendChart(id,xlabels,values,yLbl,metaVal,metricKey){
   function _p4InitV128(){
     if(window._p4v128init)return;
     window._p4v128init=true;
-    _p4FillDateSelect('p4a_i',DEFAULT_DATE_START_AVAILABLE);
-    _p4FillDateSelect('p4a_f',DEFAULT_DATE_END_AVAILABLE);
-    _p4FillDateSelect('p4b_i',DEFAULT_DATE_START_AVAILABLE);
-    _p4FillDateSelect('p4b_f',DEFAULT_DATE_END_AVAILABLE);
+    const mid=Math.max(0,Math.floor((allDates.length-1)/2));
+    _p4FillDateSelect('p4a_i',allDates[0]);
+    _p4FillDateSelect('p4a_f',allDates[mid]||allDates[allDates.length-1]);
+    _p4FillDateSelect('p4b_i',allDates[Math.min(mid+1,allDates.length-1)]||allDates[0]);
+    _p4FillDateSelect('p4b_f',allDates[allDates.length-1]);
     initExtraDates('p4a');
     initExtraDates('p4b');
     setMultiOptions('p4basems',allBases,BASE_PRESET,()=>p4R(true));
     setMultiOptions('p4tms',allTurnos,allTurnos,()=>p4R(true));
-    setMultiOptions('p4ems',allEmps,DEFAULT_EMP_SELECTION,()=>p4R(true));
+    setMultiOptions('p4ems',allEmps,allEmps,()=>p4R(true));
     setMultiOptions('p4vms',allTiposFinal,allTiposFinal,()=>p4R(true));
-    setMultiOptions('p4teqms',allTipoEqs,DEFAULT_TIPO_EQ_SELECTION,()=>p4R(true));
+    setMultiOptions('p4teqms',allTipoEqs,allTipoEqs,()=>p4R(true));
     setMultiOptions('p4eqms',allEqs,allEqs,()=>p4R(true));
     setMultiOptions('p4desems',DESEMPENHO_OPTS,DESEMPENHO_OPTS,()=>p4R(true));
     ['p4a_i','p4a_f','p4b_i','p4b_f'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>p4R(true)));
@@ -7137,15 +7103,14 @@ function tlInitOnce(){
     selI.add(new Option(r.dtd,d));
     selF.add(new Option(r.dtd,d));
   });
-  // V193: mês atual até ontem também na Timeline.
-  const _tlAsc=[...dates].sort();
-  const _tlStart=_tlAsc.includes(DEFAULT_DATE_START)?DEFAULT_DATE_START:(_tlAsc.find(d=>d>=DEFAULT_DATE_START&&d<=DEFAULT_DATE_END)||_tlAsc[0]||'');
-  const _tlEnd=_tlAsc.includes(DEFAULT_DATE_END)?DEFAULT_DATE_END:((_tlAsc.filter(d=>d<=DEFAULT_DATE_END).slice(-1)[0])||_tlAsc[_tlAsc.length-1]||'');
-  selI.value=_tlStart;
-  selF.value=_tlEnd;
+  // V178: por padrão mostra todo o intervalo disponível, do primeiro dia até ontem.
+  const dIni=dates.length?dates[dates.length-1]:'';
+  const dFim=dates.length?dates[0]:'';
+  selI.value=dIni;
+  selF.value=dFim;
   const pref=[...new Set(TL_DATA.map(r=>String(r.eq||'').slice(0,2)).filter(Boolean))].sort();
   window.setMultiOptions('tlPerms',['Manhã','Tarde','Noite'],['Manhã','Tarde','Noite'],tlApply);
-  window.setMultiOptions('tlTipoEqms',['Operação','Extra'],['Operação'],tlApply);
+  window.setMultiOptions('tlTipoEqms',['Operação','Extra'],['Operação','Extra'],tlApply);
   window.setMultiOptions('tlBasems',pref,pref.includes('SG')?['SG']:pref,tlApply);
   window.setMultiOptions('tlAtivms',TL_ATIVS,TL_ATIVS,tlApply);
   tlRefreshDateOptions(false);
@@ -7317,7 +7282,7 @@ function tlReset(){
   document.getElementById('tlDataFim').value=dFim;
   const pref=[...new Set(TL_DATA.map(r=>String(r.eq||'').slice(0,2)).filter(Boolean))];
   window.setMultiValues('tlPerms',['Manhã','Tarde','Noite']);
-  window.setMultiValues('tlTipoEqms',['Operação']);
+  window.setMultiValues('tlTipoEqms',['Operação','Extra']);
   window.setMultiValues('tlBasems',pref.includes('SG')?['SG']:pref);
   window.setMultiValues('tlAtivms',TL_ATIVS);
   const tlEqRoot=document.getElementById('tlEqms');
@@ -8109,22 +8074,6 @@ if(document.readyState==='loading'){
         setSelectByText(el,['Operação','Operacao']);
       }
     });
-
-    // Multiselects usados na maior parte das abas.
-    if(window.setMultiValues){
-      document.querySelectorAll('.fg .ms').forEach(el=>{
-        const txt=(el.closest('.fg')?.querySelector('label')?.textContent||'').toLowerCase();
-        const opts=[...el.querySelectorAll('.ms-opt')].map(o=>o.value);
-        if(txt.includes('empresa')){
-          const enel=opts.filter(v=>String(v).trim().toLowerCase()==='enel');
-          if(enel.length)window.setMultiValues(el.id,enel);
-        }
-        if(txt.includes('tipo equipe')||txt.includes('tipo de equipe')){
-          const op=opts.filter(v=>String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()==='operacao');
-          if(op.length)window.setMultiValues(el.id,op);
-        }
-      });
-    }
 
     updateFilterSummaries();
   }
