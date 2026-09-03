@@ -89,6 +89,20 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Sego
              font-weight:400;opacity:.9;white-space:pre-wrap;max-height:120px;overflow:hidden;}
 #tlTT .ttwarn{margin-top:4px;color:#ff8080;font-size:.58rem;}
 .foot{padding:8px 18px 20px;font-family:var(--mono);font-size:.56rem;color:var(--muted);}
+
+/* ── modo TV / tela cheia ───────────────────────────────── */
+.tl-outer{position:relative;}
+.tl-tvbtn{position:sticky;top:0;left:100%;z-index:55;display:block;margin:0 0 8px auto;
+          background:var(--accent);color:#fff;border:0;border-radius:6px;padding:7px 12px;
+          font-size:.68rem;font-family:inherit;font-weight:600;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.18);}
+.tl-tvbtn:hover{filter:brightness(1.12);}
+.tl-tvbtn .tv-icon{font-size:.9rem;margin-right:5px;}
+.tl-auto-badge{display:inline-flex;align-items:center;margin-left:5px;padding:1px 5px;border-radius:8px;
+               background:#e9eefb;color:var(--accent);font-size:.48rem;font-weight:700;letter-spacing:.05em;}
+.tl-outer:fullscreen{background:var(--bg);padding:12px 14px 18px;max-height:none;width:100vw;height:100vh;overflow:auto;}
+.tl-outer:fullscreen .tl-tvbtn{position:sticky;top:0;right:0;}
+.tl-outer:fullscreen .tl-panel{min-height:calc(100vh - 62px);}
+.tl-outer:fullscreen .tl-col-labels,.tl-outer:fullscreen .tl-col-canvas{min-height:calc(100vh - 92px);}
 </style>
 </head>
 <body>
@@ -98,7 +112,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Sego
 </div>
 
 <div class="fbar">
-  <div class="fg"><label>Período</label><div class="ms" id="tlPerms"></div></div>
+  <div class="fg"><label>Período <span class="tl-auto-badge">AUTO</span></label><div class="ms" id="tlPerms"></div></div>
   <div class="fg"><label>Tipo Equipe</label><div class="ms" id="tlTipoms"></div></div>
   <div class="fg"><label>Base</label><div class="ms" id="tlBasems"></div></div>
   <div class="fg"><label>Equipe</label><div class="ms" id="tlEqms"></div></div>
@@ -111,7 +125,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Sego
 <div class="tl-cards" id="tlCards"></div>
 <div class="tl-legend" id="tlLegend"></div>
 
-<div class="tl-outer">
+<div class="tl-outer" id="tlOuter">
+  <button class="tl-tvbtn" id="tlTVBtn" type="button" title="Maximizar gráfico na TV"><span class="tv-icon">⛶</span><span id="tlTVBtnTxt">Tela inteira</span></button>
   <div class="tl-panel" id="tlPanel">
     <div class="tl-col-labels" id="tlLabels"></div>
     <div class="tl-col-canvas" id="tlCanvas"></div>
@@ -129,6 +144,8 @@ let TL_LIM = {"Plataforma":[null,25],"Deslocamento":[9,25],"Reparo":[9,60],"Repa
 let TL_GAP_MAX = 300;
 let TL_META = null;
 let TL_INITIALIZED = false;
+let TL_PERIODO_AUTO_CHAVE = '';
+let TL_WAKE_LOCK = null;
 
 function tlM2D(m){return m==null?null:new Date(TL_BASE_MS+m*60000);}
 function tlFmt(m){const d=tlM2D(m);return d?d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';}
@@ -244,6 +261,76 @@ function msSet(id,items,selected,onChange){
 }
 function msGet(id){const r=document.getElementById(id);return r?[...r.querySelectorAll('.ms-opt:checked')].map(o=>o.value):[];}
 document.addEventListener('click',()=>document.querySelectorAll('.ms.open').forEach(x=>x.classList.remove('open')));
+
+
+/* ── estado / período automático / modo TV ───────────────── */
+function tlNorm(v){
+  return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+}
+function tlFaixaPeriodoAgora(d=new Date()){
+  const h=d.getHours();
+  if(h>=6 && h<13)return ['manha'];
+  if(h>=13 && h<17)return ['manha','tarde'];
+  if(h>=17 && h<21)return ['tarde'];
+  if(h>=21 || h<1)return ['tarde','noite'];
+  return ['noite'];
+}
+function tlSelecionarValoresMs(id,valoresNorm){
+  const root=document.getElementById(id);if(!root)return false;
+  const wanted=new Set(valoresNorm.map(tlNorm));
+  let mudou=false;
+  root.querySelectorAll('.ms-opt').forEach(o=>{
+    const n=tlNorm(o.value);
+    const deve=[...wanted].some(w=>n===w||n.includes(w));
+    if(o.checked!==deve){o.checked=deve;mudou=true;}
+  });
+  const all=root.querySelector('.ms-all');
+  const opts=[...root.querySelectorAll('.ms-opt')];
+  if(all){all.checked=opts.length>0&&opts.every(x=>x.checked);all.indeterminate=opts.some(x=>x.checked)&&!all.checked;}
+  const btn=root.querySelector('.ms-btn');
+  if(btn){const v=msGet(id);btn.textContent=v.length===opts.length?'Todas':(v.length===0?'Nenhuma':v.length+' selecionadas');}
+  return mudou;
+}
+function tlAplicarPeriodoAutomatico(forcar=false){
+  const faixa=tlFaixaPeriodoAgora();
+  const chave=faixa.join('|');
+  if(!forcar && chave===TL_PERIODO_AUTO_CHAVE)return false;
+  TL_PERIODO_AUTO_CHAVE=chave;
+  const mudou=tlSelecionarValoresMs('tlPerms',faixa);
+  if(mudou || forcar){tlRebuildEq();tlApply();}
+  return mudou;
+}
+function tlSnapshotFiltros(){
+  if(!TL_INITIALIZED)return null;
+  return {
+    tipo:msGet('tlTipoms'),base:msGet('tlBasems'),equipe:msGet('tlEqms'),atividade:msGet('tlAtivms'),
+    tr:!!document.getElementById('tlTR')?.checked,alerta:!!document.getElementById('tlSoAlerta')?.checked
+  };
+}
+function tlIntersecaoDisponivel(valores,disponiveis){
+  const set=new Set(disponiveis);return (valores||[]).filter(v=>set.has(v));
+}
+async function tlWakeLock(on){
+  try{
+    if(on && 'wakeLock' in navigator){
+      if(!TL_WAKE_LOCK)TL_WAKE_LOCK=await navigator.wakeLock.request('screen');
+    }else if(!on && TL_WAKE_LOCK){
+      await TL_WAKE_LOCK.release();TL_WAKE_LOCK=null;
+    }
+  }catch(err){TL_WAKE_LOCK=null;console.warn('Wake Lock indisponível:',err);}
+}
+async function tlToggleTV(){
+  const alvo=document.getElementById('tlOuter');if(!alvo)return;
+  try{
+    if(document.fullscreenElement)await document.exitFullscreen();
+    else await alvo.requestFullscreen();
+  }catch(err){console.warn('Modo tela inteira indisponível:',err);}
+}
+function tlAtualizarBotaoTV(){
+  tlWakeLock(!!document.fullscreenElement);
+  const txt=document.getElementById('tlTVBtnTxt');if(txt)txt.textContent=document.fullscreenElement?'Sair da tela inteira':'Tela inteira';
+  if(TL_DATA.length)setTimeout(()=>tlDraw(tlFiltrados()),60);
+}
 
 /* ── regras de negocio das barras ────────────────────────── */
 function tlAlerta(tp,dur,aberta){
@@ -466,38 +553,56 @@ function tlMoveTT(e){
 }
 
 /* ── init / atualização dinâmica ─────────────────────────── */
-function tlInit(){
+function tlInit(preservar=true){
+  const snap=preservar?tlSnapshotFiltros():null;
   const pers=[...new Set(TL_DATA.map(r=>r.per||''))].filter(Boolean).sort();
   const tipos=[...new Set(TL_DATA.map(tlTipo))].sort();
   const prefs=[...new Set(TL_DATA.map(tlPref))].filter(Boolean).sort();
-  msSet('tlPerms',pers,pers,tlOnFiltroTopo);
-  msSet('tlTipoms',tipos,tipos,tlOnFiltroTopo);
-  msSet('tlBasems',prefs,prefs,tlOnFiltroTopo);
-  msSet('tlAtivms',TL_ATIVS,TL_ATIVS,tlApply);
+
+  msSet('tlPerms',pers,pers,()=>tlAplicarPeriodoAutomatico(true));
+  const selTipos=snap?tlIntersecaoDisponivel(snap.tipo,tipos):tipos;
+  const selBases=snap?tlIntersecaoDisponivel(snap.base,prefs):prefs;
+  const selAtiv=snap?tlIntersecaoDisponivel(snap.atividade,TL_ATIVS):TL_ATIVS;
+  msSet('tlTipoms',tipos,(snap&&snap.tipo.length===0)?[]:(selTipos.length?selTipos:tipos),tlOnFiltroTopo);
+  msSet('tlBasems',prefs,(snap&&snap.base.length===0)?[]:(selBases.length?selBases:prefs),tlOnFiltroTopo);
+  msSet('tlAtivms',TL_ATIVS,(snap&&snap.atividade.length===0)?[]:(selAtiv.length?selAtiv:TL_ATIVS),tlApply);
 
   if(!TL_INITIALIZED){
     document.getElementById('tlTR').addEventListener('change',tlApply);
     document.getElementById('tlSoAlerta').addEventListener('change',tlApply);
+    document.getElementById('tlTVBtn').addEventListener('click',tlToggleTV);
+    document.addEventListener('fullscreenchange',tlAtualizarBotaoTV);
     document.getElementById('tlReset').addEventListener('click',()=>{
-      const p=[...new Set(TL_DATA.map(r=>r.per||''))].filter(Boolean).sort();
       const t=[...new Set(TL_DATA.map(tlTipo))].sort();
       const b=[...new Set(TL_DATA.map(tlPref))].filter(Boolean).sort();
       const r=document.getElementById('tlEqms');if(r)r.dataset.cleared='0';
-      msSet('tlPerms',p,p,tlOnFiltroTopo);msSet('tlTipoms',t,t,tlOnFiltroTopo);
-      msSet('tlBasems',b,b,tlOnFiltroTopo);msSet('tlAtivms',TL_ATIVS,TL_ATIVS,tlApply);
+      msSet('tlTipoms',t,t,tlOnFiltroTopo);msSet('tlBasems',b,b,tlOnFiltroTopo);
+      msSet('tlAtivms',TL_ATIVS,TL_ATIVS,tlApply);
       document.getElementById('tlTR').checked=true;document.getElementById('tlSoAlerta').checked=false;
-      tlRebuildEq();tlApply();
+      TL_PERIODO_AUTO_CHAVE='';
+      tlRebuildEq();tlAplicarPeriodoAutomatico(true);
     });
     TL_INITIALIZED=true;
+  }else if(snap){
+    document.getElementById('tlTR').checked=snap.tr;
+    document.getElementById('tlSoAlerta').checked=snap.alerta;
   }
 
-  tlLegenda();tlRebuildEq();tlApply();
+  tlLegenda();
+  tlRebuildEq();
+  if(snap && snap.equipe){
+    const eqDisponiveis=[...document.querySelectorAll('#tlEqms .ms-opt')].map(o=>o.value);
+    const eqSel=tlIntersecaoDisponivel(snap.equipe,eqDisponiveis);
+    if(snap.equipe.length===0)tlSelecionarValoresMs('tlEqms',[]);
+    else if(eqSel.length)tlSelecionarValoresMs('tlEqms',eqSel);
+  }
+  TL_PERIODO_AUTO_CHAVE='';
+  tlAplicarPeriodoAutomatico(true);
 }
-
 async function tlBootstrap(){
   try{
     await tlCarregarDados();
-    tlInit();
+    tlInit(false);
   }catch(err){
     console.error('Falha ao carregar Ao Vivo:',err);
     document.getElementById('tlCanvas').innerHTML='<div class="tl-nodata">Não foi possível carregar dados_ao_vivo.json.<br><br>'+esc(err.message)+'</div>';
@@ -513,7 +618,7 @@ async function tlAtualizarAutomaticamente(){
     const cargaDepois=AO_VIVO_CARGA_ID;
 
     if(cargaDepois && cargaDepois!==cargaAntes){
-      tlInit();
+      tlInit(true);
       console.info('[Ao Vivo Supabase] nova carga aplicada:',cargaDepois);
     }
   }catch(err){
@@ -524,6 +629,7 @@ async function tlAtualizarAutomaticamente(){
 window.addEventListener('resize',()=>{if(TL_DATA.length)tlDraw(tlFiltrados());});
 tlBootstrap();
 setInterval(tlAtualizarAutomaticamente,20*1000);
+setInterval(()=>tlAplicarPeriodoAutomatico(false),30*1000);
 </script>
 </body>
 </html>
