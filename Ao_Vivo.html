@@ -59,25 +59,25 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Sego
 .tl-col-labels{grid-column:1;grid-row:1;border-right:2px solid #dde1f0;display:flex;flex-direction:column;min-height:490px;}
 .tl-col-labels-ax{grid-column:1;grid-row:2;border-right:2px solid #dde1f0;border-top:1px solid var(--border);
                   height:28px;background:var(--surface);border-radius:0 0 0 6px;}
-.tl-rlabel{height:38px;display:flex;align-items:center;justify-content:flex-end;
+.tl-rlabel{height:var(--tl-row-h,38px);display:flex;align-items:center;justify-content:flex-end;
            font-family:var(--mono);font-size:.62rem;font-weight:500;color:var(--text);
            padding:0 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #edf0f7;}
 .tl-rlabel:last-child{border-bottom:none;}
 .tl-col-canvas{grid-column:2;grid-row:1;position:relative;overflow:visible;min-height:490px;}
-.tl-crow{height:38px;position:relative;border-bottom:1px solid #edf0f7;}
+.tl-crow{height:var(--tl-row-h,38px);position:relative;border-bottom:1px solid #edf0f7;}
 .tl-crow:last-child{border-bottom:none;}
 .tl-crow:hover{background:rgba(0,32,96,.014);}
 .tl-col-axis{grid-column:2;grid-row:2;position:relative;height:28px;border-top:1px solid var(--border);
              background:var(--surface);border-radius:0 0 6px 0;}
 .tl-gline{position:absolute;width:1px;top:0;background:rgba(0,32,96,.06);pointer-events:none;z-index:0;}
 .tl-now{position:absolute;width:0;top:0;border-left:1.5px dashed #b71c1c;opacity:.5;pointer-events:none;z-index:1;}
-.tl-bar{position:absolute;height:26px;top:6px;border-radius:3px;display:flex;align-items:center;justify-content:center;
+.tl-bar{position:absolute;height:calc(var(--tl-row-h,38px) - 12px);top:6px;border-radius:3px;display:flex;align-items:center;justify-content:center;
         overflow:hidden;cursor:default;transition:filter .1s;z-index:2;}
 .tl-bar:hover{filter:brightness(1.16);z-index:20;}
 .tl-blbl{font-family:var(--mono);font-size:8px;font-weight:600;color:#fff;white-space:nowrap;padding:0 2px;}
 .tl-blbl.tl-dk{color:#444;}
-.tl-bbrd{position:absolute;border:2.5px solid red;border-radius:3px;pointer-events:none;z-index:3;height:28px;top:5px;}
-.tl-tick-mark{position:absolute;width:3.5px;height:34px;top:2px;border-radius:2px;z-index:10;pointer-events:none;}
+.tl-bbrd{position:absolute;border:2.5px solid red;border-radius:3px;pointer-events:none;z-index:3;height:calc(var(--tl-row-h,38px) - 10px);top:5px;}
+.tl-tick-mark{position:absolute;width:3.5px;height:calc(var(--tl-row-h,38px) - 4px);top:2px;border-radius:2px;z-index:10;pointer-events:none;}
 .tl-axlbl{position:absolute;font-family:var(--mono);font-size:.58rem;color:var(--muted);transform:translateX(-50%);top:5px;white-space:nowrap;}
 .tl-nodata{padding:60px;text-align:center;font-family:var(--mono);font-size:.7rem;color:var(--muted);letter-spacing:.08em;}
 #tlTT{position:fixed;background:#1a1f35;color:#f0f2f7;font-size:.7rem;line-height:1.55;padding:8px 12px;
@@ -103,7 +103,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Sego
 .tl-outer:fullscreen{background:var(--bg);padding:12px 14px 18px;max-height:none;width:100vw;height:100vh;overflow:auto;}
 .tl-outer:fullscreen .tl-tvbtn{position:sticky;top:0;right:0;}
 .tl-outer:fullscreen .tl-panel{min-height:calc(100vh - 62px);}
-.tl-outer:fullscreen .tl-col-labels,.tl-outer:fullscreen .tl-col-canvas{min-height:calc(100vh - 92px);}
+.tl-outer:fullscreen .tl-col-labels,.tl-outer:fullscreen .tl-col-canvas{min-height:0;}
 </style>
 </head>
 <body>
@@ -496,7 +496,15 @@ function tlDraw(recs){
   const ppmSuggested=targetFillW/totM;
   const PPM=Math.min(2.2,Math.max(0.95,ppmSuggested));
   const cW=Math.round(Math.min(maxCanvasW,Math.max(minCanvasW,totM*PPM)));
-  const bodyH=Math.max(490,recs.length*38);
+
+  // Altura dinâmica no modo TV: distribui as equipes pela área vertical disponível.
+  // O limite máximo evita barras exageradamente altas quando há poucas equipes.
+  const outerH=(outerEl&&outerEl.clientHeight)||window.innerHeight||560;
+  const targetBodyH=document.fullscreenElement?Math.max(490,outerH-58):Math.max(490,recs.length*38);
+  const rowH=Math.max(38,Math.min(66,Math.floor(targetBodyH/Math.max(recs.length,1))));
+  const bodyH=Math.max(490,recs.length*rowH);
+  const panelEl=document.getElementById('tlPanel');
+  if(panelEl)panelEl.style.setProperty('--tl-row-h',rowH+'px');
   canEl.style.width=cW+'px';axEl.style.width=cW+'px';
   canEl.style.minHeight=bodyH+'px';labEl.style.minHeight=bodyH+'px';
   const px=(m,r)=>{const v=loc(m,r);return v==null?null:Math.round((v-tMin)*PPM);};
