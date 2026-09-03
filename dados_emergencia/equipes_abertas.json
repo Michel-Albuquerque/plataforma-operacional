@@ -1,6 +1,6 @@
 {
-  "total_equipes_abertas": 19,
-  "atualizado_em": "2026-09-03T15:33:39",
+  "total_equipes_abertas": 21,
+  "atualizado_em": "2026-09-03T15:53:45",
   "fonte": "Grid_Jornadas_Equipes.xlsx",
   "polo": "SÃO GONÇALO",
   "regra": "Estado Equipe = \"ABERTO\""
