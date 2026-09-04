@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<script src="supabase_config.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestão de Clientes · Plataforma Operacional</title>
@@ -10911,11 +10912,13 @@ function processCallbackReadyRows(rows,fileName,options={}){
   if(options.openTab!==false)switchTab('callbackContingencia');
 }
 
-const CALLBACK_SUPABASE_URL='https://fjgfwfnnhebfvuvvjsui.supabase.co';
-const CALLBACK_SUPABASE_KEY='sb_publishable_QexGHESAqtHDVlI1h3aM1Q_Cew_cax7';
+const CALLBACK_SUPABASE_URL=window.SUPABASE_CONFIG?.url||'';
+const CALLBACK_SUPABASE_KEY=window.SUPABASE_CONFIG?.publishableKey||'';
+if(!CALLBACK_SUPABASE_URL||!CALLBACK_SUPABASE_KEY){
+  console.error('Configuracao do Supabase nao encontrada. Verifique supabase_config.js');
+}
 const CALLBACK_SUPABASE_HEADERS={
   'apikey':CALLBACK_SUPABASE_KEY,
-  'Authorization':`Bearer ${CALLBACK_SUPABASE_KEY}`,
   'Content-Type':'application/json'
 };
 

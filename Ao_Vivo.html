@@ -114,6 +114,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Sego
 .tl-outer:fullscreen .tl-rlabel{font-size:clamp(20px, calc(var(--tl-row-h,38px) * 0.50), 34px);font-weight:850;padding-right:18px;letter-spacing:.015em;line-height:.95;}
 .tl-outer:fullscreen .tl-bar.tl-alertbar .tl-blbl{font-size:clamp(11px, calc(var(--tl-row-h,38px) * 0.24), 16px);font-weight:700;padding:0 4px;line-height:1;}
 </style>
+  <script src="supabase_config.js"></script>
 </head>
 <body>
 <div class="hd">
@@ -185,8 +186,11 @@ function tlAtualizarRodape(meta){
     ' · Improdutivos: '+(st.reparosImprodutivos??'—');
 }
 
-const AO_VIVO_SUPABASE_URL='https://fjgfwfnnhebfvuvvjsui.supabase.co';
-const AO_VIVO_SUPABASE_KEY='sb_publishable_QexGHESAqtHDVlI1h3aM1Q_Cew_cax7';
+const AO_VIVO_SUPABASE_URL=window.SUPABASE_CONFIG?.url||'';
+const AO_VIVO_SUPABASE_KEY=window.SUPABASE_CONFIG?.publishableKey||'';
+if(!AO_VIVO_SUPABASE_URL||!AO_VIVO_SUPABASE_KEY){
+  console.error('Configuração do Supabase não encontrada. Verifique supabase_config.js');
+}
 let AO_VIVO_CARGA_ID='';
 
 async function tlCarregarDados(){
@@ -196,9 +200,7 @@ async function tlCarregarDados(){
   const resp=await fetch(url,{
     cache:'no-store',
     headers:{
-      'apikey':AO_VIVO_SUPABASE_KEY,
-      'Authorization':'Bearer '+AO_VIVO_SUPABASE_KEY
-    }
+      'apikey':AO_VIVO_SUPABASE_KEY,}
   });
 
   if(!resp.ok)throw new Error('HTTP '+resp.status+' ao carregar Ao Vivo do Supabase');
@@ -628,12 +630,15 @@ function tlInit(preservar=true){
 
   tlLegenda();
   tlRebuildEq();
-  if(snap && snap.equipe){
-    const eqDisponiveis=[...document.querySelectorAll('#tlEqms .ms-opt')].map(o=>o.value);
-    const eqSel=tlIntersecaoDisponivel(snap.equipe,eqDisponiveis);
-    if(snap.equipe.length===0)tlSelecionarValoresMs('tlEqms',[]);
-    else if(eqSel.length)tlSelecionarValoresMs('tlEqms',eqSel);
-  }
+
+  // Regra operacional: o filtro Equipe sempre inicia/reinicia com
+  // "Selecionar todos" ativo. Assim, cada nova carga do Ao Vivo
+  // volta a exibir todas as equipes disponíveis no filtro corrente.
+  const eqDisponiveis=[...document.querySelectorAll('#tlEqms .ms-opt')].map(o=>o.value);
+  const eqRoot=document.getElementById('tlEqms');
+  if(eqRoot)eqRoot.dataset.cleared='0';
+  tlSelecionarValoresMs('tlEqms',eqDisponiveis);
+
   TL_PERIODO_AUTO_CHAVE='';
   tlAplicarPeriodoAutomatico(true);
 }
